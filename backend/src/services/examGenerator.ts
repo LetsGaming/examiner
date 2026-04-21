@@ -4,9 +4,8 @@ import type {
   DiagramType,
   TableConfig,
 } from "../types/index.js";
-
-const OPENAI_API_BASE = "https://api.openai.com/v1/chat/completions";
-const MODEL = "gpt-4o-mini";
+import { callAiProvider } from "./aiService.js";
+import type { ProviderMeta } from "../routes/settingsRoutes.js";
 
 // ─── Themen ───────────────────────────────────────────────────────────────────
 
@@ -195,37 +194,27 @@ export interface GeneratedTask {
 // Jede Anfrage generiert EINE Aufgabe mit EINER oder ZWEI Unteraufgaben.
 // Kleine Antworten = robustes JSON, kein Truncation-Problem.
 
+/**
+ * Provider-agnostic call for task generation.
+ * Combines system + user prompt into a single message (all providers support that).
+ * The meta object determines which API/model is actually called.
+ */
 async function callOpenAI(
   systemPrompt: string,
   userPrompt: string,
   apiKey: string,
-  maxTokens = 800,
+  _maxTokens = 800,
+  meta?: ProviderMeta,
 ): Promise<string> {
-  const response = await fetch(OPENAI_API_BASE, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.8,
-      max_tokens: maxTokens,
-      response_format: { type: "json_object" },
-    }),
-  });
-  if (!response.ok)
-    throw new Error(`OpenAI ${response.status}: ${await response.text()}`);
-  const data = (await response.json()) as {
-    choices?: { message?: { content?: string } }[];
-  };
-  const text = data?.choices?.[0]?.message?.content;
-  if (!text) throw new Error("Keine Antwort von OpenAI");
-  return text;
+  // Combine system + user prompt — works across all providers
+  const combined = `${systemPrompt}\n\n${userPrompt}`;
+  if (meta) {
+    return callAiProvider(combined, apiKey, meta);
+  }
+  // Legacy fallback if called without meta (should not happen in normal flow)
+  throw new Error(
+    "Kein AI-Provider konfiguriert. Bitte in den Einstellungen einen API-Key hinterlegen.",
+  );
 }
 
 // ─── JSON sicher parsen ───────────────────────────────────────────────────────
@@ -581,6 +570,7 @@ async function generateOneTask(
   topic: string,
   apiKey: string,
   forceNoUml = false, // verhindert UML wenn bereits eine UML-Aufgabe im Pool
+  meta?: ProviderMeta,
 ): Promise<GeneratedTask> {
   const isWiso = part === "teil_3";
 
@@ -676,7 +666,7 @@ Unteraufgabe b (${tpl.ptsB}P): ${tpl.promptB}
 Gib genau dieses JSON zurück (ersetze FRAGE durch konkrete IHK-typische Fragestellung):
 {"topicArea":"${topic}","pointsValue":${totalPts},"difficulty":"medium","subtasks":[${schemaA},${schemaB}]}`;
 
-  const raw = await callOpenAI(system, user, apiKey, isWiso ? 650 : 750);
+  const raw = await callOpenAI(system, user, apiKey, isWiso ? 650 : 750, meta);
   const task = safeParseTask(raw);
 
   if (!task) {
@@ -813,6 +803,7 @@ export async function generateTasksForPool(
   part: ExamPart,
   count: number,
   apiKey: string,
+  meta?: ProviderMeta,
 ): Promise<GeneratedTask[]> {
   const topics = pickRandom(TOPICS[part], count);
   const results: GeneratedTask[] = [];
@@ -822,7 +813,7 @@ export async function generateTasksForPool(
   for (const topic of topics) {
     const forceNoUml = umlCount >= MAX_UML_PER_BATCH;
     try {
-      const task = await generateOneTask(part, topic, apiKey, forceNoUml);
+      const task = await generateOneTask(part, topic, apiKey, forceNoUml, meta);
       // Prüfe ob diese Aufgabe UML enthält
       const hasUml = task.subtasks.some(
         (st) => st.taskType === "plantuml" || st.taskType === "diagram_upload",

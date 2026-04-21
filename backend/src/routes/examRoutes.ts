@@ -13,6 +13,7 @@ import {
   applyScenario,
 } from "../services/examGenerator.js";
 import { resolveAiConfig } from "./settingsRoutes.js";
+import type { AuthRequest } from "../middleware/auth.js";
 import type {
   AiEvaluation,
   DiagramType,
@@ -75,14 +76,18 @@ const upload = multer({
 });
 
 function getUserId(req: Request): string {
-  return (req as unknown as { userId?: string }).userId ?? "local-user";
+  return (req as AuthRequest).userId;
 }
 
 // ─── Pool-Aufstockung ─────────────────────────────────────────────────────────
 // FIX: Generiert neue Tasks wenn Pool zu klein ist, BEVOR eine Prüfung zusammengestellt wird.
 // Läuft auch asynchron im Hintergrund um den Pool nach jeder Nutzung wieder aufzufüllen.
 
-async function ensurePoolSize(part: string, apiKey: string): Promise<void> {
+async function ensurePoolSize(
+  part: string,
+  apiKey: string,
+  meta?: import("./settingsRoutes.js").ProviderMeta,
+): Promise<void> {
   // Lock: verhindert dass zwei Requests gleichzeitig für denselben Teil generieren
   if (generatingParts.has(part)) {
     console.log(`[pool] ${part}: Generierung läuft bereits, warte...`);
@@ -113,6 +118,7 @@ async function ensurePoolSize(part: string, apiKey: string): Promise<void> {
       part as ExamPart,
       genCount,
       apiKey,
+      meta,
     );
     await insertTasksIntoDB(part, newTasks);
     console.log(`[pool] ${part}: ${newTasks.length} neue Tasks hinzugefügt`);
@@ -124,6 +130,7 @@ async function ensurePoolSize(part: string, apiKey: string): Promise<void> {
 async function refillPoolInBackground(
   part: string,
   apiKey: string,
+  meta?: import("./settingsRoutes.js").ProviderMeta,
 ): Promise<void> {
   // Lock: Hintergrund-Refill nicht starten wenn bereits aktiv
   if (generatingParts.has(part)) return;
@@ -146,6 +153,7 @@ async function refillPoolInBackground(
       part as ExamPart,
       genCount,
       apiKey,
+      meta,
     );
     await insertTasksIntoDB(part, newTasks);
     console.log(
@@ -236,11 +244,13 @@ examRouter.post(
     const userId = getUserId(req);
     const aiConfig = resolveAiConfig(userId);
     if (!aiConfig)
-      return res.status(500).json({
-        success: false,
-        error:
-          "Kein API-Key konfiguriert. Bitte in den Einstellungen hinterlegen.",
-      });
+      return res
+        .status(500)
+        .json({
+          success: false,
+          error:
+            "Kein API-Key konfiguriert. Bitte in den Einstellungen hinterlegen.",
+        });
     const { apiKey, meta: aiMeta } = aiConfig;
 
     const { part, count = 4 } = req.body;
@@ -255,6 +265,7 @@ examRouter.post(
         part as ExamPart,
         genCount,
         apiKey,
+        aiMeta,
       );
       await insertTasksIntoDB(part, newTasks);
 
@@ -309,7 +320,7 @@ examRouter.post("/start", async (req: Request, res: Response) => {
       });
     }
     try {
-      await ensurePoolSize(part, aiConfig!.apiKey);
+      await ensurePoolSize(part, aiConfig!.apiKey, aiConfig!.meta);
     } catch (err) {
       activeStarts--;
       return res.status(500).json({
@@ -399,9 +410,11 @@ examRouter.post("/start", async (req: Request, res: Response) => {
 
   // FIX: Pool im Hintergrund auffüllen nach Nutzung (feuern und vergessen)
   if (aiConfig) {
-    refillPoolInBackground(part, aiConfig?.apiKey ?? "").catch(() => {
-      /* ignorieren */
-    });
+    refillPoolInBackground(part, aiConfig?.apiKey ?? "", aiConfig?.meta).catch(
+      () => {
+        /* ignorieren */
+      },
+    );
   }
 
   activeStarts--;
@@ -651,11 +664,13 @@ sessionRouter.post(
     const evalUserId = getUserId(req);
     const evalAiConfig = resolveAiConfig(evalUserId);
     if (!evalAiConfig)
-      return res.status(500).json({
-        success: false,
-        error:
-          "Kein API-Key konfiguriert. Bitte in den Einstellungen hinterlegen.",
-      });
+      return res
+        .status(500)
+        .json({
+          success: false,
+          error:
+            "Kein API-Key konfiguriert. Bitte in den Einstellungen hinterlegen.",
+        });
     const { apiKey, meta: evalMeta } = evalAiConfig;
 
     const answer = db

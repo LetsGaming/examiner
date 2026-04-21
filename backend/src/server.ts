@@ -4,12 +4,13 @@ import path from "path";
 import { initDatabase } from "./db/database.js";
 import { examRouter, sessionRouter } from "./routes/examRoutes.js";
 import { settingsRouter, initSettingsTable } from "./routes/settingsRoutes.js";
+import { authRouter, initAuthTable } from "./routes/authRoutes.js";
+import { authMiddleware } from "./middleware/auth.js";
 
 const app = express();
 const PORT = process.env.PORT ?? 8031;
 
 // Trust proxy — nötig wenn hinter nginx/Caddy/Traefik (für express-rate-limit)
-// Setzt X-Forwarded-For korrekt aus. Nur aktivieren wenn tatsächlich ein Reverse Proxy vorgeschaltet ist.
 if (
   process.env.TRUST_PROXY === "true" ||
   process.env.NODE_ENV === "production"
@@ -18,8 +19,7 @@ if (
   console.log("[server] trust proxy aktiviert (Reverse-Proxy-Modus)");
 }
 
-// CORS — erlaubt alle in FRONTEND_URLS (kommasepariert) sowie localhost-Varianten
-// Beispiel .env:  FRONTEND_URLS=https://examiner.letsgaming.de,http://localhost:8030
+// CORS
 const rawOrigins = process.env.FRONTEND_URLS ?? process.env.FRONTEND_URL ?? "";
 const allowedOrigins = new Set<string>(
   rawOrigins
@@ -36,7 +36,6 @@ const allowedOrigins = new Set<string>(
 app.use(
   cors({
     origin: (origin, cb) => {
-      // Requests ohne Origin (curl, Postman, server-to-server) immer erlauben
       if (!origin) return cb(null, true);
       if (allowedOrigins.has(origin)) return cb(null, true);
       cb(new Error(`CORS: Origin nicht erlaubt: ${origin}`));
@@ -53,16 +52,22 @@ app.use(
   express.static(path.resolve(process.cwd(), "data", "uploads")),
 );
 
+// ─── Public routes ────────────────────────────────────────────────────────────
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, timestamp: new Date().toISOString() });
 });
 
-app.use("/api/exams", examRouter);
-app.use("/api/sessions", sessionRouter);
-app.use("/api/settings", settingsRouter);
+app.use("/api/auth", authRouter); // register + login are public
 
+// ─── Protected routes (require valid JWT) ────────────────────────────────────
+app.use("/api/exams", authMiddleware, examRouter);
+app.use("/api/sessions", authMiddleware, sessionRouter);
+app.use("/api/settings", authMiddleware, settingsRouter);
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
 initDatabase();
 initSettingsTable();
+initAuthTable();
 
 app.listen(PORT, () => {
   console.log(`✅ FIAE AP2 Backend läuft auf http://localhost:${PORT}`);
@@ -70,4 +75,7 @@ app.listen(PORT, () => {
   console.log(
     `   AI Provider Keys: OpenAI=${process.env.OPENAI_API_KEY ? "✓" : "–"} Anthropic=${process.env.ANTHROPIC_API_KEY ? "✓" : "–"} Google=${process.env.GOOGLE_API_KEY ? "✓" : "–"} Mistral=${process.env.MISTRAL_API_KEY ? "✓" : "–"} — nur einer muss gesetzt sein; User-Keys überschreiben immer`,
   );
+  if (!process.env.JWT_SECRET) {
+    console.warn("⚠️  JWT_SECRET nicht gesetzt! Bitte in .env hinterlegen.");
+  }
 });

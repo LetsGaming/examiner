@@ -19,6 +19,10 @@ module.exports = {
         TRUST_PROXY: 'true',
         FRONTEND_URLS: 'https://REPLACE_ME.com',
 
+        // ── Authentifizierung ────────────────────────────────────────────────────
+        // node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+        JWT_SECRET: 'REPLACE_WITH_RANDOM_64_CHAR_HEX',
+
         // ── KI-Anbieter ──────────────────────────────────────────────────────
         // Nur EINEN Key setzen — der erste gefundene wird als Server-Fallback
         // genutzt. User-Keys (über die Einstellungen gesetzt) haben immer Vorrang.
@@ -44,6 +48,8 @@ module.exports = {
         PORT: 8031,
         TRUST_PROXY: 'false',
         FRONTEND_URLS: 'http://localhost:8030,http://localhost:5173',
+
+        JWT_SECRET: 'REPLACE_WITH_RANDOM_64_CHAR_HEX',
 
         // Nur einen Key setzen reicht für den Betrieb
         OPENAI_API_KEY: 'sk-REPLACE_ME',

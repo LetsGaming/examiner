@@ -227,7 +227,7 @@ Eine bestehende Bewertung wird überschrieben (UPSERT).
     ],
     "keyMistakes": ["Beispiele für nicht-funktionale Anforderungen fehlen"],
     "improvementHints": ["Nennen Sie konkrete Qualitätsmerkmale wie Antwortzeit oder Verfügbarkeit"],
-    "modelUsed": "gemini-2.0-flash"
+    "modelUsed": "gemini-3.1-flash-lite-preview"
   }
 }
 ```

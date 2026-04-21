@@ -42,13 +42,14 @@ export function initDatabase(): void {
       id                TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
       task_id           TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
       label             TEXT NOT NULL,
-      task_type         TEXT NOT NULL CHECK(task_type IN ('freitext','pseudocode','mc','plantuml','diagram_upload')),
+      task_type         TEXT NOT NULL CHECK(task_type IN ('freitext','pseudocode','mc','plantuml','diagram_upload','table')),
       question_text     TEXT NOT NULL,
       expected_answer   TEXT NOT NULL DEFAULT '{}',
       points            INTEGER NOT NULL,
       diagram_type      TEXT,
       expected_elements TEXT DEFAULT '[]',
       mc_options        TEXT DEFAULT '[]',
+      table_config      TEXT DEFAULT NULL,
       position          INTEGER NOT NULL DEFAULT 0
     );
 
@@ -112,6 +113,9 @@ export function initDatabase(): void {
     CREATE INDEX IF NOT EXISTS idx_answers_sess  ON answers(session_id);
     CREATE INDEX IF NOT EXISTS idx_eval_answer   ON ai_evaluations(answer_id);
 
+    -- Migration: table_config Spalte (idempotent via try/catch in initDatabase)
+    CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY);
+
     -- Szenario-spezifische Aufgabentexte je Session (Platzhalter ersetzt)
     CREATE TABLE IF NOT EXISTS session_subtask_overrides (
       session_id    TEXT NOT NULL,
@@ -122,6 +126,13 @@ export function initDatabase(): void {
 
     CREATE INDEX IF NOT EXISTS idx_overrides_sess  ON session_subtask_overrides(session_id);
   `);
+
+  // Migration: table_config Spalte zu subtasks hinzufügen (idempotent)
+  try {
+    db.exec("ALTER TABLE subtasks ADD COLUMN table_config TEXT DEFAULT NULL");
+  } catch {
+    /* Spalte existiert bereits — ignorieren */
+  }
 
   db.prepare(
     `

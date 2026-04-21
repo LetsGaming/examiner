@@ -1,0 +1,30 @@
+{
+  "name": "fiae-ap2-trainer-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@ionic/vue": "^8.8.4",
+    "@ionic/vue-router": "^8.8.4",
+    "axios": "^1.15.1",
+    "ionicons": "^8.0.13",
+    "vue": "^3.5.32",
+    "vue-router": "^5.0.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.6",
+    "@vue/test-utils": "^2.4.6",
+    "happy-dom": "^20.9.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.9",
+    "vitest": "^4.1.5",
+    "vue-tsc": "^3.2.7"
+  }
+}

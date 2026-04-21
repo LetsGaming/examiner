@@ -1,0 +1,58 @@
+:root {
+  --ion-color-primary:         #2563eb;
+  --ion-color-primary-rgb:     37,99,235;
+  --ion-color-primary-contrast:#ffffff;
+  --ion-color-primary-shade:   #1d4ed8;
+  --ion-color-primary-tint:    #eff6ff;
+
+  --ion-color-secondary:       #7c3aed;
+  --ion-color-secondary-rgb:   124,58,237;
+  --ion-color-secondary-contrast:#ffffff;
+  --ion-color-secondary-shade: #6d28d9;
+  --ion-color-secondary-tint:  #f5f3ff;
+
+  --ion-color-tertiary:        #0891b2;
+  --ion-color-tertiary-rgb:    8,145,178;
+  --ion-color-tertiary-contrast:#ffffff;
+  --ion-color-tertiary-shade:  #0e7490;
+  --ion-color-tertiary-tint:   #ecfeff;
+
+  --ion-color-success:         #16a34a;
+  --ion-color-success-rgb:     22,163,74;
+  --ion-color-success-contrast:#ffffff;
+  --ion-color-success-shade:   #15803d;
+  --ion-color-success-tint:    #f0fdf4;
+
+  --ion-color-warning:         #d97706;
+  --ion-color-warning-rgb:     217,119,6;
+  --ion-color-warning-contrast:#ffffff;
+  --ion-color-warning-shade:   #b45309;
+  --ion-color-warning-tint:    #fffbeb;
+
+  --ion-color-danger:          #dc2626;
+  --ion-color-danger-rgb:      220,38,38;
+  --ion-color-danger-contrast: #ffffff;
+  --ion-color-danger-shade:    #b91c1c;
+  --ion-color-danger-tint:     #fee2e2;
+
+  --ion-color-dark:            #1f2937;
+  --ion-color-medium:          #6b7280;
+  --ion-color-light:           #f3f4f6;
+  --ion-color-light-shade:     #e5e7eb;
+
+  --ion-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --ion-background-color: #ffffff;
+  --ion-text-color: #1f2937;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ion-background-color: #0f172a;
+    --ion-background-color-rgb: 15,23,42;
+    --ion-text-color: #e2e8f0;
+    --ion-color-light: #1e293b;
+    --ion-color-light-shade: #334155;
+    --ion-color-medium: #94a3b8;
+    --ion-color-dark: #f1f5f9;
+  }
+}

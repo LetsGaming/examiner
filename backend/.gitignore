@@ -1,0 +1,7 @@
+node_modules/
+dist/
+data/fiae_ap2.db
+data/uploads/
+.env
+*.db-shm
+*.db-wal

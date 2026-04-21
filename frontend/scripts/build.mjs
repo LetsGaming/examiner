@@ -24,7 +24,6 @@ const die = (msg) => {
 };
 
 function run(cmd, opts = {}) {
-  // Changed default cwd to BASE_DIR so npm finds package.json
   execSync(cmd, { stdio: "inherit", cwd: BASE_DIR, ...opts });
 }
 
@@ -49,7 +48,7 @@ function which(bin) {
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-const APP_NAME = "dbd-adept-tracker";
+const APP_NAME = "examiner-frontend";
 const SERVE_SRC = join(BASE_DIR, "serve.js");
 const SERVE_DST = join(BASE_DIR, "dist", "serve.cjs");
 
@@ -66,7 +65,6 @@ if (!existsSync(SERVE_SRC)) die(`serve.js not found at ${SERVE_SRC}`);
 // ─── 1. Install ───────────────────────────────────────────────────────────────
 step("Installing dependencies");
 
-// Ensure package-lock.json exists, otherwise npm ci will always fail
 if (!existsSync(join(BASE_DIR, "package-lock.json"))) {
   console.log(
     c.yellow(
@@ -96,7 +94,9 @@ if (pm2Running(APP_NAME)) {
   run(`pm2 restart ${APP_NAME}`);
   ok(`Restarted existing pm2 process: ${c.bold(APP_NAME)}`);
 } else {
-  run(`pm2 start ${SERVE_DST} --name ${APP_NAME} --interpreter node`);
+  run(
+    `pm2 start ${SERVE_DST} --name ${APP_NAME} --interpreter node`,
+  );
   ok(`Started new pm2 process: ${c.bold(APP_NAME)}`);
 }
 
@@ -107,7 +107,7 @@ ${divider}
 ${c.green(c.bold("   Build & deploy complete"))}
 ${divider}
   App:  ${c.bold(APP_NAME)}
-  URL:  ${c.bold("http://localhost:3030")}
+  URL:  ${c.bold("http://localhost:8030")}
 
   ${c.bold(`pm2 logs ${APP_NAME}`)}      — live logs
   ${c.bold(`pm2 stop ${APP_NAME}`)}      — stop

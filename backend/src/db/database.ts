@@ -1,17 +1,19 @@
-import Database from 'better-sqlite3'
-import path from 'path'
-import fs from 'fs'
-import { SCENARIOS, applyScenario } from '../services/examGenerator.js'
-import type { Scenario } from '../services/examGenerator.js'
+import DatabaseConstructor from "better-sqlite3"; // Import the default constructor
+import type { Database as DatabaseType } from "better-sqlite3"; // Import the Type
+import path from "path";
+import fs from "fs";
+import { SCENARIOS } from "../services/examGenerator.js";
+import type { Scenario } from "../services/examGenerator.js";
 
-const DB_DIR  = path.resolve(process.cwd(), 'data')
-const DB_PATH = path.join(DB_DIR, 'fiae_ap2.db')
-if (!fs.existsSync(DB_DIR)) fs.mkdirSync(DB_DIR, { recursive: true })
+const DB_DIR = path.resolve(process.cwd(), "data");
+const DB_PATH = path.join(DB_DIR, "fiae_ap2.db");
+if (!fs.existsSync(DB_DIR)) fs.mkdirSync(DB_DIR, { recursive: true });
 
-export const db = new Database(DB_PATH)
-db.pragma('journal_mode = WAL')
-db.pragma('foreign_keys = ON')
+// Explicitly type the exported variable
+export const db: DatabaseType = new DatabaseConstructor(DB_PATH);
 
+db.pragma("journal_mode = WAL");
+db.pragma("foreign_keys = ON");
 export function initDatabase(): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -119,12 +121,14 @@ export function initDatabase(): void {
     );
 
     CREATE INDEX IF NOT EXISTS idx_overrides_sess  ON session_subtask_overrides(session_id);
-  `)
+  `);
 
-  db.prepare(`
+  db.prepare(
+    `
     INSERT OR IGNORE INTO users (id, email, display_name, password_hash)
     VALUES ('local-user', 'local@localhost', 'Lokaler Nutzer', 'local-no-password')
-  `).run()
+  `,
+  ).run();
 }
 
 // ─── Prüfung-Struktur ─────────────────────────────────────────────────────────
@@ -143,64 +147,79 @@ const STRUCTURES: Record<string, { minPoints: number; maxPoints: number }[]> = {
     { minPoints: 15, maxPoints: 25 },
   ],
   teil_3: [
-    { minPoints: 8,  maxPoints: 15 },
-    { minPoints: 8,  maxPoints: 15 },
-    { minPoints: 8,  maxPoints: 15 },
-    { minPoints: 8,  maxPoints: 15 },
-    { minPoints: 8,  maxPoints: 15 },
+    { minPoints: 8, maxPoints: 15 },
+    { minPoints: 8, maxPoints: 15 },
+    { minPoints: 8, maxPoints: 15 },
+    { minPoints: 8, maxPoints: 15 },
+    { minPoints: 8, maxPoints: 15 },
     { minPoints: 10, maxPoints: 20 },
     { minPoints: 10, maxPoints: 20 },
-    { minPoints: 8,  maxPoints: 15 },
+    { minPoints: 8, maxPoints: 15 },
   ],
-}
+};
 
 // Anzahl der benötigten Aufgaben pro Teil
 export const REQUIRED_TASKS: Record<string, number> = {
   teil_1: 4,
   teil_2: 4,
   teil_3: 8,
-}
+};
 
 // Wie viele neue Tasks generiert werden sollen wenn der Pool leer/knapp ist
 export const GENERATE_COUNT: Record<string, number> = {
   teil_1: 6,
   teil_2: 6,
   teil_3: 12, // FIX: War 6, aber 8 Slots benötigt → großzügiger generieren
-}
+};
 
 // ─── Pool-Status ──────────────────────────────────────────────────────────────
 
 export function canAssembleExam(part: string): boolean {
-  const structure = STRUCTURES[part]
-  if (!structure) return false
-  const usedTopics = new Set<string>()
-  const usedIds: string[] = []
+  const structure = STRUCTURES[part];
+  if (!structure) return false;
+  const usedTopics = new Set<string>();
+  const usedIds: string[] = [];
 
   for (const slot of structure) {
-    const usedIdStr = usedIds.map(id => `'${id}'`).join(',') || "''"
-    const topicEx = usedTopics.size > 0
-      ? `AND topic_area NOT IN (${[...usedTopics].map(t => `'${t.replace(/'/g, "''")}'`).join(',')})`
-      : ''
+    const usedIdStr = usedIds.map((id) => `'${id}'`).join(",") || "''";
+    const topicEx =
+      usedTopics.size > 0
+        ? `AND topic_area NOT IN (${[...usedTopics].map((t) => `'${t.replace(/'/g, "''")}'`).join(",")})`
+        : "";
 
-    const candidate = db.prepare(`
+    const candidate = db
+      .prepare(
+        `
       SELECT id, topic_area FROM tasks
       WHERE part = ? AND points_value BETWEEN ? AND ?
         AND id NOT IN (${usedIdStr}) ${topicEx}
       ORDER BY times_used ASC, RANDOM() LIMIT 1
-    `).get(part, slot.minPoints, slot.maxPoints) as { id: string; topic_area: string } | undefined
+    `,
+      )
+      .get(part, slot.minPoints, slot.maxPoints) as
+      | { id: string; topic_area: string }
+      | undefined;
 
-    const fallback = candidate ?? db.prepare(`
+    const fallback =
+      candidate ??
+      (db
+        .prepare(
+          `
       SELECT id, topic_area FROM tasks
       WHERE part = ? AND points_value BETWEEN ? AND ?
         AND id NOT IN (${usedIdStr})
       ORDER BY times_used ASC, RANDOM() LIMIT 1
-    `).get(part, slot.minPoints, slot.maxPoints) as { id: string; topic_area: string } | undefined
+    `,
+        )
+        .get(part, slot.minPoints, slot.maxPoints) as
+        | { id: string; topic_area: string }
+        | undefined);
 
-    if (!fallback) return false
-    usedIds.push(fallback.id)
-    usedTopics.add(fallback.topic_area)
+    if (!fallback) return false;
+    usedIds.push(fallback.id);
+    usedTopics.add(fallback.topic_area);
   }
-  return true
+  return true;
 }
 
 // ─── Prüfung zusammenstellen ──────────────────────────────────────────────────
@@ -209,46 +228,65 @@ export function canAssembleExam(part: string): boolean {
 // Aufgaben aus dem Pool gewählt werden.
 
 export function assembleExam(part: string): {
-  tasks: Record<string, unknown>[],
-  totalPoints: number,
-  scenarioName: string,
-  scenarioDescription: string,
+  tasks: Record<string, unknown>[];
+  totalPoints: number;
+  scenarioName: string;
+  scenarioDescription: string;
 } | null {
-  const structure = STRUCTURES[part]
-  if (!structure) return null
+  const structure = STRUCTURES[part];
+  if (!structure) return null;
 
   // Szenario zufällig wählen — jede Prüfung bekommt ein anderes
-  const scenario: Scenario = SCENARIOS[Math.floor(Math.random() * SCENARIOS.length)]
+  const scenario: Scenario =
+    SCENARIOS[Math.floor(Math.random() * SCENARIOS.length)];
 
-  const usedTopics = new Set<string>()
-  const selectedTasks: Record<string, unknown>[] = []
+  const usedTopics = new Set<string>();
+  const selectedTasks: Record<string, unknown>[] = [];
 
   for (const slot of structure) {
-    const usedIds = selectedTasks.map(t => `'${t.id}'`).join(',') || "''"
-    const topicEx = usedTopics.size > 0
-      ? `AND topic_area NOT IN (${[...usedTopics].map(t => `'${t.replace(/'/g, "''")}'`).join(',')})`
-      : ''
+    const usedIds = selectedTasks.map((t) => `'${t.id}'`).join(",") || "''";
+    const topicEx =
+      usedTopics.size > 0
+        ? `AND topic_area NOT IN (${[...usedTopics].map((t) => `'${t.replace(/'/g, "''")}'`).join(",")})`
+        : "";
 
-    const candidate = db.prepare(`
+    const candidate = db
+      .prepare(
+        `
       SELECT * FROM tasks
       WHERE part = ? AND points_value BETWEEN ? AND ?
         AND id NOT IN (${usedIds}) ${topicEx}
       ORDER BY times_used ASC, RANDOM() LIMIT 1
-    `).get(part, slot.minPoints, slot.maxPoints) as Record<string, unknown> | undefined
+    `,
+      )
+      .get(part, slot.minPoints, slot.maxPoints) as
+      | Record<string, unknown>
+      | undefined;
 
-    const task = candidate ?? db.prepare(`
+    const task =
+      candidate ??
+      (db
+        .prepare(
+          `
       SELECT * FROM tasks
       WHERE part = ? AND points_value BETWEEN ? AND ?
         AND id NOT IN (${usedIds})
       ORDER BY times_used ASC, RANDOM() LIMIT 1
-    `).get(part, slot.minPoints, slot.maxPoints) as Record<string, unknown> | undefined
+    `,
+        )
+        .get(part, slot.minPoints, slot.maxPoints) as
+        | Record<string, unknown>
+        | undefined);
 
-    if (!task) return null
-    selectedTasks.push(task)
-    usedTopics.add(task.topic_area as string)
+    if (!task) return null;
+    selectedTasks.push(task);
+    usedTopics.add(task.topic_area as string);
   }
 
-  const totalPoints = selectedTasks.reduce((s, t) => s + (t.points_value as number), 0)
+  const totalPoints = selectedTasks.reduce(
+    (s, t) => s + (t.points_value as number),
+    0,
+  );
 
   return {
     tasks: selectedTasks,
@@ -258,9 +296,9 @@ export function assembleExam(part: string): {
     // Szenario-Objekt mitgeben für Platzhalter-Ersetzung in Routes
     _scenario: scenario,
   } as Record<string, unknown> & {
-    tasks: Record<string, unknown>[]
-    totalPoints: number
-    scenarioName: string
-    scenarioDescription: string
-  }
+    tasks: Record<string, unknown>[];
+    totalPoints: number;
+    scenarioName: string;
+    scenarioDescription: string;
+  };
 }

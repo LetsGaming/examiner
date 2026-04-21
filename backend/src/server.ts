@@ -1,11 +1,8 @@
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import path from "path";
 import { initDatabase } from "./db/database.js";
 import { examRouter, sessionRouter } from "./routes/examRoutes.js";
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT ?? 8031;

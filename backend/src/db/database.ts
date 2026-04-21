@@ -104,6 +104,7 @@ export function initDatabase(): void {
       missing_elements  TEXT DEFAULT '[]',
       notation_errors   TEXT DEFAULT '[]',
       model_used        TEXT NOT NULL,
+      ai_agent          TEXT,
       created_at        TEXT DEFAULT (datetime('now'))
     );
 
@@ -202,6 +203,13 @@ export function initDatabase(): void {
     } catch {
       /* bereits vorhanden — ignorieren */
     }
+  }
+
+  // ─── Migration: ai_agent Spalte in ai_evaluations ────────────────────────
+  try {
+    db.exec("ALTER TABLE ai_evaluations ADD COLUMN ai_agent TEXT");
+  } catch {
+    /* bereits vorhanden — ignorieren */
   }
 
   db.prepare(

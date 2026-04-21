@@ -12,6 +12,7 @@ import {
   generateTasksForPool,
   applyScenario,
 } from "../services/examGenerator.js";
+import { resolveAiConfig } from "./settingsRoutes.js";
 import type {
   AiEvaluation,
   DiagramType,
@@ -232,11 +233,15 @@ examRouter.post(
   "/generate",
   generateLimiter,
   async (req: Request, res: Response) => {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey)
-      return res
-        .status(500)
-        .json({ success: false, error: "OPENAI_API_KEY nicht konfiguriert." });
+    const userId = getUserId(req);
+    const aiConfig = resolveAiConfig(userId);
+    if (!aiConfig)
+      return res.status(500).json({
+        success: false,
+        error:
+          "Kein API-Key konfiguriert. Bitte in den Einstellungen hinterlegen.",
+      });
+    const { apiKey, meta: aiMeta } = aiConfig;
 
     const { part, count = 4 } = req.body;
     if (!["teil_1", "teil_2", "teil_3"].includes(part))
@@ -258,20 +263,16 @@ examRouter.post(
           .prepare("SELECT COUNT(*) as cnt FROM tasks WHERE part = ?")
           .get(part) as { cnt: number }
       ).cnt;
-      res
-        .status(201)
-        .json({
-          success: true,
-          data: { added: newTasks.length, poolSize: newTotal },
-        });
+      res.status(201).json({
+        success: true,
+        data: { added: newTasks.length, poolSize: newTotal },
+      });
     } catch (err) {
       console.error("[generate]", err);
-      res
-        .status(500)
-        .json({
-          success: false,
-          error: err instanceof Error ? err.message : "Fehler",
-        });
+      res.status(500).json({
+        success: false,
+        error: err instanceof Error ? err.message : "Fehler",
+      });
     }
   },
 );
@@ -293,42 +294,39 @@ examRouter.post("/start", async (req: Request, res: Response) => {
   }
   activeStarts++;
 
-  const apiKey = process.env.OPENAI_API_KEY;
   const userId = getUserId(req);
+  const aiConfig = resolveAiConfig(userId);
 
   // FIX: Automatisch Pool auffüllen wenn nötig (auch beim ersten Aufruf)
   if (!canAssembleExam(part)) {
-    if (!apiKey) {
+    if (!aiConfig) {
       activeStarts--;
       return res.status(422).json({
         success: false,
-        error: "Pool leer und OPENAI_API_KEY nicht konfiguriert.",
+        error:
+          "Pool leer und kein API-Key konfiguriert. Bitte in den Einstellungen hinterlegen.",
         needsGeneration: true,
       });
     }
     try {
-      await ensurePoolSize(part, apiKey);
+      await ensurePoolSize(part, aiConfig!.apiKey);
     } catch (err) {
       activeStarts--;
-      return res
-        .status(500)
-        .json({
-          success: false,
-          error: `Pool-Generierung fehlgeschlagen: ${err instanceof Error ? err.message : err}`,
-        });
+      return res.status(500).json({
+        success: false,
+        error: `Pool-Generierung fehlgeschlagen: ${err instanceof Error ? err.message : err}`,
+      });
     }
   }
 
   const assembled = assembleExam(part);
   if (!assembled) {
     activeStarts--;
-    return res
-      .status(422)
-      .json({
-        success: false,
-        error: "Nicht genug Aufgaben im Pool.",
-        needsGeneration: true,
-      });
+    return res.status(422).json({
+      success: false,
+      error: "Nicht genug Aufgaben im Pool.",
+      needsGeneration: true,
+    });
   }
 
   // FIX: Szenario aus assembleExam extrahieren für Platzhalter-Ersetzung
@@ -400,8 +398,8 @@ examRouter.post("/start", async (req: Request, res: Response) => {
   })();
 
   // FIX: Pool im Hintergrund auffüllen nach Nutzung (feuern und vergessen)
-  if (apiKey) {
-    refillPoolInBackground(part, apiKey).catch(() => {
+  if (aiConfig) {
+    refillPoolInBackground(part, aiConfig?.apiKey ?? "").catch(() => {
       /* ignorieren */
     });
   }
@@ -650,11 +648,15 @@ sessionRouter.post(
   "/:sessionId/answers/:answerId/evaluate",
   evaluateLimiter,
   async (req: Request, res: Response) => {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey)
-      return res
-        .status(500)
-        .json({ success: false, error: "OPENAI_API_KEY nicht konfiguriert." });
+    const evalUserId = getUserId(req);
+    const evalAiConfig = resolveAiConfig(evalUserId);
+    if (!evalAiConfig)
+      return res.status(500).json({
+        success: false,
+        error:
+          "Kein API-Key konfiguriert. Bitte in den Einstellungen hinterlegen.",
+      });
+    const { apiKey, meta: evalMeta } = evalAiConfig;
 
     const answer = db
       .prepare(
@@ -700,6 +702,7 @@ sessionRouter.post(
             topicArea: answer.topic_area as string | undefined,
           },
           apiKey,
+          evalMeta,
         );
       } else if (isDiagram) {
         let imageBase64: string | undefined;
@@ -736,6 +739,7 @@ sessionRouter.post(
             imageMediaType,
           },
           apiKey,
+          evalMeta,
         );
       } else {
         const studentAnswer =
@@ -755,6 +759,7 @@ sessionRouter.post(
             topicArea: answer.topic_area as string | undefined,
           },
           apiKey,
+          evalMeta,
         );
       }
 
@@ -763,8 +768,8 @@ sessionRouter.post(
       INSERT INTO ai_evaluations (
         answer_id, awarded_points, max_points, percentage_score, ihk_grade,
         feedback_text, criterion_scores, key_mistakes, improvement_hints,
-        detected_elements, missing_elements, notation_errors, model_used
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        detected_elements, missing_elements, notation_errors, model_used, ai_agent
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(answer_id) DO UPDATE SET
         awarded_points=excluded.awarded_points, max_points=excluded.max_points,
         percentage_score=excluded.percentage_score, ihk_grade=excluded.ihk_grade,
@@ -772,6 +777,7 @@ sessionRouter.post(
         key_mistakes=excluded.key_mistakes, improvement_hints=excluded.improvement_hints,
         detected_elements=excluded.detected_elements, missing_elements=excluded.missing_elements,
         notation_errors=excluded.notation_errors, model_used=excluded.model_used,
+        ai_agent=excluded.ai_agent,
         created_at=datetime('now')
     `,
       ).run(
@@ -788,17 +794,16 @@ sessionRouter.post(
         JSON.stringify(evaluation.missingElements ?? []),
         JSON.stringify(evaluation.notationErrors ?? []),
         evaluation.modelUsed,
+        evalMeta.label, // ai_agent — human-readable provider name
       );
 
       res.json({ success: true, data: evaluation });
     } catch (err) {
       console.error("[evaluate]", err);
-      res
-        .status(500)
-        .json({
-          success: false,
-          error: err instanceof Error ? err.message : "KI-Fehler",
-        });
+      res.status(500).json({
+        success: false,
+        error: err instanceof Error ? err.message : "KI-Fehler",
+      });
     }
   },
 );

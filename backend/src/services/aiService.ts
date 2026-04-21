@@ -6,11 +6,7 @@ import type {
   IhkGrade,
   CriterionScore,
 } from "../types/index.js";
-
-const OPENAI_API_BASE = "https://api.openai.com/v1/chat/completions";
-// gpt-4o-mini: best accuracy/cost ratio — ~$0.15/1M input tokens
-const MODEL_TEXT = "gpt-4o-mini";
-const MODEL_VISION = "gpt-4o-mini"; // vision included in gpt-4o-mini
+// No provider constants here — all model/URL config lives in settingsRoutes.PROVIDERS
 
 const PART_DESCRIPTIONS: Record<ExamPart, string> = {
   teil_1:
@@ -135,9 +131,16 @@ Antworte AUSSCHLIESSLICH mit diesem JSON:
 }`;
 }
 
-async function callOpenAI(
+// ─── Provider call implementations ───────────────────────────────────────────
+
+/**
+ * OpenAI-compatible call (also used for Mistral & Groq which share the same API shape).
+ * Sends JSON-mode request; supports optional vision via image_url content part.
+ */
+async function callOpenAICompat(
   prompt: string,
   apiKey: string,
+  apiBase: string,
   model: string,
   imageBase64?: string,
   imageMediaType?: string,
@@ -148,7 +151,6 @@ async function callOpenAI(
 
   const contentParts: ContentPart[] = [];
   if (imageBase64 && imageMediaType) {
-    // detail: 'low' = 85 tokens flat fee — cheapest vision option
     contentParts.push({
       type: "image_url",
       image_url: {
@@ -159,15 +161,18 @@ async function callOpenAI(
   }
   contentParts.push({ type: "text", text: prompt });
 
-  const body = {
+  const body: Record<string, unknown> = {
     model,
     messages: [{ role: "user", content: contentParts }],
     temperature: 0.1,
     max_tokens: 2048,
-    response_format: { type: "json_object" }, // guaranteed JSON — no markdown fences
   };
+  // JSON-mode is supported by OpenAI & Groq, but not Mistral vision — only set for text
+  if (!imageBase64) {
+    body.response_format = { type: "json_object" };
+  }
 
-  const response = await fetch(OPENAI_API_BASE, {
+  const response = await fetch(apiBase, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -175,21 +180,156 @@ async function callOpenAI(
     },
     body: JSON.stringify(body),
   });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`OpenAI API Fehler ${response.status}: ${errText}`);
-  }
+  if (!response.ok)
+    throw new Error(
+      `${apiBase} Fehler ${response.status}: ${await response.text()}`,
+    );
 
   const data = (await response.json()) as {
     choices?: { message?: { content?: string } }[];
     error?: { message?: string };
   };
-
-  if (data.error) throw new Error(`OpenAI Fehler: ${data.error.message}`);
+  if (data.error) throw new Error(`API Fehler: ${data.error.message}`);
   const text = data?.choices?.[0]?.message?.content;
-  if (!text) throw new Error("Keine Antwort von OpenAI erhalten.");
+  if (!text) throw new Error("Leere Antwort vom Modell erhalten.");
   return text;
+}
+
+/** Anthropic Messages API — supports vision via base64 image blocks. */
+async function callAnthropic(
+  prompt: string,
+  apiKey: string,
+  model: string,
+  imageBase64?: string,
+  imageMediaType?: string,
+): Promise<string> {
+  type Block =
+    | { type: "text"; text: string }
+    | {
+        type: "image";
+        source: { type: "base64"; media_type: string; data: string };
+      };
+
+  const content: Block[] = [];
+  if (imageBase64 && imageMediaType) {
+    content.push({
+      type: "image",
+      source: { type: "base64", media_type: imageMediaType, data: imageBase64 },
+    });
+  }
+  content.push({ type: "text", text: prompt });
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 2048,
+      messages: [{ role: "user", content }],
+    }),
+  });
+  if (!response.ok)
+    throw new Error(
+      `Anthropic Fehler ${response.status}: ${await response.text()}`,
+    );
+
+  const data = (await response.json()) as {
+    content?: { type: string; text?: string }[];
+    error?: { message?: string };
+  };
+  if (data.error) throw new Error(`Anthropic Fehler: ${data.error.message}`);
+  const text = data?.content?.find((b) => b.type === "text")?.text;
+  if (!text) throw new Error("Leere Antwort von Anthropic erhalten.");
+  return text;
+}
+
+/** Google Gemini generateContent API — supports inline image data. */
+async function callGoogle(
+  prompt: string,
+  apiKey: string,
+  model: string,
+  imageBase64?: string,
+  imageMediaType?: string,
+): Promise<string> {
+  type Part =
+    | { text: string }
+    | { inline_data: { mime_type: string; data: string } };
+
+  const parts: Part[] = [];
+  if (imageBase64 && imageMediaType) {
+    parts.push({
+      inline_data: { mime_type: imageMediaType, data: imageBase64 },
+    });
+  }
+  parts.push({ text: prompt });
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const body = {
+    contents: [{ parts }],
+    generationConfig: { temperature: 0.1, maxOutputTokens: 2048 },
+  };
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok)
+    throw new Error(
+      `Google Gemini Fehler ${response.status}: ${await response.text()}`,
+    );
+
+  const data = (await response.json()) as {
+    candidates?: { content?: { parts?: { text?: string }[] } }[];
+    error?: { message?: string };
+  };
+  if (data.error) throw new Error(`Gemini Fehler: ${data.error.message}`);
+  const text =
+    data?.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ??
+    "";
+  if (!text) throw new Error("Leere Antwort von Gemini erhalten.");
+  return text;
+}
+
+/**
+ * Unified dispatcher — the ONLY place in the codebase that fires external AI requests.
+ * The apiKey is always decrypted server-side by resolveAiConfig; it never originates
+ * from the request body and cannot be forwarded to any other external destination.
+ */
+export async function callAiProvider(
+  prompt: string,
+  apiKey: string,
+  meta: import("../routes/settingsRoutes.js").ProviderMeta,
+  imageBase64?: string,
+  imageMediaType?: string,
+): Promise<string> {
+  const model = imageBase64 ? meta.visionModel : meta.textModel;
+
+  switch (meta.id) {
+    case "anthropic":
+      return callAnthropic(prompt, apiKey, model, imageBase64, imageMediaType);
+    case "google":
+      return callGoogle(prompt, apiKey, model, imageBase64, imageMediaType);
+    case "openai":
+    case "mistral":
+      return callOpenAICompat(
+        prompt,
+        apiKey,
+        meta.apiBase,
+        model,
+        imageBase64,
+        imageMediaType,
+      );
+    default: {
+      // Exhaustiveness guard — TypeScript should catch this at compile time
+      const _exhaustive: never = meta.id;
+      throw new Error(`Unbekannter Provider: ${String(_exhaustive)}`);
+    }
+  }
 }
 
 function parseLlmJson(raw: string): Record<string, unknown> {
@@ -249,8 +389,8 @@ function gradeMcAnswer(
 async function assessTableAnswer(
   params: AssessAnswerParams,
   apiKey: string,
+  meta: import("../routes/settingsRoutes.js").ProviderMeta,
 ): Promise<Omit<AiEvaluation, "id" | "answerId" | "createdAt">> {
-  // Tabellen-Antwort kommt als JSON-String: [["Zelle1","Zelle2"],["Zelle3","Zelle4"]]
   let parsedRows: string[][] = [];
   try {
     parsedRows = JSON.parse(params.studentAnswer);
@@ -262,24 +402,18 @@ async function assessTableAnswer(
   const expectedRows = (expectedConfig.rows as string[][]) ?? [];
   const columns = (expectedConfig.columns as string[]) ?? [];
 
-  // Tabelleninhalt als lesbaren Text für die KI aufbereiten
   const header = columns.join(" | ");
   const separator = columns.map(() => "---").join(" | ");
   const formatRows = (rows: string[][]) =>
-    rows.map((row) => row.join(" | ")).join("");
+    rows.map((r) => r.join(" | ")).join("\n");
 
   const studentTable =
     parsedRows.length > 0
-      ? `${header}
-${separator}
-${formatRows(parsedRows)}`
+      ? `${header}\n${separator}\n${formatRows(parsedRows)}`
       : "(keine Angabe)";
-
   const expectedTable =
     expectedRows.length > 0
-      ? `${header}
-${separator}
-${formatRows(expectedRows)}`
+      ? `${header}\n${separator}\n${formatRows(expectedRows)}`
       : "(kein Erwartungshorizont hinterlegt)";
 
   const prompt = `${buildSystemPrompt(params.examPart)}
@@ -307,16 +441,13 @@ Gib ausschließlich dieses JSON zurück:
   "percentageScore": <integer 0-100>,
   "ihkGrade": <"sehr_gut"|"gut"|"befriedigend"|"ausreichend"|"mangelhaft"|"ungenuegend">,
   "feedbackText": "<2-4 konstruktive Sätze auf Deutsch>",
-  "criterionScores": [
-    { "criterion": "<n>", "awarded": <n>, "max": <n>, "comment": "<1 Satz>" }
-  ],
+  "criterionScores": [{ "criterion": "<n>", "awarded": <n>, "max": <n>, "comment": "<1 Satz>" }],
   "keyMistakes": ["<Fehler>"],
   "improvementHints": ["<Tipp>"]
 }`;
 
-  const raw = await callOpenAI(prompt, apiKey, MODEL_TEXT);
+  const raw = await callAiProvider(prompt, apiKey, meta);
   const parsed = parseLlmJson(raw) as Record<string, unknown>;
-
   const awarded = Math.min(
     Math.max(Math.round(Number(parsed.awardedPoints) || 0), 0),
     params.maxPoints,
@@ -332,32 +463,27 @@ Gib ausschließlich dieses JSON zurück:
     criterionScores: (parsed.criterionScores as CriterionScore[]) ?? [],
     keyMistakes: (parsed.keyMistakes as string[]) ?? [],
     improvementHints: (parsed.improvementHints as string[]) ?? [],
-    modelUsed: MODEL_TEXT,
+    modelUsed: meta.textModel,
   };
 }
 
 export async function assessFreitext(
   params: AssessAnswerParams,
   apiKey: string,
+  meta: import("../routes/settingsRoutes.js").ProviderMeta,
 ): Promise<Omit<AiEvaluation, "id" | "answerId" | "createdAt">> {
-  if (params.taskType === "table") {
-    return assessTableAnswer(params, apiKey);
-  }
-  if (params.taskType === "mc") {
+  if (params.taskType === "table")
+    return assessTableAnswer(params, apiKey, meta);
+  if (params.taskType === "mc")
     return gradeMcAnswer(
       params.studentAnswer,
       params.expectedAnswer,
       params.maxPoints,
     );
-  }
 
-  const systemPrompt = buildSystemPrompt(params.examPart);
-  const userPrompt = buildUserPrompt(params);
-  const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
-
-  const raw = await callOpenAI(fullPrompt, apiKey, MODEL_TEXT);
+  const fullPrompt = `${buildSystemPrompt(params.examPart)}\n\n${buildUserPrompt(params)}`;
+  const raw = await callAiProvider(fullPrompt, apiKey, meta);
   const parsed = parseLlmJson(raw) as Record<string, unknown>;
-
   const awarded = Math.min(
     Math.max(Math.round(Number(parsed.awardedPoints) || 0), 0),
     params.maxPoints,
@@ -373,25 +499,24 @@ export async function assessFreitext(
     criterionScores: (parsed.criterionScores as CriterionScore[]) ?? [],
     keyMistakes: (parsed.keyMistakes as string[]) ?? [],
     improvementHints: (parsed.improvementHints as string[]) ?? [],
-    modelUsed: MODEL_TEXT,
+    modelUsed: meta.textModel,
   };
 }
 
 export async function analyzeDiagram(
   params: AnalyzeDiagramParams,
   apiKey: string,
+  meta: import("../routes/settingsRoutes.js").ProviderMeta,
 ): Promise<Omit<AiEvaluation, "id" | "answerId" | "createdAt">> {
   const prompt = buildDiagramTextPrompt(params);
-
-  const raw = await callOpenAI(
+  const raw = await callAiProvider(
     prompt,
     apiKey,
-    MODEL_VISION,
+    meta,
     params.imageBase64,
     params.imageMediaType,
   );
   const parsed = parseLlmJson(raw) as Record<string, unknown>;
-
   const awarded = Math.min(
     Math.max(Math.round(Number(parsed.awardedPoints) || 0), 0),
     params.maxPoints,
@@ -410,6 +535,6 @@ export async function analyzeDiagram(
     notationErrors: (parsed.notationErrors as string[]) ?? [],
     keyMistakes: (parsed.keyMistakes as string[]) ?? [],
     improvementHints: (parsed.improvementHints as string[]) ?? [],
-    modelUsed: MODEL_VISION,
+    modelUsed: meta.visionModel,
   };
 }

@@ -3,6 +3,7 @@ import cors from "cors";
 import path from "path";
 import { initDatabase } from "./db/database.js";
 import { examRouter, sessionRouter } from "./routes/examRoutes.js";
+import { settingsRouter, initSettingsTable } from "./routes/settingsRoutes.js";
 
 const app = express();
 const PORT = process.env.PORT ?? 8031;
@@ -58,13 +59,15 @@ app.get("/api/health", (_req, res) => {
 
 app.use("/api/exams", examRouter);
 app.use("/api/sessions", sessionRouter);
+app.use("/api/settings", settingsRouter);
 
 initDatabase();
+initSettingsTable();
 
 app.listen(PORT, () => {
   console.log(`✅ FIAE AP2 Backend läuft auf http://localhost:${PORT}`);
   console.log(`   Erlaubte Origins: ${[...allowedOrigins].join(", ")}`);
   console.log(
-    `   OpenAI API Key: ${process.env.OPENAI_API_KEY ? "✓ gesetzt" : "✗ FEHLT — in .env setzen!"}`,
+    `   AI Provider Keys: OpenAI=${process.env.OPENAI_API_KEY ? "✓" : "–"} Anthropic=${process.env.ANTHROPIC_API_KEY ? "✓" : "–"} Google=${process.env.GOOGLE_API_KEY ? "✓" : "–"} Mistral=${process.env.MISTRAL_API_KEY ? "✓" : "–"} — nur einer muss gesetzt sein; User-Keys überschreiben immer`,
   );
 });

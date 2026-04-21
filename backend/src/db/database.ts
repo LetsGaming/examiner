@@ -129,60 +129,79 @@ export function initDatabase(): void {
 
   // ─── Migration: subtasks CHECK-Constraint und table_config ─────────────────
   // SQLite kann CHECK-Constraints nicht per ALTER TABLE ändern.
-  // Lösung: Prüfen ob 'table' bereits erlaubt ist; wenn nicht → Tabelle neu erstellen.
-  try {
-    // Teste ob task_type='table' erlaubt ist
-    const testId = "migration-test-" + Date.now();
-    db.prepare(
-      `INSERT INTO subtasks (id, task_id, label, task_type, question_text, points, position)
-       VALUES (?, 'nonexistent', 'test', 'table', 'test', 0, 0)`,
-    ).run(testId);
-    db.prepare("DELETE FROM subtasks WHERE id = ?").run(testId);
-    // Wenn kein Fehler: CHECK erlaubt 'table' bereits — nur table_config Spalte prüfen
+  // Strategie:
+  //   1. Prüfe ob 'table' bereits im CHECK erlaubt ist (Probe-Insert).
+  //   2. Falls ja: nur table_config Spalte ergänzen falls noch nicht vorhanden.
+  //   3. Falls nein: Tabelle atomar neu erstellen.
+  //      - subtasks_new zuerst droppen falls ein vorheriger fehlgeschlagener
+  //        Versuch sie hinterlassen hat (das war der UNIQUE constraint Fehler).
+  //      - Alles in einer Transaktion, damit kein Halbzustand entsteht.
+
+  const needsRebuild = (() => {
+    try {
+      const testId = "migration-probe-" + Date.now();
+      // FOREIGN KEY ist ON — task_id 'nonexistent' würde scheitern, daher kurz deaktivieren
+      db.pragma("foreign_keys = OFF");
+      db.prepare(
+        `INSERT INTO subtasks (id, task_id, label, task_type, question_text, points, position)
+         VALUES (?, 'nonexistent', 'x', 'table', 'x', 0, 0)`,
+      ).run(testId);
+      db.prepare("DELETE FROM subtasks WHERE id = ?").run(testId);
+      db.pragma("foreign_keys = ON");
+      return false; // 'table' ist bereits erlaubt
+    } catch {
+      db.pragma("foreign_keys = ON");
+      return true; // CHECK schlägt fehl → Rebuild nötig
+    }
+  })();
+
+  if (needsRebuild) {
+    console.log("[migration] Starte subtasks-Tabellen-Migration...");
+    db.transaction(() => {
+      // Hinterlassenschaften vorheriger fehlgeschlagener Versuche bereinigen
+      db.exec("DROP TABLE IF EXISTS subtasks_new");
+
+      db.exec(`
+        CREATE TABLE subtasks_new (
+          id                TEXT PRIMARY KEY,
+          task_id           TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+          label             TEXT NOT NULL,
+          task_type         TEXT NOT NULL CHECK(task_type IN ('freitext','pseudocode','mc','plantuml','diagram_upload','table')),
+          question_text     TEXT NOT NULL,
+          expected_answer   TEXT NOT NULL DEFAULT '{}',
+          points            INTEGER NOT NULL,
+          diagram_type      TEXT,
+          expected_elements TEXT DEFAULT '[]',
+          mc_options        TEXT DEFAULT '[]',
+          table_config      TEXT DEFAULT NULL,
+          position          INTEGER NOT NULL DEFAULT 0
+        )
+      `);
+
+      db.exec(`
+        INSERT INTO subtasks_new
+          (id, task_id, label, task_type, question_text, expected_answer,
+           points, diagram_type, expected_elements, mc_options, position)
+        SELECT
+          id, task_id, label, task_type, question_text, expected_answer,
+          points, diagram_type, expected_elements, mc_options, position
+        FROM subtasks
+      `);
+
+      db.exec("DROP TABLE subtasks");
+      db.exec("ALTER TABLE subtasks_new RENAME TO subtasks");
+      db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_subtasks_task ON subtasks(task_id)",
+      );
+    })();
+    console.log("[migration] subtasks-Migration abgeschlossen.");
+  } else {
+    // Tabelle hat korrekten CHECK — nur table_config Spalte ergänzen falls fehlend
     try {
       db.exec("ALTER TABLE subtasks ADD COLUMN table_config TEXT DEFAULT NULL");
     } catch {
-      /* bereits vorhanden */
+      /* bereits vorhanden — ignorieren */
     }
-  } catch {
-    // CHECK schlägt fehl → Tabelle muss neu erstellt werden
-    console.log(
-      "[migration] Migriere subtasks-Tabelle auf neue CHECK-Constraint...",
-    );
-    db.exec(`
-      -- Neue Tabelle mit korrektem CHECK anlegen
-      CREATE TABLE IF NOT EXISTS subtasks_new (
-        id                TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-        task_id           TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-        label             TEXT NOT NULL,
-        task_type         TEXT NOT NULL CHECK(task_type IN ('freitext','pseudocode','mc','plantuml','diagram_upload','table')),
-        question_text     TEXT NOT NULL,
-        expected_answer   TEXT NOT NULL DEFAULT '{}',
-        points            INTEGER NOT NULL,
-        diagram_type      TEXT,
-        expected_elements TEXT DEFAULT '[]',
-        mc_options        TEXT DEFAULT '[]',
-        table_config      TEXT DEFAULT NULL,
-        position          INTEGER NOT NULL DEFAULT 0
-      );
-
-      -- Bestehende Daten kopieren
-      INSERT INTO subtasks_new
-        (id, task_id, label, task_type, question_text, expected_answer,
-         points, diagram_type, expected_elements, mc_options, position)
-      SELECT
-        id, task_id, label, task_type, question_text, expected_answer,
-        points, diagram_type, expected_elements, mc_options, position
-      FROM subtasks;
-
-      -- Alte Tabelle löschen, neue umbenennen
-      DROP TABLE subtasks;
-      ALTER TABLE subtasks_new RENAME TO subtasks;
-
-      -- Index neu erstellen
-      CREATE INDEX IF NOT EXISTS idx_subtasks_task ON subtasks(task_id);
-    `);
-    console.log("[migration] subtasks-Tabelle erfolgreich migriert.");
   }
 
   db.prepare(

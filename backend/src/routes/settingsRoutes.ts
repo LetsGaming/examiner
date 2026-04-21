@@ -162,6 +162,26 @@ export function resolveAiConfig(userId: string): {
   return null;
 }
 
+/**
+ * Resolve ONLY the server-side env-var AI config (ignores user-stored keys).
+ * Used as a fallback when the user's own key fails.
+ * Returns null if no env var is configured at all.
+ */
+export function resolveServerAiConfig(): {
+  apiKey: string;
+  provider: AiProvider;
+  meta: ProviderMeta;
+} | null {
+  for (const provider of VALID_PROVIDERS) {
+    const meta = PROVIDERS[provider];
+    const envKey = process.env[meta.envVar];
+    if (envKey) {
+      return { apiKey: envKey, provider, meta };
+    }
+  }
+  return null;
+}
+
 // ─── GET /api/settings/ai ────────────────────────────────────────────────────
 
 settingsRouter.get("/ai", (req: Request, res: Response) => {

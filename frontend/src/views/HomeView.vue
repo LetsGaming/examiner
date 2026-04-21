@@ -179,6 +179,25 @@
               <p v-if="errors[p.value]" class="part-error">
                 {{ errors[p.value] }}
               </p>
+              <div v-if="warnings[p.value]?.length" class="part-warnings">
+                <div
+                  v-for="(w, i) in warnings[p.value]"
+                  :key="i"
+                  class="part-warning"
+                  :class="`warn-${w.source}`"
+                >
+                  <span class="warn-badge">
+                    <template v-if="w.source === 'server_ai'"
+                      >↩ Server-KI</template
+                    >
+                    <template v-else-if="w.source === 'fallback'"
+                      >⚠ Platzhalter</template
+                    >
+                    <template v-else>⚠ Warnung</template>
+                  </span>
+                  <span class="warn-text">{{ w.message }}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -461,6 +480,9 @@ const generating = ref<string | null>(null);
 const statusMessage = ref("");
 const poolStatus = ref<Record<string, number>>({});
 const errors = ref<Record<string, string>>({});
+const warnings = ref<
+  Record<string, { topic: string; source: string; message: string }[]>
+>({});
 const POOL_MIN = 5;
 
 const PARTS = [
@@ -690,7 +712,12 @@ async function addToPool(part: string) {
       logout();
       return;
     }
+    if (res.status === 401) {
+      logout();
+      return;
+    }
     if (!data.success) throw new Error(data.error);
+    warnings.value[part] = data.data?.warnings ?? [];
     await loadPoolStatus();
   } catch (err) {
     errors.value[part] = err instanceof Error ? err.message : "Fehler";
@@ -720,6 +747,7 @@ async function startExam(part: string) {
       });
       const genData = await gen.json();
       if (!genData.success) throw new Error(genData.error);
+      warnings.value[part] = genData.data?.warnings ?? [];
       await loadPoolStatus();
       statusMessage.value = "Prüfung wird zusammengestellt…";
       res = await fetch(`${API}/exams/start`, {
@@ -1157,6 +1185,44 @@ async function startExam(part: string) {
   font-size: 12px;
   color: #f87171;
   margin-top: 8px;
+}
+.part-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 6px;
+}
+.part-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+.part-warning.warn-server_ai {
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+.part-warning.warn-fallback {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+.warn-badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  white-space: nowrap;
+}
+.warn-text {
+  flex: 1;
 }
 
 /* ─── Modal backdrop ─── */

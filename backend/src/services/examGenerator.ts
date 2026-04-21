@@ -799,33 +799,107 @@ function buildFallbackTask(
 // Generiert `count` Aufgaben einzeln (je 1 API-Call), robust und token-sparend.
 // UML-Kontrolle: maximal 1 UML-Aufgabe pro Batch (spiegelt echte IHK-Prüfung wider).
 
+export type TaskSource = "user_ai" | "server_ai" | "fallback";
+
+export interface TaskWarning {
+  topic: string;
+  /** Which tier ultimately produced the task. */
+  source: TaskSource;
+  /** Human-readable message shown to the user. */
+  message: string;
+}
+
+export interface GeneratePoolResult {
+  tasks: GeneratedTask[];
+  /**
+   * One entry per topic where something went less than perfectly:
+   *  - source "server_ai"  → user AI failed, server AI took over (task still high-quality)
+   *  - source "fallback"   → both AIs failed, placeholder task used (low-quality)
+   */
+  warnings: TaskWarning[];
+}
+
+/**
+ * Generate tasks with a three-tier fallback per topic:
+ *   1. User AI  (userApiKey + userMeta)
+ *   2. Server AI  (serverApiKey + serverMeta) — only if different from user AI
+ *   3. Fallback placeholder  — last resort, always produces a warning
+ *
+ * Pass serverApiKey/serverMeta as null if no server key is configured.
+ */
 export async function generateTasksForPool(
   part: ExamPart,
   count: number,
-  apiKey: string,
-  meta?: ProviderMeta,
-): Promise<GeneratedTask[]> {
+  userApiKey: string,
+  userMeta?: ProviderMeta,
+  serverApiKey?: string | null,
+  serverMeta?: ProviderMeta | null,
+): Promise<GeneratePoolResult> {
   const topics = pickRandom(TOPICS[part], count);
-  const results: GeneratedTask[] = [];
+  const tasks: GeneratedTask[] = [];
+  const warnings: TaskWarning[] = [];
   let umlCount = 0;
-  const MAX_UML_PER_BATCH = 1; // echte Prüfung: max 1 UML-Aufgabe
+  const MAX_UML_PER_BATCH = 1;
+
+  // Whether the server key is actually different from the user key
+  const hasDistinctServerKey =
+    !!serverApiKey &&
+    !!serverMeta &&
+    (serverApiKey !== userApiKey || serverMeta.id !== userMeta?.id);
 
   for (const topic of topics) {
     const forceNoUml = umlCount >= MAX_UML_PER_BATCH;
-    try {
-      const task = await generateOneTask(part, topic, apiKey, forceNoUml, meta);
-      // Prüfe ob diese Aufgabe UML enthält
-      const hasUml = task.subtasks.some(
-        (st) => st.taskType === "plantuml" || st.taskType === "diagram_upload",
-      );
-      if (hasUml) umlCount++;
-      results.push(task);
-    } catch (err) {
-      console.warn(
-        `[generator] Aufgabe "${topic}" fehlgeschlagen, nutze Fallback:`,
-        err,
-      );
-      // Fallback ohne UML wenn bereits genug UML vorhanden
+    let task: GeneratedTask | null = null;
+    let userError: string | null = null;
+    let serverError: string | null = null;
+
+    // ── Tier 1: User AI ────────────────────────────────────────────────────
+    if (userMeta) {
+      try {
+        task = await generateOneTask(
+          part,
+          topic,
+          userApiKey,
+          forceNoUml,
+          userMeta,
+        );
+      } catch (err) {
+        userError = err instanceof Error ? err.message : String(err);
+        console.warn(
+          `[generator] "${topic}" — User-AI fehlgeschlagen (${userMeta.label}): ${userError.slice(0, 120)}`,
+        );
+      }
+    }
+
+    // ── Tier 2: Server AI (only if user AI failed and a distinct key exists) ─
+    if (!task && hasDistinctServerKey) {
+      try {
+        task = await generateOneTask(
+          part,
+          topic,
+          serverApiKey!,
+          forceNoUml,
+          serverMeta!,
+        );
+        // User AI failed but server AI succeeded — warn but still a good task
+        warnings.push({
+          topic,
+          source: "server_ai",
+          message: `„${topic}": ${userMeta?.label ?? "KI"} nicht verfügbar (${truncate(userError ?? "Fehler")}). Server-KI (${serverMeta!.label}) wurde verwendet.`,
+        });
+        console.info(
+          `[generator] "${topic}" — Server-AI (${serverMeta!.label}) eingesprungen.`,
+        );
+      } catch (err) {
+        serverError = err instanceof Error ? err.message : String(err);
+        console.warn(
+          `[generator] "${topic}" — Server-AI fehlgeschlagen (${serverMeta!.label}): ${serverError.slice(0, 120)}`,
+        );
+      }
+    }
+
+    // ── Tier 3: Fallback placeholder ───────────────────────────────────────
+    if (!task) {
       const templates = (
         part === "teil_1"
           ? TEMPLATES_TEIL1
@@ -836,21 +910,33 @@ export async function generateTasksForPool(
         (t) =>
           !forceNoUml || (t.typeA !== "plantuml" && t.typeB !== "plantuml"),
       );
-      results.push(
-        buildFallbackTask(
-          part,
-          topic,
-          pickWeighted(
-            templates.length
-              ? templates
-              : part === "teil_1"
-                ? TEMPLATES_TEIL1
-                : TEMPLATES_TEIL2,
-          ),
-        ),
+      task = buildFallbackTask(
+        part,
+        topic,
+        pickWeighted(templates.length ? templates : TEMPLATES_TEIL1),
       );
+
+      const bothFailed = hasDistinctServerKey && serverError;
+      warnings.push({
+        topic,
+        source: "fallback",
+        message: bothFailed
+          ? `„${topic}": Alle KI-Anbieter fehlgeschlagen. Platzhalteraufgabe verwendet (niedrige Qualität). User-KI: ${truncate(userError ?? "–")} | Server-KI: ${truncate(serverError ?? "–")}`
+          : `„${topic}": KI nicht verfügbar (${truncate(userError ?? "Kein Provider konfiguriert")}). Platzhalteraufgabe verwendet (niedrige Qualität).`,
+      });
+      console.warn(`[generator] "${topic}" — Fallback-Platzhalter eingefügt.`);
     }
+
+    const hasUml = task.subtasks.some(
+      (st) => st.taskType === "plantuml" || st.taskType === "diagram_upload",
+    );
+    if (hasUml) umlCount++;
+    tasks.push(task);
   }
 
-  return results;
+  return { tasks, warnings };
+}
+
+function truncate(s: string, max = 100): string {
+  return s.length > max ? s.slice(0, max) + "…" : s;
 }

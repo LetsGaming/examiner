@@ -12,7 +12,8 @@ import {
   generateTasksForPool,
   applyScenario,
 } from "../services/examGenerator.js";
-import { resolveAiConfig } from "./settingsRoutes.js";
+import type { TaskWarning } from "../services/examGenerator.js";
+import { resolveAiConfig, resolveServerAiConfig } from "./settingsRoutes.js";
 import type { AuthRequest } from "../middleware/auth.js";
 import type {
   AiEvaluation,
@@ -87,6 +88,8 @@ async function ensurePoolSize(
   part: string,
   apiKey: string,
   meta?: import("./settingsRoutes.js").ProviderMeta,
+  serverApiKey?: string | null,
+  serverMeta?: import("./settingsRoutes.js").ProviderMeta | null,
 ): Promise<void> {
   // Lock: verhindert dass zwei Requests gleichzeitig für denselben Teil generieren
   if (generatingParts.has(part)) {
@@ -114,14 +117,24 @@ async function ensurePoolSize(
     console.log(
       `[pool] ${part}: ${current} Tasks — generiere ${genCount} neue...`,
     );
-    const newTasks = await generateTasksForPool(
+    const genResult = await generateTasksForPool(
       part as ExamPart,
       genCount,
       apiKey,
       meta,
+      serverApiKey,
+      serverMeta,
     );
-    await insertTasksIntoDB(part, newTasks);
-    console.log(`[pool] ${part}: ${newTasks.length} neue Tasks hinzugefügt`);
+    await insertTasksIntoDB(part, genResult.tasks);
+    if (genResult.warnings.length > 0) {
+      console.warn(
+        `[pool] ${part}: ${genResult.warnings.length} Warnungen:`,
+        genResult.warnings.map((w) => `[${w.source}] ${w.topic}`).join(", "),
+      );
+    }
+    console.log(
+      `[pool] ${part}: ${genResult.tasks.length} neue Tasks hinzugefügt`,
+    );
   } finally {
     generatingParts.delete(part);
   }
@@ -130,7 +143,9 @@ async function ensurePoolSize(
 async function refillPoolInBackground(
   part: string,
   apiKey: string,
-  meta?: import("./settingsRoutes.js").ProviderMeta,
+  meta?: import("./settingsRoutes.js").ProviderMeta | null,
+  serverApiKey?: string | null,
+  serverMeta?: import("./settingsRoutes.js").ProviderMeta | null,
 ): Promise<void> {
   // Lock: Hintergrund-Refill nicht starten wenn bereits aktiv
   if (generatingParts.has(part)) return;
@@ -149,15 +164,17 @@ async function refillPoolInBackground(
     console.log(
       `[pool-refill] ${part}: ${current}/${target} — generiere ${genCount} Tasks im Hintergrund`,
     );
-    const newTasks = await generateTasksForPool(
+    const refillResult = await generateTasksForPool(
       part as ExamPart,
       genCount,
       apiKey,
-      meta,
+      meta ?? undefined,
+      serverApiKey,
+      serverMeta,
     );
-    await insertTasksIntoDB(part, newTasks);
+    await insertTasksIntoDB(part, refillResult.tasks);
     console.log(
-      `[pool-refill] ${part}: +${newTasks.length} Tasks, Pool jetzt ${current + newTasks.length}`,
+      `[pool-refill] ${part}: +${refillResult.tasks.length} Tasks${refillResult.warnings.length > 0 ? ` (${refillResult.warnings.length} Warnungen)` : ""}, Pool jetzt ${current + refillResult.tasks.length}`,
     );
   } catch (err) {
     console.warn("[pool-refill] Fehler (ignoriert):", err);
@@ -166,7 +183,9 @@ async function refillPoolInBackground(
   }
 }
 
-type GeneratedTask = Awaited<ReturnType<typeof generateTasksForPool>>[0];
+type GeneratedTask = Awaited<
+  ReturnType<typeof generateTasksForPool>
+>["tasks"][0];
 
 async function insertTasksIntoDB(
   part: string,
@@ -244,14 +263,14 @@ examRouter.post(
     const userId = getUserId(req);
     const aiConfig = resolveAiConfig(userId);
     if (!aiConfig)
-      return res
-        .status(500)
-        .json({
-          success: false,
-          error:
-            "Kein API-Key konfiguriert. Bitte in den Einstellungen hinterlegen.",
-        });
+      return res.status(500).json({
+        success: false,
+        error:
+          "Kein API-Key konfiguriert. Bitte in den Einstellungen hinterlegen.",
+      });
     const { apiKey, meta: aiMeta } = aiConfig;
+    const serverConfig =
+      aiConfig.source === "user" ? resolveServerAiConfig() : null;
 
     const { part, count = 4 } = req.body;
     if (!["teil_1", "teil_2", "teil_3"].includes(part))
@@ -261,23 +280,34 @@ examRouter.post(
 
     try {
       const genCount = Math.min(count, GENERATE_COUNT[part] ?? 8);
-      const newTasks = await generateTasksForPool(
+      const genResult = await generateTasksForPool(
         part as ExamPart,
         genCount,
         apiKey,
         aiMeta,
+        serverConfig?.apiKey ?? null,
+        serverConfig?.meta ?? null,
       );
-      await insertTasksIntoDB(part, newTasks);
+      await insertTasksIntoDB(part, genResult.tasks);
 
       const newTotal = (
         db
           .prepare("SELECT COUNT(*) as cnt FROM tasks WHERE part = ?")
           .get(part) as { cnt: number }
       ).cnt;
-      res.status(201).json({
-        success: true,
-        data: { added: newTasks.length, poolSize: newTotal },
-      });
+
+      const response: Record<string, unknown> = {
+        added: genResult.tasks.length,
+        poolSize: newTotal,
+      };
+      if (genResult.warnings.length > 0) {
+        response.warnings = genResult.warnings.map((w: TaskWarning) => ({
+          topic: w.topic,
+          source: w.source,
+          message: w.message,
+        }));
+      }
+      res.status(201).json({ success: true, data: response });
     } catch (err) {
       console.error("[generate]", err);
       res.status(500).json({
@@ -307,6 +337,8 @@ examRouter.post("/start", async (req: Request, res: Response) => {
 
   const userId = getUserId(req);
   const aiConfig = resolveAiConfig(userId);
+  const serverConfig =
+    aiConfig?.source === "user" ? resolveServerAiConfig() : null;
 
   // FIX: Automatisch Pool auffüllen wenn nötig (auch beim ersten Aufruf)
   if (!canAssembleExam(part)) {
@@ -320,7 +352,13 @@ examRouter.post("/start", async (req: Request, res: Response) => {
       });
     }
     try {
-      await ensurePoolSize(part, aiConfig!.apiKey, aiConfig!.meta);
+      await ensurePoolSize(
+        part,
+        aiConfig!.apiKey,
+        aiConfig!.meta,
+        serverConfig?.apiKey ?? null,
+        serverConfig?.meta ?? null,
+      );
     } catch (err) {
       activeStarts--;
       return res.status(500).json({
@@ -410,11 +448,15 @@ examRouter.post("/start", async (req: Request, res: Response) => {
 
   // FIX: Pool im Hintergrund auffüllen nach Nutzung (feuern und vergessen)
   if (aiConfig) {
-    refillPoolInBackground(part, aiConfig?.apiKey ?? "", aiConfig?.meta).catch(
-      () => {
-        /* ignorieren */
-      },
-    );
+    refillPoolInBackground(
+      part,
+      aiConfig?.apiKey ?? "",
+      aiConfig?.meta,
+      serverConfig?.apiKey ?? null,
+      serverConfig?.meta ?? null,
+    ).catch(() => {
+      /* ignorieren */
+    });
   }
 
   activeStarts--;
@@ -664,13 +706,11 @@ sessionRouter.post(
     const evalUserId = getUserId(req);
     const evalAiConfig = resolveAiConfig(evalUserId);
     if (!evalAiConfig)
-      return res
-        .status(500)
-        .json({
-          success: false,
-          error:
-            "Kein API-Key konfiguriert. Bitte in den Einstellungen hinterlegen.",
-        });
+      return res.status(500).json({
+        success: false,
+        error:
+          "Kein API-Key konfiguriert. Bitte in den Einstellungen hinterlegen.",
+      });
     const { apiKey, meta: evalMeta } = evalAiConfig;
 
     const answer = db

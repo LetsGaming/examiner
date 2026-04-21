@@ -127,11 +127,62 @@ export function initDatabase(): void {
     CREATE INDEX IF NOT EXISTS idx_overrides_sess  ON session_subtask_overrides(session_id);
   `);
 
-  // Migration: table_config Spalte zu subtasks hinzufügen (idempotent)
+  // ─── Migration: subtasks CHECK-Constraint und table_config ─────────────────
+  // SQLite kann CHECK-Constraints nicht per ALTER TABLE ändern.
+  // Lösung: Prüfen ob 'table' bereits erlaubt ist; wenn nicht → Tabelle neu erstellen.
   try {
-    db.exec("ALTER TABLE subtasks ADD COLUMN table_config TEXT DEFAULT NULL");
+    // Teste ob task_type='table' erlaubt ist
+    const testId = "migration-test-" + Date.now();
+    db.prepare(
+      `INSERT INTO subtasks (id, task_id, label, task_type, question_text, points, position)
+       VALUES (?, 'nonexistent', 'test', 'table', 'test', 0, 0)`,
+    ).run(testId);
+    db.prepare("DELETE FROM subtasks WHERE id = ?").run(testId);
+    // Wenn kein Fehler: CHECK erlaubt 'table' bereits — nur table_config Spalte prüfen
+    try {
+      db.exec("ALTER TABLE subtasks ADD COLUMN table_config TEXT DEFAULT NULL");
+    } catch {
+      /* bereits vorhanden */
+    }
   } catch {
-    /* Spalte existiert bereits — ignorieren */
+    // CHECK schlägt fehl → Tabelle muss neu erstellt werden
+    console.log(
+      "[migration] Migriere subtasks-Tabelle auf neue CHECK-Constraint...",
+    );
+    db.exec(`
+      -- Neue Tabelle mit korrektem CHECK anlegen
+      CREATE TABLE IF NOT EXISTS subtasks_new (
+        id                TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        task_id           TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        label             TEXT NOT NULL,
+        task_type         TEXT NOT NULL CHECK(task_type IN ('freitext','pseudocode','mc','plantuml','diagram_upload','table')),
+        question_text     TEXT NOT NULL,
+        expected_answer   TEXT NOT NULL DEFAULT '{}',
+        points            INTEGER NOT NULL,
+        diagram_type      TEXT,
+        expected_elements TEXT DEFAULT '[]',
+        mc_options        TEXT DEFAULT '[]',
+        table_config      TEXT DEFAULT NULL,
+        position          INTEGER NOT NULL DEFAULT 0
+      );
+
+      -- Bestehende Daten kopieren
+      INSERT INTO subtasks_new
+        (id, task_id, label, task_type, question_text, expected_answer,
+         points, diagram_type, expected_elements, mc_options, position)
+      SELECT
+        id, task_id, label, task_type, question_text, expected_answer,
+        points, diagram_type, expected_elements, mc_options, position
+      FROM subtasks;
+
+      -- Alte Tabelle löschen, neue umbenennen
+      DROP TABLE subtasks;
+      ALTER TABLE subtasks_new RENAME TO subtasks;
+
+      -- Index neu erstellen
+      CREATE INDEX IF NOT EXISTS idx_subtasks_task ON subtasks(task_id);
+    `);
+    console.log("[migration] subtasks-Tabelle erfolgreich migriert.");
   }
 
   db.prepare(

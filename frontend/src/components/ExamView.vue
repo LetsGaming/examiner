@@ -136,26 +136,73 @@
                 </div>
               </div>
 
-              <!-- PlantUML -->
+              <!-- PlantUML — unterstützt Code-Eingabe UND Bild-Upload -->
               <div v-else-if="currentSubtask.taskType === 'plantuml'" class="plantuml-wrap">
-                <div class="pane">
-                  <div class="pane-label">PlantUML Code</div>
-                  <textarea
-                    v-model="currentAnswerState!.textValue"
-                    class="code-input"
-                    :placeholder="plantumlPlaceholder"
-                    @input="onPlantUMLInput"
-                    spellcheck="false"
-                  />
+                <!-- Tab-Auswahl -->
+                <div class="uml-tabs">
+                  <button
+                    class="uml-tab"
+                    :class="{ active: umlInputMode === 'code' }"
+                    @click="umlInputMode = 'code'"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                    PlantUML Code
+                  </button>
+                  <button
+                    class="uml-tab"
+                    :class="{ active: umlInputMode === 'upload' }"
+                    @click="umlInputMode = 'upload'"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    Bild hochladen
+                  </button>
                 </div>
-                <div class="pane">
-                  <div class="pane-label">Vorschau</div>
-                  <div class="plantuml-preview">
-                    <img v-if="plantUmlPreviewUrl" :src="plantUmlPreviewUrl" @error="plantUmlPreviewUrl = null" />
-                    <div v-else class="preview-empty">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                      <span>Vorschau erscheint beim Tippen</span>
+
+                <!-- Code-Modus -->
+                <div v-if="umlInputMode === 'code'" class="uml-code-panes">
+                  <div class="pane">
+                    <div class="pane-label">PlantUML Code</div>
+                    <textarea
+                      v-model="currentAnswerState!.textValue"
+                      class="code-input"
+                      :placeholder="plantumlPlaceholder"
+                      @input="onPlantUMLInput"
+                      spellcheck="false"
+                    />
+                  </div>
+                  <div class="pane">
+                    <div class="pane-label">Vorschau</div>
+                    <div class="plantuml-preview">
+                      <img v-if="plantUmlPreviewUrl" :src="plantUmlPreviewUrl" @error="onPreviewError" alt="PlantUML Vorschau" />
+                      <div v-else class="preview-empty">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        <span>Vorschau erscheint beim Tippen</span>
+                      </div>
                     </div>
+                  </div>
+                </div>
+
+                <!-- Upload-Modus -->
+                <div v-else class="upload-area">
+                  <div class="upload-info">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                    Zeichne dein UML-Diagramm auf Papier, fotografiere es und lade es hier hoch.
+                  </div>
+                  <div
+                    class="upload-zone"
+                    :class="{ 'has-file': !!currentAnswerState?.uploadedFile }"
+                    @dragover.prevent @drop.prevent="onFileDrop"
+                  >
+                    <template v-if="uploadPreviewUrl">
+                      <img :src="uploadPreviewUrl" class="upload-preview-img" />
+                      <button class="upload-replace" @click="fileInputRef?.click()">Bild ersetzen</button>
+                    </template>
+                    <template v-else>
+                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="upload-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                      <p class="upload-title">UML-Diagramm hochladen</p>
+                      <p class="upload-hint-text">PNG oder JPG · Drag &amp; Drop oder</p>
+                      <button class="upload-btn" @click="fileInputRef?.click()">Datei auswählen</button>
+                    </template>
                   </div>
                 </div>
               </div>
@@ -360,6 +407,50 @@ const showLeaveConfirm  = ref(false)
 const plantUmlPreviewUrl = ref<string | null>(null)
 const uploadPreviewUrl   = ref<string | null>(null)
 const fileInputRef       = ref<HTMLInputElement | null>(null)
+const umlInputMode       = ref<'code' | 'upload'>('code')
+
+// ─── PlantUML Encoding ────────────────────────────────────────────────────────
+// PlantUML nutzt ein eigenes Encoding: deflate (raw) → custom Base64
+// Wir nutzen die ~1 (hex-Deflate) Methode als einfachen Fallback,
+// oder die korrekte deflate-Methode via DecompressionStream polyfill.
+
+function encode64(data: Uint8Array): string {
+  const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_'
+  let result = ''
+  for (let i = 0; i < data.length; i += 3) {
+    const b0 = data[i], b1 = data[i + 1] ?? 0, b2 = data[i + 2] ?? 0
+    result += chars[(b0 >> 2) & 0x3F]
+    result += chars[((b0 & 0x03) << 4) | ((b1 >> 4) & 0x0F)]
+    result += chars[((b1 & 0x0F) << 2) | ((b2 >> 6) & 0x03)]
+    result += chars[b2 & 0x3F]
+  }
+  return result
+}
+
+async function encodePlantUml(code: string): Promise<string | null> {
+  try {
+    const utf8 = new TextEncoder().encode(code)
+    // Compress with DeflateRaw
+    const ds = new (window as unknown as { CompressionStream: new (f: string) => TransformStream }).CompressionStream('deflate-raw')
+    const writer = ds.writable.getWriter()
+    writer.write(utf8)
+    writer.close()
+    const chunks: Uint8Array[] = []
+    const reader = ds.readable.getReader()
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      chunks.push(value)
+    }
+    const total = chunks.reduce((s, c) => s + c.length, 0)
+    const compressed = new Uint8Array(total)
+    let offset = 0
+    for (const c of chunks) { compressed.set(c, offset); offset += c.length }
+    return encode64(compressed)
+  } catch {
+    return null
+  }
+}
 
 // ─── Labels ───────────────────────────────────────────────────────────────────
 
@@ -381,6 +472,7 @@ function typeShort(t: string) {
 function goToTask(ti: number, si: number) {
   activeTask.value = ti; activeSubtask.value = si; navOpen.value = false
   plantUmlPreviewUrl.value = null; uploadPreviewUrl.value = null
+  umlInputMode.value = 'code'
   restorePreview()
 }
 function nextSubtask() { const n = flatSubtasks.value[flatIndex.value + 1]; if (n) goToTask(n.ti, n.si) }
@@ -394,18 +486,25 @@ function selectMcOption(id: string) {
   debouncedSave(activeTask.value, activeSubtask.value)
 }
 
-// F-014: Use TextEncoder instead of deprecated unescape()
+// F-014: PlantUML korrekt encodieren (deflate-raw + custom base64)
 function onPlantUMLInput() {
   debouncedSave(activeTask.value, activeSubtask.value)
   const code = currentAnswerState.value?.textValue ?? ''
   if (code.trim()) {
-    try {
-      const encoded = btoa(String.fromCharCode(...new TextEncoder().encode(code)))
-      plantUmlPreviewUrl.value = `https://www.plantuml.com/plantuml/svg/~1${encoded}`
-    } catch { plantUmlPreviewUrl.value = null }
+    encodePlantUml(code).then(encoded => {
+      if (encoded) {
+        plantUmlPreviewUrl.value = `https://www.plantuml.com/plantuml/svg/~1${encoded}`
+      } else {
+        plantUmlPreviewUrl.value = null
+      }
+    })
   } else {
     plantUmlPreviewUrl.value = null
   }
+}
+
+function onPreviewError() {
+  plantUmlPreviewUrl.value = null
 }
 
 function onTextInput() { debouncedSave(activeTask.value, activeSubtask.value) }
@@ -448,22 +547,24 @@ async function handleSubmit() {
   stopTimer()
   isSubmitting.value = true
 
-  // F-009: Parallel save instead of sequential loop
+  // Alle Antworten zuerst persistieren
   await persistAll()
 
   try {
-    const result = await submitSession(props.sessionId)
-    // Fire evaluations in parallel, ignore individual failures
+    // FIX: Erst alle Evaluierungen abwarten, DANN submitten
+    // Sonst hat der Server noch keine Punkte und gibt 0 zurück
     const states = [...answerStates.value.values()].filter(a => a.answerId)
     await Promise.allSettled(
       states.map(a => requestEvaluation(props.sessionId, a.answerId!))
     )
+
+    // Jetzt erst submiten — alle awarded_points sind in der DB
+    const result = await submitSession(props.sessionId)
     isSubmitting.value = false
     emit('submitted', result)
   } catch (err) {
     console.error('[submit]', err)
     isSubmitting.value = false
-    // F-011: Show error to user instead of swallowing silently
     submitError.value = err instanceof Error ? err.message : 'Abgabe fehlgeschlagen. Bitte versuche es erneut.'
   }
 }
@@ -671,8 +772,21 @@ onMounted(() => {
 .mc-opt-text { font-size: 14px; line-height: 1.5; color: #d1d5db; }
 
 /* ─── PlantUML ─── */
-.plantuml-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-@media (max-width: 600px) { .plantuml-wrap { grid-template-columns: 1fr; } }
+.uml-tabs {
+  display: flex; gap: 4px; margin-bottom: 12px;
+  background: rgba(255,255,255,.04); border-radius: 10px; padding: 4px;
+}
+.uml-tab {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 7px 12px; border-radius: 7px; border: none; cursor: pointer;
+  font-size: 12px; font-weight: 600; color: #6b7280; background: transparent;
+  transition: all .15s;
+}
+.uml-tab.active { background: #1e2235; color: #a5b4fc; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+.uml-tab:hover:not(.active) { color: #9ca3af; }
+.uml-code-panes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 600px) { .uml-code-panes { grid-template-columns: 1fr; } }
+.plantuml-wrap { display: flex; flex-direction: column; }
 .pane { display: flex; flex-direction: column; gap: 6px; }
 .pane-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #4b5563; }
 .code-input {

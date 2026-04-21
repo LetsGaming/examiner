@@ -1,5 +1,5 @@
 <template>
-  <ion-page>
+  <ion-page style="overflow-y: auto;">
   <div class="results-page">
 
     <header class="results-header">
@@ -171,7 +171,7 @@ onMounted(async () => {
 
 <style scoped>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-.results-page { min-height: 100vh; background: #0f1117; color: #e8eaf0; font-family: 'Inter', system-ui, sans-serif; }
+.results-page { min-height: 100vh; background: #0f1117; color: #e8eaf0; font-family: 'Inter', system-ui, sans-serif; overflow-y: auto; }
 
 .results-header {
   display: grid; grid-template-columns: 1fr auto 1fr;

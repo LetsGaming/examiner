@@ -2,11 +2,10 @@ import DatabaseConstructor from "better-sqlite3"; // Import the default construc
 import type { Database as DatabaseType } from "better-sqlite3"; // Import the Type
 import path from "path";
 import fs from "fs";
-import { SCENARIOS } from "../services/examGenerator.js";
-import type { Scenario } from "../services/examGenerator.js";
+import { SCENARIOS, pickRandomScenario, type Scenario } from "../services/scenarios.js";
 
 const DB_DIR = path.resolve(process.cwd(), "data");
-const DB_PATH = path.join(DB_DIR, "fiae_ap2.db");
+const DB_PATH = path.join(DB_DIR, process.env.DB_FILENAME ?? "ap2_trainer.db");
 if (!fs.existsSync(DB_DIR)) fs.mkdirSync(DB_DIR, { recursive: true });
 
 // Explicitly type the exported variable
@@ -212,6 +211,19 @@ export function initDatabase(): void {
     /* bereits vorhanden — ignorieren */
   }
 
+  // ─── Migration: specialty Spalte in tasks + exam_sessions ────────────────
+  try {
+    db.exec("ALTER TABLE tasks ADD COLUMN specialty TEXT NOT NULL DEFAULT 'fiae'");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_tasks_specialty ON tasks(part, specialty)");
+  } catch {
+    /* bereits vorhanden — ignorieren */
+  }
+  try {
+    db.exec("ALTER TABLE exam_sessions ADD COLUMN specialty TEXT NOT NULL DEFAULT 'fiae'");
+  } catch {
+    /* bereits vorhanden — ignorieren */
+  }
+
   db.prepare(
     `
     INSERT OR IGNORE INTO users (id, email, display_name, password_hash)
@@ -263,7 +275,7 @@ export const GENERATE_COUNT: Record<string, number> = {
 
 // ─── Pool-Status ──────────────────────────────────────────────────────────────
 
-export function canAssembleExam(part: string): boolean {
+export function canAssembleExam(part: string, specialty = "fiae"): boolean {
   const structure = STRUCTURES[part];
   if (!structure) return false;
   const usedTopics = new Set<string>();
@@ -280,12 +292,12 @@ export function canAssembleExam(part: string): boolean {
       .prepare(
         `
       SELECT id, topic_area FROM tasks
-      WHERE part = ? AND points_value BETWEEN ? AND ?
+      WHERE part = ? AND specialty = ? AND points_value BETWEEN ? AND ?
         AND id NOT IN (${usedIdStr}) ${topicEx}
       ORDER BY times_used ASC, RANDOM() LIMIT 1
     `,
       )
-      .get(part, slot.minPoints, slot.maxPoints) as
+      .get(part, specialty, slot.minPoints, slot.maxPoints) as
       | { id: string; topic_area: string }
       | undefined;
 
@@ -295,12 +307,12 @@ export function canAssembleExam(part: string): boolean {
         .prepare(
           `
       SELECT id, topic_area FROM tasks
-      WHERE part = ? AND points_value BETWEEN ? AND ?
+      WHERE part = ? AND specialty = ? AND points_value BETWEEN ? AND ?
         AND id NOT IN (${usedIdStr})
       ORDER BY times_used ASC, RANDOM() LIMIT 1
     `,
         )
-        .get(part, slot.minPoints, slot.maxPoints) as
+        .get(part, specialty, slot.minPoints, slot.maxPoints) as
         | { id: string; topic_area: string }
         | undefined);
 
@@ -316,7 +328,7 @@ export function canAssembleExam(part: string): boolean {
 // Das bedeutet jede Prüfung hat eine andere Ausgangssituation — auch wenn dieselben
 // Aufgaben aus dem Pool gewählt werden.
 
-export function assembleExam(part: string): {
+export function assembleExam(part: string, specialty = "fiae"): {
   tasks: Record<string, unknown>[];
   totalPoints: number;
   scenarioName: string;
@@ -326,8 +338,7 @@ export function assembleExam(part: string): {
   if (!structure) return null;
 
   // Szenario zufällig wählen — jede Prüfung bekommt ein anderes
-  const scenario: Scenario =
-    SCENARIOS[Math.floor(Math.random() * SCENARIOS.length)];
+  const scenario: Scenario = pickRandomScenario();
 
   const usedTopics = new Set<string>();
   const selectedTasks: Record<string, unknown>[] = [];
@@ -343,12 +354,12 @@ export function assembleExam(part: string): {
       .prepare(
         `
       SELECT * FROM tasks
-      WHERE part = ? AND points_value BETWEEN ? AND ?
+      WHERE part = ? AND specialty = ? AND points_value BETWEEN ? AND ?
         AND id NOT IN (${usedIds}) ${topicEx}
       ORDER BY times_used ASC, RANDOM() LIMIT 1
     `,
       )
-      .get(part, slot.minPoints, slot.maxPoints) as
+      .get(part, specialty, slot.minPoints, slot.maxPoints) as
       | Record<string, unknown>
       | undefined;
 
@@ -358,12 +369,12 @@ export function assembleExam(part: string): {
         .prepare(
           `
       SELECT * FROM tasks
-      WHERE part = ? AND points_value BETWEEN ? AND ?
+      WHERE part = ? AND specialty = ? AND points_value BETWEEN ? AND ?
         AND id NOT IN (${usedIds})
       ORDER BY times_used ASC, RANDOM() LIMIT 1
     `,
         )
-        .get(part, slot.minPoints, slot.maxPoints) as
+        .get(part, specialty, slot.minPoints, slot.maxPoints) as
         | Record<string, unknown>
         | undefined);
 

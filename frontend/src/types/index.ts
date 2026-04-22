@@ -1,42 +1,69 @@
-export type ExamPart = "teil_1" | "teil_2" | "teil_3";
+export type ExamPart = 'teil_1' | 'teil_2' | 'teil_3';
+export type Specialty = 'fiae' | 'fisi';
 export type TaskType =
-  | "freitext"
-  | "pseudocode"
-  | "mc"
-  | "plantuml"
-  | "diagram_upload"
-  | "table";
+  | 'freitext'
+  | 'pseudocode'
+  | 'mc'
+  | 'plantuml'
+  | 'diagram_upload'
+  | 'table';
 export type DiagramType =
-  | "uml_class"
-  | "uml_sequence"
-  | "uml_use_case"
-  | "uml_activity"
-  | "er";
-export type SessionStatus = "in_progress" | "submitted" | "graded";
+  | 'uml_class'
+  | 'uml_sequence'
+  | 'uml_use_case'
+  | 'uml_activity'
+  | 'er';
+export type SessionStatus = 'in_progress' | 'submitted' | 'graded';
 export type IhkGrade =
-  | "sehr_gut"
-  | "gut"
-  | "befriedigend"
-  | "ausreichend"
-  | "mangelhaft"
-  | "ungenuegend";
+  | 'sehr_gut'
+  | 'gut'
+  | 'befriedigend'
+  | 'ausreichend'
+  | 'mangelhaft'
+  | 'ungenuegend';
+
+// ─── Display constants ────────────────────────────────────────────────────────
 
 export const IHK_GRADE_LABELS: Record<IhkGrade, string> = {
-  sehr_gut: "Sehr gut (1)",
-  gut: "Gut (2)",
-  befriedigend: "Befriedigend (3)",
-  ausreichend: "Ausreichend (4)",
-  mangelhaft: "Mangelhaft (5)",
-  ungenuegend: "Ungenügend (6)",
+  sehr_gut:     'Sehr gut (1)',
+  gut:          'Gut (2)',
+  befriedigend: 'Befriedigend (3)',
+  ausreichend:  'Ausreichend (4)',
+  mangelhaft:   'Mangelhaft (5)',
+  ungenuegend:  'Ungenügend (6)',
 };
-export const IHK_GRADE_COLORS: Record<IhkGrade, string> = {
-  sehr_gut: "success",
-  gut: "primary",
-  befriedigend: "secondary",
-  ausreichend: "warning",
-  mangelhaft: "danger",
-  ungenuegend: "danger",
+
+export const PART_LABELS: Record<ExamPart, string> = {
+  teil_1: 'Teil 1 — Planen',
+  teil_2: 'Teil 2 — Entwicklung',
+  teil_3: 'Teil 3 — WiSo',
 };
+
+export const PART_LABELS_FISI: Record<ExamPart, string> = {
+  teil_1: 'Teil 1 — IT-Systeme',
+  teil_2: 'Teil 2 — Netzwerke',
+  teil_3: 'Teil 3 — WiSo',
+};
+
+export const TASK_TYPE_LABELS: Record<TaskType, string> = {
+  freitext:       'Freitext',
+  pseudocode:     'Pseudocode',
+  mc:             'Multiple Choice',
+  plantuml:       'PlantUML',
+  diagram_upload: 'Diagramm-Upload',
+  table:          'Tabelle',
+};
+
+export const TASK_TYPE_SHORT: Record<TaskType, string> = {
+  freitext:       'Text',
+  pseudocode:     'Code',
+  mc:             'MC',
+  plantuml:       'UML',
+  diagram_upload: 'Upload',
+  table:          'Tabelle',
+};
+
+// ─── Domain interfaces ────────────────────────────────────────────────────────
 
 export interface McOption {
   id: string;
@@ -50,10 +77,9 @@ export interface TableConfig {
   fixedFirstColumn?: boolean;
 }
 
-// ─── Unteraufgabe (a, b, c …) ────────────────────────────────────────────────
 export interface SubTask {
   id: string;
-  label: string; // 'a', 'b', 'c' …
+  label: string;
   taskType: TaskType;
   questionText: string;
   points: number;
@@ -63,13 +89,12 @@ export interface SubTask {
   tableConfig?: TableConfig;
 }
 
-// ─── Hauptaufgabe ─────────────────────────────────────────────────────────────
 export interface Task {
   id: string;
   position: number;
   topicArea?: string;
   maxPoints: number;
-  subtasks: SubTask[]; // immer mind. 1 Eintrag
+  subtasks: SubTask[];
 }
 
 export interface ExamTemplate {
@@ -112,7 +137,7 @@ export interface AiEvaluation {
 export interface Answer {
   id: string;
   sessionId: string;
-  subtaskId: string; // Antwort ist jetzt an SubTask gebunden
+  subtaskId: string;
   textValue: string;
   selectedMcOption: string | null;
   diagramImagePath?: string;
@@ -137,4 +162,37 @@ export interface ApiResponse<T> {
   success: boolean;
   data?: T;
   error?: string;
+}
+
+// ─── Pool / home types ────────────────────────────────────────────────────────
+
+export interface PoolPartStatus {
+  part: ExamPart;
+  total: number;
+  canAssemble: boolean;
+  sufficient: boolean;
+}
+
+export interface TaskWarning {
+  topic: string;
+  source: 'user_ai' | 'server_ai' | 'fallback';
+  message: string;
+}
+
+export interface AiSettings {
+  provider: string;
+  providers: ProviderInfo[];
+  hasKey: boolean;
+  keySource: 'user' | 'env' | 'none';
+  keyMasked: string | null;
+  updatedAt: string | null;
+}
+
+export interface ProviderInfo {
+  id: string;
+  label: string;
+  keyHint: string;
+  docsUrl: string;
+  textModel: string;
+  visionModel: string;
 }

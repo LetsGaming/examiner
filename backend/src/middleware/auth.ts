@@ -14,7 +14,7 @@ function getJwtSecret(): string {
 }
 
 export function signToken(userId: string, email: string): string {
-  return jwt.sign({ sub: userId, email }, getJwtSecret(), { expiresIn: "30d" });
+  return jwt.sign({ sub: userId, email }, getJwtSecret(), { expiresIn: "7d" });
 }
 
 /**

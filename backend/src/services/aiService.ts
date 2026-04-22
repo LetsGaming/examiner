@@ -33,6 +33,8 @@ export interface AssessAnswerParams {
   studentAnswer: string;
   maxPoints: number;
   topicArea?: string;
+  /** Formatted scenario context string, e.g. "Unternehmenskontext: TravelTech GmbH — ..." */
+  scenarioContext?: string;
 }
 
 export interface AnalyzeDiagramParams {
@@ -43,12 +45,17 @@ export interface AnalyzeDiagramParams {
   plantUmlCode?: string;
   imageBase64?: string;
   imageMediaType?: string;
+  /** Formatted scenario context string */
+  scenarioContext?: string;
 }
 
-function buildSystemPrompt(examPart: ExamPart): string {
+function buildSystemPrompt(examPart: ExamPart, scenarioContext?: string): string {
+  const scenarioLine = scenarioContext
+    ? `\nPRÜFUNGSKONTEXT: ${scenarioContext}\nAlle Aufgaben beziehen sich auf dieses Unternehmen. Berücksichtige den Kontext bei der Bewertung.\n`
+    : "";
   return `Du bist ein erfahrener, strenger und fairer IHK-Prüfer für den Ausbildungsberuf Fachinformatiker für Anwendungsentwicklung (FIAE).
 Aktueller Prüfungsbereich: ${PART_DESCRIPTIONS[examPart]}
-
+${scenarioLine}
 IHK-NOTENSCHEMA (Pflichtanwendung):
 - 92–100 % → sehr_gut
 - 81–91 %  → gut
@@ -67,14 +74,25 @@ BEWERTUNGSREGELN:
 AUSGABE: Antworte AUSSCHLIESSLICH mit einem validen JSON-Objekt. Kein Text davor oder danach, keine Markdown-Backticks.`;
 }
 
+/**
+ * Strip any unresolved {{PLACEHOLDER}} tokens before text reaches the LLM.
+ * These appear in expectedAnswer fields when the AI generated content before
+ * scenario values were assigned. They confuse the grading model.
+ */
+function stripPlaceholders(text: string): string {
+  return text.replace(/\{\{[A-Z_]+\}\}/g, "");
+}
+
 function buildUserPrompt(params: AssessAnswerParams): string {
+  const questionText = stripPlaceholders(params.questionText);
+  const expectedAnswerJson = stripPlaceholders(JSON.stringify(params.expectedAnswer, null, 2));
   return `AUFGABENSTELLUNG:
-${params.questionText}
+${questionText}
 
 MAXIMALPUNKTE: ${params.maxPoints}
 
 ERWARTUNGSHORIZONT (vertraulich — nicht für Prüfling):
-${JSON.stringify(params.expectedAnswer, null, 2)}
+${expectedAnswerJson}
 
 ANTWORT DES PRÜFLINGS:
 """
@@ -96,10 +114,12 @@ Bewerte die Antwort und gib ausschließlich dieses JSON zurück:
 }
 
 function buildDiagramTextPrompt(params: AnalyzeDiagramParams): string {
+  const scenarioLine = params.scenarioContext ? `\nKONTEXT: ${params.scenarioContext}\n` : "";
+  const taskDescription = stripPlaceholders(params.taskDescription);
   return `Du analysierst ein ${DIAGRAM_TYPE_LABELS[params.diagramType]} im Rahmen einer FIAE AP2-Prüfung.
-
+${scenarioLine}
 AUFGABENSTELLUNG:
-${params.taskDescription}
+${taskDescription}
 
 MAXIMALPUNKTE: ${params.maxPoints}
 
@@ -356,32 +376,46 @@ function gradeMcAnswer(
   expectedAnswer: Record<string, unknown>,
   maxPoints: number,
 ): Omit<AiEvaluation, "id" | "answerId" | "createdAt"> {
-  const correctOptionId = expectedAnswer.correctOptionId as string;
-  const explanation = (expectedAnswer.explanation as string) ?? "";
-  const isCorrect = selectedOptionId === correctOptionId;
+  // Validate correctOption — must be one of A/B/C/D (generator enforces this, but guard here too)
+  const VALID_MC_OPTIONS = new Set(["A", "B", "C", "D"]);
+  const rawCorrect = String(
+    (expectedAnswer.correctOption as string) ??
+    (expectedAnswer.correctOptionId as string) ??
+    ""
+  ).toUpperCase().trim();
+  const correctOptionId = VALID_MC_OPTIONS.has(rawCorrect) ? rawCorrect : "";
+
+  const selected = (selectedOptionId ?? "").toUpperCase().trim();
+  // Strip any residual {{PLACEHOLDER}} from the explanation before showing it
+  const explanation = stripPlaceholders((expectedAnswer.explanation as string) ?? "");
+  const isCorrect = selected !== "" && correctOptionId !== "" && selected === correctOptionId;
   const awarded = isCorrect ? maxPoints : 0;
   const percent = isCorrect ? 100 : 0;
+
+  const wrongFeedback = correctOptionId
+    ? `Leider falsch. Die korrekte Antwort ist Option "${correctOptionId}".${explanation ? " " + explanation : ""}`
+    : `Leider falsch.${explanation ? " " + explanation : ""}`;
 
   return {
     awardedPoints: awarded,
     maxPoints,
     percentageScore: percent,
     ihkGrade: deriveIhkGrade(percent),
-    feedbackText: isCorrect
-      ? `Richtig! ${explanation}`
-      : `Leider falsch. Die korrekte Antwort wäre Option "${correctOptionId}". ${explanation}`,
+    feedbackText: isCorrect ? `Richtig!${explanation ? " " + explanation : ""}` : wrongFeedback,
     criterionScores: [
       {
         criterion: "Korrekte Antwort",
         awarded,
         max: maxPoints,
-        comment: isCorrect ? "Richtig" : "Falsch",
+        comment: isCorrect
+          ? `Option ${selected} ist korrekt`
+          : `Option ${selected} ist falsch${correctOptionId ? ` — korrekt wäre ${correctOptionId}` : ""}`,
       },
     ],
     keyMistakes: isCorrect
       ? []
-      : [`Falsche Option "${selectedOptionId}" gewählt`],
-    improvementHints: isCorrect ? [] : [explanation],
+      : [`Falsche Option "${selected}" gewählt${correctOptionId ? ` — korrekt wäre "${correctOptionId}"` : ""}`],
+    improvementHints: isCorrect ? [] : explanation ? [explanation] : [],
     modelUsed: "local_mc_evaluation",
   };
 }
@@ -416,7 +450,7 @@ async function assessTableAnswer(
       ? `${header}\n${separator}\n${formatRows(expectedRows)}`
       : "(kein Erwartungshorizont hinterlegt)";
 
-  const prompt = `${buildSystemPrompt(params.examPart)}
+  const prompt = `${buildSystemPrompt(params.examPart, params.scenarioContext)}
 
 AUFGABENSTELLUNG:
 ${params.questionText}

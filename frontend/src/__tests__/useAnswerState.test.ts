@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { useAnswerState } from '../composables/useAnswerState'
 import type { Task } from '../types/index'
 

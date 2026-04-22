@@ -1,0 +1,53 @@
+version: '3.9'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      target: production
+    container_name: ap2-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 8031
+      # Required — generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+      JWT_SECRET: ${JWT_SECRET}
+      API_KEY_SECRET: ${API_KEY_SECRET}
+      # Set at least one AI provider key
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      # Allow the frontend container origin
+      FRONTEND_URLS: http://localhost:8030,${FRONTEND_URL:-}
+      TRUST_PROXY: 'true'
+    volumes:
+      # Persist SQLite database and uploaded diagrams
+      - ap2_data:/app/data
+    ports:
+      - '8031:8031'
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:8031/api/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      target: production
+    container_name: ap2-frontend
+    restart: unless-stopped
+    environment:
+      PORT: 8030
+      # Proxy target for /api calls — points to backend service
+      API_URL: http://backend:8031
+    ports:
+      - '8030:8030'
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  ap2_data:
+    driver: local

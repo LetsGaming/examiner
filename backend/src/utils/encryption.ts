@@ -25,8 +25,18 @@ function getDerivedKey(): Buffer {
     process.env.OPENAI_API_KEY ||
     "fallback-insecure-dev-secret-replace-in-prod";
 
-  // Salt is static/deterministic so the same key always decrypts.
-  // We bind it to the secret itself so changing the secret invalidates all stored keys.
+  if (!process.env.API_KEY_SECRET && !process.env.OPENAI_API_KEY) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "API_KEY_SECRET muss in der Produktionsumgebung gesetzt sein. " +
+          "Bitte in .env hinterlegen: API_KEY_SECRET=<64-Zeichen-Hex>",
+      );
+    }
+    console.warn(
+      "[encryption] ⚠️  Kein API_KEY_SECRET gesetzt — unsicherer Dev-Fallback aktiv. " +
+        "Bitte API_KEY_SECRET in .env setzen.",
+    );
+  }
   const salt = Buffer.from("fiae-ap2-key-salt-v1");
   return scryptSync(secret, salt, 32) as Buffer;
 }

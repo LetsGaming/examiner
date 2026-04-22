@@ -2,7 +2,9 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import { initDatabase } from "./db/database.js";
-import { examRouter, sessionRouter } from "./routes/examRoutes.js";
+import { poolRouter } from "./routes/poolRoutes.js";
+import { sessionRouter } from "./routes/sessionRoutes.js";
+import { evaluationRouter } from "./routes/evaluationRoutes.js";
 import { settingsRouter, initSettingsTable } from "./routes/settingsRoutes.js";
 import { authRouter, initAuthTable } from "./routes/authRoutes.js";
 import { authMiddleware } from "./middleware/auth.js";
@@ -10,11 +12,8 @@ import { authMiddleware } from "./middleware/auth.js";
 const app = express();
 const PORT = process.env.PORT ?? 8031;
 
-// Trust proxy — nötig wenn hinter nginx/Caddy/Traefik (für express-rate-limit)
-if (
-  process.env.TRUST_PROXY === "true" ||
-  process.env.NODE_ENV === "production"
-) {
+// Trust proxy — needed behind nginx/Caddy/Traefik for express-rate-limit
+if (process.env.TRUST_PROXY === "true" || process.env.NODE_ENV === "production") {
   app.set("trust proxy", 1);
   console.log("[server] trust proxy aktiviert (Reverse-Proxy-Modus)");
 }
@@ -26,11 +25,7 @@ const allowedOrigins = new Set<string>(
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean)
-    .concat([
-      "http://localhost:8030",
-      "http://localhost:5173",
-      "http://localhost:3000",
-    ]),
+    .concat(["http://localhost:8030", "http://localhost:5173", "http://localhost:3000"]),
 );
 
 app.use(
@@ -46,22 +41,18 @@ app.use(
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
-
-app.use(
-  "/uploads",
-  express.static(path.resolve(process.cwd(), "data", "uploads")),
-);
+app.use("/uploads", express.static(path.resolve(process.cwd(), "data", "uploads")));
 
 // ─── Public routes ────────────────────────────────────────────────────────────
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, timestamp: new Date().toISOString() });
 });
-
-app.use("/api/auth", authRouter); // register + login are public
+app.use("/api/auth", authRouter);
 
 // ─── Protected routes (require valid JWT) ────────────────────────────────────
-app.use("/api/exams", authMiddleware, examRouter);
+app.use("/api/exams",    authMiddleware, poolRouter);
 app.use("/api/sessions", authMiddleware, sessionRouter);
+app.use("/api/sessions", authMiddleware, evaluationRouter);
 app.use("/api/settings", authMiddleware, settingsRouter);
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
@@ -70,10 +61,10 @@ initSettingsTable();
 initAuthTable();
 
 app.listen(PORT, () => {
-  console.log(`✅ FIAE AP2 Backend läuft auf http://localhost:${PORT}`);
+  console.log(`✅ AP2 Trainer Backend läuft auf http://localhost:${PORT}`);
   console.log(`   Erlaubte Origins: ${[...allowedOrigins].join(", ")}`);
   console.log(
-    `   AI Provider Keys: OpenAI=${process.env.OPENAI_API_KEY ? "✓" : "–"} Anthropic=${process.env.ANTHROPIC_API_KEY ? "✓" : "–"} Google=${process.env.GOOGLE_API_KEY ? "✓" : "–"} Mistral=${process.env.MISTRAL_API_KEY ? "✓" : "–"} — nur einer muss gesetzt sein; User-Keys überschreiben immer`,
+    `   AI Provider Keys: OpenAI=${process.env.OPENAI_API_KEY ? "✓" : "–"} Anthropic=${process.env.ANTHROPIC_API_KEY ? "✓" : "–"} Google=${process.env.GOOGLE_API_KEY ? "✓" : "–"} Mistral=${process.env.MISTRAL_API_KEY ? "✓" : "–"}`,
   );
   if (!process.env.JWT_SECRET) {
     console.warn("⚠️  JWT_SECRET nicht gesetzt! Bitte in .env hinterlegen.");

@@ -11,8 +11,9 @@ import { assessFreitext, analyzeDiagram } from "../services/aiService.js";
 import {
   generateTasksForPool,
   applyScenario,
-} from "../services/examGenerator.js";
+} from "../services/examGenerator.js"; // applyScenario re-exported from scenarios.ts
 import type { TaskWarning } from "../services/examGenerator.js";
+import type { Specialty } from "../types/index.js";
 import { resolveAiConfig, resolveServerAiConfig } from "./settingsRoutes.js";
 import type { AuthRequest } from "../middleware/auth.js";
 import type {
@@ -90,13 +91,15 @@ async function ensurePoolSize(
   meta?: import("./settingsRoutes.js").ProviderMeta,
   serverApiKey?: string | null,
   serverMeta?: import("./settingsRoutes.js").ProviderMeta | null,
+  specialty: Specialty = "fiae",
 ): Promise<void> {
+  const lockKey = `${part}:${specialty}`;
   // Lock: verhindert dass zwei Requests gleichzeitig für denselben Teil generieren
-  if (generatingParts.has(part)) {
-    console.log(`[pool] ${part}: Generierung läuft bereits, warte...`);
+  if (generatingParts.has(lockKey)) {
+    console.log(`[pool] ${lockKey}: Generierung läuft bereits, warte...`);
     // Warte bis der laufende Generate-Prozess fertig ist (max 120s)
     const deadline = Date.now() + 120_000;
-    while (generatingParts.has(part) && Date.now() < deadline) {
+    while (generatingParts.has(lockKey) && Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, 500));
     }
     return;
@@ -104,18 +107,18 @@ async function ensurePoolSize(
 
   const current = (
     db
-      .prepare("SELECT COUNT(*) as cnt FROM tasks WHERE part = ?")
-      .get(part) as { cnt: number }
+      .prepare("SELECT COUNT(*) as cnt FROM tasks WHERE part = ? AND specialty = ?")
+      .get(part, specialty) as { cnt: number }
   ).cnt;
   const needed = REQUIRED_TASKS[part] ?? 4;
   const genCount = GENERATE_COUNT[part] ?? 8;
 
   if (current >= needed) return;
 
-  generatingParts.add(part);
+  generatingParts.add(lockKey);
   try {
     console.log(
-      `[pool] ${part}: ${current} Tasks — generiere ${genCount} neue...`,
+      `[pool] ${lockKey}: ${current} Tasks — generiere ${genCount} neue...`,
     );
     const genResult = await generateTasksForPool(
       part as ExamPart,
@@ -124,19 +127,20 @@ async function ensurePoolSize(
       meta,
       serverApiKey,
       serverMeta,
+      specialty,
     );
-    await insertTasksIntoDB(part, genResult.tasks);
+    await insertTasksIntoDB(part, genResult.tasks, specialty);
     if (genResult.warnings.length > 0) {
       console.warn(
-        `[pool] ${part}: ${genResult.warnings.length} Warnungen:`,
+        `[pool] ${lockKey}: ${genResult.warnings.length} Warnungen:`,
         genResult.warnings.map((w) => `[${w.source}] ${w.topic}`).join(", "),
       );
     }
     console.log(
-      `[pool] ${part}: ${genResult.tasks.length} neue Tasks hinzugefügt`,
+      `[pool] ${lockKey}: ${genResult.tasks.length} neue Tasks hinzugefügt`,
     );
   } finally {
-    generatingParts.delete(part);
+    generatingParts.delete(lockKey);
   }
 }
 
@@ -146,23 +150,25 @@ async function refillPoolInBackground(
   meta?: import("./settingsRoutes.js").ProviderMeta | null,
   serverApiKey?: string | null,
   serverMeta?: import("./settingsRoutes.js").ProviderMeta | null,
+  specialty: Specialty = "fiae",
 ): Promise<void> {
+  const lockKey = `${part}:${specialty}`;
   // Lock: Hintergrund-Refill nicht starten wenn bereits aktiv
-  if (generatingParts.has(part)) return;
+  if (generatingParts.has(lockKey)) return;
 
   try {
     const current = (
       db
-        .prepare("SELECT COUNT(*) as cnt FROM tasks WHERE part = ?")
-        .get(part) as { cnt: number }
+        .prepare("SELECT COUNT(*) as cnt FROM tasks WHERE part = ? AND specialty = ?")
+        .get(part, specialty) as { cnt: number }
     ).cnt;
     const target = (REQUIRED_TASKS[part] ?? 4) * 3;
     const genCount = GENERATE_COUNT[part] ?? 8;
     if (current >= target) return;
 
-    generatingParts.add(part);
+    generatingParts.add(lockKey);
     console.log(
-      `[pool-refill] ${part}: ${current}/${target} — generiere ${genCount} Tasks im Hintergrund`,
+      `[pool-refill] ${lockKey}: ${current}/${target} — generiere ${genCount} Tasks im Hintergrund`,
     );
     const refillResult = await generateTasksForPool(
       part as ExamPart,
@@ -171,15 +177,16 @@ async function refillPoolInBackground(
       meta ?? undefined,
       serverApiKey,
       serverMeta,
+      specialty,
     );
-    await insertTasksIntoDB(part, refillResult.tasks);
+    await insertTasksIntoDB(part, refillResult.tasks, specialty);
     console.log(
-      `[pool-refill] ${part}: +${refillResult.tasks.length} Tasks${refillResult.warnings.length > 0 ? ` (${refillResult.warnings.length} Warnungen)` : ""}, Pool jetzt ${current + refillResult.tasks.length}`,
+      `[pool-refill] ${lockKey}: +${refillResult.tasks.length} Tasks${refillResult.warnings.length > 0 ? ` (${refillResult.warnings.length} Warnungen)` : ""}, Pool jetzt ${current + refillResult.tasks.length}`,
     );
   } catch (err) {
     console.warn("[pool-refill] Fehler (ignoriert):", err);
   } finally {
-    generatingParts.delete(part);
+    generatingParts.delete(lockKey);
   }
 }
 
@@ -190,10 +197,11 @@ type GeneratedTask = Awaited<
 async function insertTasksIntoDB(
   part: string,
   tasks: GeneratedTask[],
+  specialty: Specialty = "fiae",
 ): Promise<void> {
   const insertTask = db.prepare(`
-    INSERT INTO tasks (id, part, topic_area, points_value, difficulty, scenario_context, scenario_description)
-    VALUES (?, ?, ?, ?, ?, null, null)
+    INSERT INTO tasks (id, part, specialty, topic_area, points_value, difficulty, scenario_context, scenario_description)
+    VALUES (?, ?, ?, ?, ?, ?, null, null)
   `);
   const insertSubtask = db.prepare(`
     INSERT INTO subtasks (id, task_id, label, task_type, question_text,
@@ -208,6 +216,7 @@ async function insertTasksIntoDB(
       insertTask.run(
         taskId,
         part,
+        specialty,
         task.topicArea,
         task.pointsValue,
         task.difficulty ?? "medium",
@@ -237,18 +246,19 @@ async function insertTasksIntoDB(
 export const examRouter = Router();
 
 // GET /api/exams/pool-status
-examRouter.get("/pool-status", (_req, res: Response) => {
+examRouter.get("/pool-status", (req: Request, res: Response) => {
+  const specialty = (req.query.specialty as string) || "fiae";
   const POOL_MIN = REQUIRED_TASKS;
   const status = ["teil_1", "teil_2", "teil_3"].map((part) => {
     const total = (
       db
-        .prepare("SELECT COUNT(*) as cnt FROM tasks WHERE part = ?")
-        .get(part) as { cnt: number }
+        .prepare("SELECT COUNT(*) as cnt FROM tasks WHERE part = ? AND specialty = ?")
+        .get(part, specialty) as { cnt: number }
     ).cnt;
     return {
       part,
       total,
-      canAssemble: canAssembleExam(part),
+      canAssemble: canAssembleExam(part, specialty),
       sufficient: total >= (POOL_MIN[part] ?? 4),
     };
   });
@@ -272,11 +282,16 @@ examRouter.post(
     const serverConfig =
       aiConfig.source === "user" ? resolveServerAiConfig() : null;
 
-    const { part, count = 4 } = req.body;
+    const { part, count = 4, specialty: specialtyRaw = "fiae" } = req.body;
+    const specialty = specialtyRaw as Specialty;
     if (!["teil_1", "teil_2", "teil_3"].includes(part))
       return res
         .status(400)
         .json({ success: false, error: "Ungültiger Teil." });
+    if (!["fiae", "fisi"].includes(specialty))
+      return res
+        .status(400)
+        .json({ success: false, error: "Ungültige Fachrichtung." });
 
     try {
       const genCount = Math.min(count, GENERATE_COUNT[part] ?? 8);
@@ -287,13 +302,14 @@ examRouter.post(
         aiMeta,
         serverConfig?.apiKey ?? null,
         serverConfig?.meta ?? null,
+        specialty,
       );
-      await insertTasksIntoDB(part, genResult.tasks);
+      await insertTasksIntoDB(part, genResult.tasks, specialty);
 
       const newTotal = (
         db
-          .prepare("SELECT COUNT(*) as cnt FROM tasks WHERE part = ?")
-          .get(part) as { cnt: number }
+          .prepare("SELECT COUNT(*) as cnt FROM tasks WHERE part = ? AND specialty = ?")
+          .get(part, specialty) as { cnt: number }
       ).cnt;
 
       const response: Record<string, unknown> = {
@@ -322,9 +338,12 @@ examRouter.post(
 // FIX: Automatisch neue Aufgaben generieren wenn Pool zu klein ist.
 // FIX: Szenario wird beim Start gewählt und Platzhalter in Subtask-Texten ersetzt.
 examRouter.post("/start", async (req: Request, res: Response) => {
-  const { part } = req.body;
+  const { part, specialty: specialtyRaw = "fiae" } = req.body;
+  const specialty = specialtyRaw as Specialty;
   if (!["teil_1", "teil_2", "teil_3"].includes(part))
     return res.status(400).json({ success: false, error: "Ungültiger Teil." });
+  if (!["fiae", "fisi"].includes(specialty))
+    return res.status(400).json({ success: false, error: "Ungültige Fachrichtung." });
 
   // Concurrency-Lock: max 1 gleichzeitiger Start (verhindert Race Conditions beim Pool)
   if (activeStarts >= MAX_CONCURRENT_STARTS) {
@@ -341,7 +360,7 @@ examRouter.post("/start", async (req: Request, res: Response) => {
     aiConfig?.source === "user" ? resolveServerAiConfig() : null;
 
   // FIX: Automatisch Pool auffüllen wenn nötig (auch beim ersten Aufruf)
-  if (!canAssembleExam(part)) {
+  if (!canAssembleExam(part, specialty)) {
     if (!aiConfig) {
       activeStarts--;
       return res.status(422).json({
@@ -358,6 +377,7 @@ examRouter.post("/start", async (req: Request, res: Response) => {
         aiConfig!.meta,
         serverConfig?.apiKey ?? null,
         serverConfig?.meta ?? null,
+        specialty,
       );
     } catch (err) {
       activeStarts--;
@@ -368,7 +388,7 @@ examRouter.post("/start", async (req: Request, res: Response) => {
     }
   }
 
-  const assembled = assembleExam(part);
+  const assembled = assembleExam(part, specialty);
   if (!assembled) {
     activeStarts--;
     return res.status(422).json({
@@ -400,13 +420,14 @@ examRouter.post("/start", async (req: Request, res: Response) => {
   db.transaction(() => {
     db.prepare(
       `
-      INSERT INTO exam_sessions (id, user_id, part, title, scenario_name, scenario_description, duration_minutes, max_points)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO exam_sessions (id, user_id, part, specialty, title, scenario_name, scenario_description, duration_minutes, max_points)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     ).run(
       sessionId,
       userId,
       part,
+      specialty,
       title,
       assembled.scenarioName,
       assembled.scenarioDescription,
@@ -454,6 +475,7 @@ examRouter.post("/start", async (req: Request, res: Response) => {
       aiConfig?.meta,
       serverConfig?.apiKey ?? null,
       serverConfig?.meta ?? null,
+      specialty,
     ).catch(() => {
       /* ignorieren */
     });
@@ -466,17 +488,17 @@ examRouter.post("/start", async (req: Request, res: Response) => {
 // ─── sessionRouter ────────────────────────────────────────────────────────────
 export const sessionRouter = Router();
 
-function loadSession(sessionId: string) {
+function loadSession(sessionId: string, userId: string) {
   const session = db
     .prepare(
       `
     SELECT id, user_id, part, title, scenario_name, scenario_description,
            duration_minutes, max_points, started_at, submitted_at, status,
            total_score, ihk_grade
-    FROM exam_sessions WHERE id = ?
+    FROM exam_sessions WHERE id = ? AND user_id = ?
   `,
     )
-    .get(sessionId) as Record<string, unknown> | undefined;
+    .get(sessionId, userId) as Record<string, unknown> | undefined;
   if (!session) return null;
 
   // Session-spezifische Overrides laden (Platzhalter-ersetzt)
@@ -610,7 +632,7 @@ function loadSession(sessionId: string) {
 }
 
 sessionRouter.get("/:sessionId", (req: Request, res: Response) => {
-  const data = loadSession(req.params.sessionId as string);
+  const data = loadSession(req.params.sessionId as string, getUserId(req));
   if (!data)
     return res
       .status(404)
@@ -624,6 +646,12 @@ sessionRouter.put(
   (req: Request, res: Response) => {
     const { textValue, selectedMcOption } = req.body;
     const { sessionId, subtaskId } = req.params;
+
+    const owns = db
+      .prepare(`SELECT id FROM exam_sessions WHERE id = ? AND user_id = ?`)
+      .get(sessionId, getUserId(req));
+    if (!owns)
+      return res.status(403).json({ success: false, error: "Keine Berechtigung." });
 
     const existing = db
       .prepare("SELECT id FROM answers WHERE session_id = ? AND subtask_id = ?")
@@ -663,6 +691,13 @@ sessionRouter.post(
     if (!req.file)
       return res.status(400).json({ success: false, error: "Keine Datei." });
     const { sessionId, subtaskId } = req.params;
+
+    const owns = db
+      .prepare(`SELECT id FROM exam_sessions WHERE id = ? AND user_id = ?`)
+      .get(sessionId, getUserId(req));
+    if (!owns)
+      return res.status(403).json({ success: false, error: "Keine Berechtigung." });
+
     const imagePath = req.file.path;
 
     const existing = db
@@ -867,9 +902,9 @@ sessionRouter.post(
 sessionRouter.post("/:sessionId/submit", (req: Request, res: Response) => {
   const session = db
     .prepare(
-      `SELECT id, max_points FROM exam_sessions WHERE id = ? AND status = 'in_progress'`,
+      `SELECT id, max_points FROM exam_sessions WHERE id = ? AND user_id = ? AND status = 'in_progress'`,
     )
-    .get(req.params.sessionId) as
+    .get(req.params.sessionId, getUserId(req)) as
     | { id: string; max_points: number }
     | undefined;
 

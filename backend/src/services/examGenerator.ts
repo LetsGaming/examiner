@@ -1,173 +1,20 @@
-import type {
-  ExamPart,
-  TaskType,
-  DiagramType,
-  TableConfig,
-} from "../types/index.js";
-import { callAiProvider } from "./aiService.js";
-import type { ProviderMeta } from "../routes/settingsRoutes.js";
-
-// ─── Themen ───────────────────────────────────────────────────────────────────
-
-const TOPICS: Record<ExamPart, string[]> = {
-  teil_1: [
-    "Stakeholder-Analyse",
-    "Anforderungsanalyse",
-    "User Stories & INVEST",
-    "Use-Case-Diagramme",
-    "Aktivitätsdiagramme",
-    "Scrum & Agile",
-    "Testkonzept & Teststrategie",
-    "Green-IT & Nachhaltigkeit",
-    "DSGVO & Datenschutz",
-    "ER-Diagramme",
-    "Change Management",
-    "Lastenheft & Pflichtenheft",
-    "Qualitätssicherung",
-    "Cloud-Computing",
-    "UX/UI & Benutzeroberflächen",
-    "Klassendiagramme",
-    "Risikomanagement",
-    "Projektplanung & Meilensteine",
-  ],
-  teil_2: [
-    "Sequenzdiagramme",
-    "Relationales Datenbankmodell",
-    "SQL SELECT & JOIN",
-    "SQL GROUP BY & Aggregation",
-    "SQL UPDATE & DELETE",
-    "Pseudocode & Algorithmen",
-    "Sortieralgorithmen",
-    "Suchalgorithmen",
-    "Rekursion",
-    "Datenstrukturen",
-    "Speicherbedarf & Datenkodierung",
-    "JSON & NoSQL",
-    "OOP-Vererbung",
-    "OOP-Polymorphismus",
-    "Klassendiagramme",
-    "Komplexitätsanalyse",
-    "REST-APIs",
-    "Netzwerktechnik",
-    "IT-Sicherheit & Verschlüsselung",
-  ],
-  teil_3: [
-    "Kündigungsrecht",
-    "Probezeit & Ausbildungsrecht",
-    "Sozialversicherung",
-    "Lohn & Gehaltsabrechnung",
-    "Betriebsrat & Mitbestimmung",
-    "Gesellschaftsformen",
-    "Handelsregister",
-    "Tarifvertrag",
-    "Jugendarbeitsschutz",
-    "Wirtschaftlichkeitsrechnung",
-    "Markt & Wettbewerb",
-    "Nachhaltigkeit",
-    "Mutterschutz & Elternzeit",
-    "Berufsausbildung & BBiG",
-    "Arbeitsvertrag",
-  ],
-};
-
-// ─── Szenarien ────────────────────────────────────────────────────────────────
-
-export const SCENARIOS = [
-  {
-    name: "SmartLogistik GmbH",
-    branche: "Logistik",
-    produkt: "Sendungsverfolgungsapp",
-    mitarbeiter: "280",
-    description:
-      "Die SmartLogistik GmbH ist ein mittelständisches Logistikunternehmen mit 280 Mitarbeitern. Es transportiert täglich über 5.000 Pakete und entwickelt eine mobile App für Fahrer sowie ein Kundenportal zur Sendungsverfolgung.",
-  },
-  {
-    name: "MediCare Systems AG",
-    branche: "Gesundheitswesen",
-    produkt: "Patientenverwaltungssoftware",
-    mitarbeiter: "150",
-    description:
-      "Die MediCare Systems AG entwickelt eine Cloud-Lösung für eine Krankenhausgruppe mit 8 Standorten: Patientendaten, Termine, Behandlungshistorien und Abrechnungen, DSGVO-konform.",
-  },
-  {
-    name: "EduTech Solutions GmbH",
-    branche: "E-Learning",
-    produkt: "Online-Lernplattform",
-    mitarbeiter: "60",
-    description:
-      "Die EduTech Solutions GmbH betreibt eine Lernplattform für 15.000 Nutzer und entwickelt adaptive Lernpfade, Gamification und KI-Empfehlungen. Agile Entwicklung mit Scrum.",
-  },
-  {
-    name: "GreenEnergy Corp GmbH",
-    branche: "Erneuerbare Energien",
-    produkt: "Smart-Home-App",
-    mitarbeiter: "45",
-    description:
-      "Die GreenEnergy Corp GmbH vertreibt Solaranlagen mit Heimspeichern und entwickelt eine App, mit der Kunden Energieverbrauch einsehen und Geräte steuern können.",
-  },
-  {
-    name: "RetailPro GmbH",
-    branche: "E-Commerce",
-    produkt: "Warenwirtschaftssystem",
-    mitarbeiter: "320",
-    description:
-      "Die RetailPro GmbH betreibt 35 Filialen und einen Online-Shop. Ein neues Warenwirtschaftssystem soll Echtzeit-Bestände, automatische Nachbestellung und Kassenintegration liefern.",
-  },
-  {
-    name: "FinTech Solutions AG",
-    branche: "Finanzdienstleistungen",
-    produkt: "Mobile-Banking-App",
-    mitarbeiter: "90",
-    description:
-      "Die FinTech Solutions AG entwickelt eine Banking-App mit Kontoführung, Überweisungen, Budgetplaner und Investment-Funktionen sowie 2FA und PSD2-Compliance.",
-  },
-  {
-    name: "CityConnect GmbH",
-    branche: "Smart City",
-    produkt: "Bürger-App",
-    mitarbeiter: "75",
-    description:
-      "Die CityConnect GmbH entwickelt für 12 Kommunen eine Bürger-App für digitale Verwaltungsleistungen, ÖPNV-Echtzeitdaten und Meldung von Infrastrukturmängeln.",
-  },
-  {
-    name: "AutoTech Dynamics AG",
-    branche: "Automotive",
-    produkt: "Flottenmanagement-Software",
-    mitarbeiter: "200",
-    description:
-      "Die AutoTech Dynamics AG entwickelt eine Cloud-Plattform für Flottenmanagement mit GPS-Ortung, Fahrtenbuch, Wartungsplanung und CO₂-Reporting.",
-  },
-  {
-    name: "FreshFood AG",
-    branche: "Lebensmittel-Logistik",
-    produkt: "Digitales Bestellportal",
-    mitarbeiter: "180",
-    description:
-      "Die FreshFood AG beliefert 800 Restaurants und digitalisiert Bestellportal, Tourenplanung und Lagersteuerung.",
-  },
-  {
-    name: "TravelTech GmbH",
-    branche: "Tourismus",
-    produkt: "Reisebuchungsplattform",
-    mitarbeiter: "55",
-    description:
-      "Die TravelTech GmbH entwickelt eine Reisebuchungsplattform mit KI-Empfehlungen, dynamischer Preisgestaltung und Bewertungssystem.",
-  },
-];
-
-export type Scenario = (typeof SCENARIOS)[0];
-
-function pickRandom<T>(arr: T[], n: number): T[] {
-  return [...arr].sort(() => Math.random() - 0.5).slice(0, n);
-}
-
-export function applyScenario(text: string, s: Scenario): string {
-  return text
-    .replace(/\{\{UNTERNEHMEN\}\}/g, s.name)
-    .replace(/\{\{BRANCHE\}\}/g, s.branche)
-    .replace(/\{\{PRODUKT\}\}/g, s.produkt)
-    .replace(/\{\{MITARBEITER\}\}/g, s.mitarbeiter);
-}
+/**
+ * examGenerator.ts — AI-powered IHK exam task generation.
+ *
+ * Generates structured exam tasks via three-tier fallback:
+ *   1. User's configured AI provider
+ *   2. Server-configured AI provider (if distinct)
+ *   3. Static placeholder task (always succeeds, lower quality)
+ *
+ * Topics and scenarios live in ./topics.ts and ./scenarios.ts.
+ * Templates mirror real IHK AP2 question distributions from Winter 2023/24.
+ */
+import type { ExamPart, TaskType, DiagramType, TableConfig, Specialty } from '../types/index.js';
+import { callAiProvider } from './aiService.js';
+import type { ProviderMeta } from '../routes/settingsRoutes.js';
+import { getTopics } from './topics.js';
+import { SCENARIOS, applyScenario } from './scenarios.js';
+export { SCENARIOS, applyScenario };
 
 // ─── Typen ────────────────────────────────────────────────────────────────────
 
@@ -551,6 +398,10 @@ const TEMPLATES_TEIL3: TaskTemplate[] = [
 
 // ─── Gewichtete Zufallsauswahl ────────────────────────────────────────────────
 
+function pickRandom<T>(arr: T[], n: number): T[] {
+  return [...arr].sort(() => Math.random() - 0.5).slice(0, n);
+}
+
 function pickWeighted<T extends { weight: number }>(items: T[]): T {
   const total = items.reduce((s, i) => s + i.weight, 0);
   let r = Math.random() * total;
@@ -571,6 +422,7 @@ async function generateOneTask(
   apiKey: string,
   forceNoUml = false, // verhindert UML wenn bereits eine UML-Aufgabe im Pool
   meta?: ProviderMeta,
+  specialty: Specialty = "fiae",
 ): Promise<GeneratedTask> {
   const isWiso = part === "teil_3";
 
@@ -608,9 +460,16 @@ async function generateOneTask(
   }
 
   // System-Prompt: minimal und explizit
-  const system = `Du bist IHK-Prüfungsersteller für FIAE AP2. Antworte NUR mit gültigem JSON, kein Markdown.
+  const specialtyLabel = specialty === "fisi" ? "FISI" : "FIAE";
+  const system = `Du bist IHK-Prüfungsersteller für ${specialtyLabel} AP2. Antworte NUR mit gültigem JSON, kein Markdown.
 Platzhalter für Fragetext: {{UNTERNEHMEN}}, {{BRANCHE}}, {{PRODUKT}}, {{MITARBEITER}}.
-Sprache: Deutsch. Stil: knapp, sachlich, IHK-typisch (nennen/erläutern/beschreiben/berechnen).`;
+Sprache: Deutsch. Stil: knapp, sachlich, IHK-typisch (nennen/erläutern/beschreiben/berechnen).
+WICHTIG für Multiple-Choice-Aufgaben:
+- Erstelle 4 Antwortoptionen (A, B, C, D) mit KONKRETEM Inhalt — kein "..." oder Platzhaltertext.
+- Setze "correctOption" auf den Buchstaben der TATSÄCHLICH korrekten Antwort (A, B, C oder D).
+- "correctOption" darf NUR einer dieser Werte sein: "A", "B", "C" oder "D".
+- Variiere die Position der richtigen Antwort — nicht immer A oder B.
+- "explanation" erklärt kurz WARUM diese Option korrekt ist. Keine {{PLATZHALTER}} in explanation.`;
 
   // Schemata je nach Template-Typen aufbauen
   // TableConfig für Tabellen-Aufgaben aufbauen
@@ -639,14 +498,14 @@ Sprache: Deutsch. Stil: knapp, sachlich, IHK-typisch (nennen/erläutern/beschrei
 
   const schemaA =
     tpl.typeA === "mc"
-      ? `{"label":"a","taskType":"mc","questionText":"FRAGE?","points":${tpl.ptsA},"mcOptions":[{"id":"A","text":"..."},{"id":"B","text":"..."},{"id":"C","text":"..."},{"id":"D","text":"..."}],"expectedAnswer":{"correctOption":"A","explanation":"..."}}`
+      ? `{"label":"a","taskType":"mc","questionText":"FRAGE?","points":${tpl.ptsA},"mcOptions":[{"id":"A","text":"Konkrete Antwort A"},{"id":"B","text":"Konkrete Antwort B"},{"id":"C","text":"Konkrete Antwort C"},{"id":"D","text":"Konkrete Antwort D"}],"expectedAnswer":{"correctOption":"X","explanation":"Begründung warum X korrekt ist"}}`
       : tpl.typeA === "table"
         ? `{"label":"a","taskType":"table","questionText":"FRAGE","points":${tpl.ptsA},"expectedAnswer":{"columns":${JSON.stringify(tpl.tableColumns ?? [])},"keyPoints":["Musterlösung Zeile 1","Musterlösung Zeile 2"]}}`
         : `{"label":"a","taskType":"freitext","questionText":"FRAGE","points":${tpl.ptsA},"expectedAnswer":{"keyPoints":["Punkt 1","Punkt 2"]}}`;
 
   const schemaB =
     tpl.typeB === "mc"
-      ? `{"label":"b","taskType":"mc","questionText":"FRAGE?","points":${tpl.ptsB},"mcOptions":[{"id":"A","text":"..."},{"id":"B","text":"..."},{"id":"C","text":"..."},{"id":"D","text":"..."}],"expectedAnswer":{"correctOption":"B","explanation":"..."}}`
+      ? `{"label":"b","taskType":"mc","questionText":"FRAGE?","points":${tpl.ptsB},"mcOptions":[{"id":"A","text":"Konkrete Antwort A"},{"id":"B","text":"Konkrete Antwort B"},{"id":"C","text":"Konkrete Antwort C"},{"id":"D","text":"Konkrete Antwort D"}],"expectedAnswer":{"correctOption":"X","explanation":"Begründung warum X korrekt ist"}}`
       : tpl.typeB === "plantuml"
         ? `{"label":"b","taskType":"plantuml","questionText":"FRAGE","points":${tpl.ptsB},"diagramType":"${diagramType}","expectedElements":["Element1","Element2","Element3"],"expectedAnswer":{"keyPoints":[]}}`
         : tpl.typeB === "pseudocode"
@@ -658,12 +517,14 @@ Sprache: Deutsch. Stil: knapp, sachlich, IHK-typisch (nennen/erläutern/beschrei
   const totalPts = tpl.ptsA + tpl.ptsB;
 
   const user = `Thema: "${topic}"
-Unternehmen-Kontext: {{UNTERNEHMEN}} (Branche: {{BRANCHE}}, Produkt: {{PRODUKT}})
+Unternehmen-Kontext: {{UNTERNEHMEN}} (Branche: {{BRANCHE}}, Produkt: {{PRODUKT}}, ${tpl.ptsA + tpl.ptsB > 15 ? "größeres Unternehmen" : "kleineres Unternehmen"} mit {{MITARBEITER}} Mitarbeitern)
 
 Unteraufgabe a (${tpl.ptsA}P): ${tpl.promptA}
 Unteraufgabe b (${tpl.ptsB}P): ${tpl.promptB}
 
-Gib genau dieses JSON zurück (ersetze FRAGE durch konkrete IHK-typische Fragestellung):
+Gib genau dieses JSON zurück. Ersetze dabei:
+- FRAGE durch eine konkrete IHK-typische Fragestellung
+- Bei MC: "Konkrete Antwort X" durch echte Antwortoptionen, "X" in correctOption durch den Buchstaben der tatsächlich richtigen Option (A/B/C/D), "Begründung..." durch eine kurze Erklärung ohne {{PLATZHALTER}}
 {"topicArea":"${topic}","pointsValue":${totalPts},"difficulty":"medium","subtasks":[${schemaA},${schemaB}]}`;
 
   const raw = await callOpenAI(system, user, apiKey, isWiso ? 650 : 750, meta);
@@ -709,8 +570,26 @@ Gib genau dieses JSON zurück (ersetze FRAGE durch konkrete IHK-typische Fragest
           { id: "D", text: st.mcOptions?.[3]?.text ?? "Antwort D" },
         ];
       }
-      if (!st.expectedAnswer?.correctOption) {
-        st.expectedAnswer = { ...st.expectedAnswer, correctOption: "A" };
+      // Strictly validate correctOption — must be one of the four option IDs.
+      // The AI sometimes returns "undefined", null, or an invalid value as a placeholder.
+      const validOptions = new Set(st.mcOptions.map((o) => o.id.toUpperCase()));
+      const raw = String(st.expectedAnswer?.correctOption ?? "").toUpperCase().trim();
+      const isValidOption = validOptions.has(raw);
+      if (!isValidOption) {
+        // Default to the option with id that matches index position from the schema hint
+        const fallback = i === 0 ? "A" : "B";
+        console.warn(
+          `[generator] correctOption "${raw}" ist ungültig für Aufgabe "${topic}" — Fallback auf "${fallback}"`,
+        );
+        st.expectedAnswer = { ...st.expectedAnswer, correctOption: fallback };
+      } else {
+        // Normalise to uppercase
+        st.expectedAnswer = { ...st.expectedAnswer, correctOption: raw };
+      }
+      // Strip any remaining {{PLACEHOLDER}} from the explanation field
+      if (typeof st.expectedAnswer?.explanation === "string") {
+        st.expectedAnswer.explanation = (st.expectedAnswer.explanation as string)
+          .replace(/\{\{[A-Z_]+\}\}/g, "");
       }
     }
   }
@@ -834,8 +713,9 @@ export async function generateTasksForPool(
   userMeta?: ProviderMeta,
   serverApiKey?: string | null,
   serverMeta?: ProviderMeta | null,
+  specialty: Specialty = "fiae",
 ): Promise<GeneratePoolResult> {
-  const topics = pickRandom(TOPICS[part], count);
+  const topics = pickRandom(getTopics(part, specialty), count);
   const tasks: GeneratedTask[] = [];
   const warnings: TaskWarning[] = [];
   let umlCount = 0;
@@ -862,6 +742,7 @@ export async function generateTasksForPool(
           userApiKey,
           forceNoUml,
           userMeta,
+          specialty,
         );
       } catch (err) {
         userError = err instanceof Error ? err.message : String(err);
@@ -880,6 +761,7 @@ export async function generateTasksForPool(
           serverApiKey!,
           forceNoUml,
           serverMeta!,
+          specialty,
         );
         // User AI failed but server AI succeeded — warn but still a good task
         warnings.push({

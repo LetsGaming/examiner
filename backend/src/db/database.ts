@@ -2,6 +2,7 @@ import DatabaseConstructor from "better-sqlite3"; // Import the default construc
 import type { Database as DatabaseType } from "better-sqlite3"; // Import the Type
 import path from "path";
 import fs from "fs";
+import type { TaskKind } from "../services/taskKind.js";
 
 const DB_DIR = path.resolve(process.cwd(), "data");
 const DB_PATH = path.join(DB_DIR, process.env.DB_FILENAME ?? "ap2_trainer.db");
@@ -32,6 +33,17 @@ export function initDatabase(): void {
       -- sie werden beim Zusammenstellen dynamisch zugewiesen
       scenario_context     TEXT,
       scenario_description TEXT,
+      -- task_kind: Grobe Klassifikation der Aufgaben-Art, für die typ-balancierte
+      -- Zusammenstellung in assembleExam. Mögliche Werte:
+      --   'diagram'    — enthält mindestens eine UML-/ER-/Mockup-Skizze
+      --   'table'      — enthält eine ausfüllbare Tabellen-Aufgabe
+      --   'sql'        — enthält SQL-Aufgabe(n) (Teil 2)
+      --   'calc'       — enthält Berechnungsaufgabe (Speicher, Kosten, Netzplan)
+      --   'code'       — enthält Pseudocode-Aufgabe (Teil 2)
+      --   'text'       — reine Freitext-Aufgabe (Default, ~40% der realen IHK-Prüfungen)
+      -- Eine Aufgabe kann mehrere Qualitäten haben; der kind wird nach Priorität
+      -- gewählt (diagram > calc > sql > code > table > text).
+      task_kind            TEXT NOT NULL DEFAULT 'text',
       created_at           TEXT DEFAULT (datetime('now')),
       times_used           INTEGER DEFAULT 0
     );
@@ -223,6 +235,22 @@ export function initDatabase(): void {
     /* bereits vorhanden — ignorieren */
   }
 
+  // ─── Migration: task_kind Spalte für typ-balancierte Zusammenstellung ─────
+  try {
+    db.exec("ALTER TABLE tasks ADD COLUMN task_kind TEXT NOT NULL DEFAULT 'text'");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_tasks_kind ON tasks(part, specialty, task_kind)");
+  } catch {
+    /* bereits vorhanden — ignorieren */
+  }
+  // Bestehende Aufgaben rückwirkend klassifizieren (lookup über subtasks).
+  // Das läuft bei jedem Start und ist idempotent: task_kind wird nur gesetzt,
+  // wenn die aktuelle Klassifikation "text" ist (Default oder noch ungesetzt).
+  try {
+    reclassifyExistingTasks();
+  } catch (err) {
+    console.warn("[db] Reklassifizierung alter Tasks fehlgeschlagen:", err);
+  }
+
   db.prepare(
     `
     INSERT OR IGNORE INTO users (id, email, display_name, password_hash)
@@ -232,31 +260,9 @@ export function initDatabase(): void {
 }
 
 // ─── Prüfung-Struktur ─────────────────────────────────────────────────────────
-
-const STRUCTURES: Record<string, { minPoints: number; maxPoints: number }[]> = {
-  teil_1: [
-    { minPoints: 20, maxPoints: 30 },
-    { minPoints: 20, maxPoints: 30 },
-    { minPoints: 18, maxPoints: 28 },
-    { minPoints: 15, maxPoints: 25 },
-  ],
-  teil_2: [
-    { minPoints: 20, maxPoints: 30 },
-    { minPoints: 18, maxPoints: 28 },
-    { minPoints: 18, maxPoints: 28 },
-    { minPoints: 15, maxPoints: 25 },
-  ],
-  teil_3: [
-    { minPoints: 8, maxPoints: 15 },
-    { minPoints: 8, maxPoints: 15 },
-    { minPoints: 8, maxPoints: 15 },
-    { minPoints: 8, maxPoints: 15 },
-    { minPoints: 8, maxPoints: 15 },
-    { minPoints: 10, maxPoints: 20 },
-    { minPoints: 10, maxPoints: 20 },
-    { minPoints: 8, maxPoints: 15 },
-  ],
-};
+// Hinweis: Die Punkte-Ranges pro Slot leben jetzt direkt in SLOT_PROFILES
+// (weiter unten), zusammen mit den Kind-Präferenzen. Die alte STRUCTURES-
+// Konstante wurde entfernt, damit es nur noch eine Single-Source-of-Truth gibt.
 
 // Anzahl der benötigten Aufgaben pro Teil
 export const REQUIRED_TASKS: Record<string, number> = {
@@ -273,110 +279,240 @@ export const GENERATE_COUNT: Record<string, number> = {
 };
 
 // ─── Pool-Status ──────────────────────────────────────────────────────────────
+//
+// canAssembleExam und assembleExam nutzen denselben Such-Algorithmus. Hier wird
+// nur simuliert (ohne Rückgabe der Tasks), damit canAssembleExam exakt dasselbe
+// Ergebnis trifft wie ein echter Assembly-Versuch. So vermeiden wir Drift:
+// wenn canAssembleExam grün zeigt, gelingt assembleExam garantiert.
 
 export function canAssembleExam(part: string, specialty = "fiae"): boolean {
-  const structure = STRUCTURES[part];
-  if (!structure) return false;
+  const profile = SLOT_PROFILES[part];
+  if (!profile) return false;
+
   const usedTopics = new Set<string>();
   const usedIds: string[] = [];
+  const kindCounts: Record<string, number> = {};
+  const textCap = MAX_TEXT_PER_EXAM[part] ?? 99;
 
-  for (const slot of structure) {
+  function probeTask(
+    minP: number,
+    maxP: number,
+    kindFilter: TaskKind | null,
+  ): { id: string; topic_area: string; task_kind: string } | undefined {
     const usedIdStr = usedIds.map((id) => `'${id}'`).join(",") || "''";
     const topicEx =
       usedTopics.size > 0
         ? `AND topic_area NOT IN (${[...usedTopics].map((t) => `'${t.replace(/'/g, "''")}'`).join(",")})`
         : "";
+    const kindEx = kindFilter ? `AND task_kind = '${kindFilter}'` : "";
 
-    const candidate = db
+    const primary = db
       .prepare(
-        `
-      SELECT id, topic_area FROM tasks
-      WHERE part = ? AND specialty = ? AND points_value BETWEEN ? AND ?
-        AND id NOT IN (${usedIdStr}) ${topicEx}
-      ORDER BY times_used ASC, RANDOM() LIMIT 1
-    `,
+        `SELECT id, topic_area, task_kind FROM tasks
+         WHERE part = ? AND specialty = ? AND points_value BETWEEN ? AND ?
+           AND id NOT IN (${usedIdStr}) ${topicEx} ${kindEx}
+         ORDER BY times_used ASC, RANDOM() LIMIT 1`,
       )
-      .get(part, specialty, slot.minPoints, slot.maxPoints) as
-      | { id: string; topic_area: string }
+      .get(part, specialty, minP, maxP) as
+      | { id: string; topic_area: string; task_kind: string }
       | undefined;
+    if (primary) return primary;
 
-    const fallback =
-      candidate ??
-      (db
-        .prepare(
-          `
-      SELECT id, topic_area FROM tasks
-      WHERE part = ? AND specialty = ? AND points_value BETWEEN ? AND ?
-        AND id NOT IN (${usedIdStr})
-      ORDER BY times_used ASC, RANDOM() LIMIT 1
-    `,
-        )
-        .get(part, specialty, slot.minPoints, slot.maxPoints) as
-        | { id: string; topic_area: string }
-        | undefined);
+    return db
+      .prepare(
+        `SELECT id, topic_area, task_kind FROM tasks
+         WHERE part = ? AND specialty = ? AND points_value BETWEEN ? AND ?
+           AND id NOT IN (${usedIdStr}) ${kindEx}
+         ORDER BY times_used ASC, RANDOM() LIMIT 1`,
+      )
+      .get(part, specialty, minP, maxP) as
+      | { id: string; topic_area: string; task_kind: string }
+      | undefined;
+  }
 
-    if (!fallback) return false;
-    usedIds.push(fallback.id);
-    usedTopics.add(fallback.topic_area);
+  for (const slot of profile) {
+    let kindsToTry = slot.preferredKinds.slice();
+    if ((kindCounts['text'] ?? 0) >= textCap) {
+      kindsToTry = kindsToTry.filter((k) => k !== 'text');
+    }
+
+    let task: { id: string; topic_area: string; task_kind: string } | undefined;
+    for (const kind of kindsToTry) {
+      task = probeTask(slot.minPoints, slot.maxPoints, kind);
+      if (task) break;
+    }
+    if (!task) task = probeTask(slot.minPoints, slot.maxPoints, null);
+    if (!task) return false;
+
+    usedIds.push(task.id);
+    usedTopics.add(task.topic_area);
+    const kind = task.task_kind ?? 'text';
+    kindCounts[kind] = (kindCounts[kind] ?? 0) + 1;
   }
   return true;
 }
 
+// ─── Kind-Quoten pro Prüfungsteil ────────────────────────────────────────────
+//
+// Abgeleitet aus der Analyse der echten AP2-Prüfungen 2019–2025. Jede Prüfung
+// hat 4 Task-Slots (Teil 1/2) oder 8 (Teil 3). Für jeden Slot gibt es eine
+// priorisierte Liste von bevorzugten Kinds plus Punktebereich. Der Algorithmus
+// geht Slot für Slot durch und wählt die am wenigsten-verwendete passende
+// Aufgabe.
+//
+// Teil 1 (Planen) — reale Verteilung:
+//   - 1–2× Diagramm-Aufgabe (UML-Aktivität/Klasse, ER, Mockup/Skizze)
+//   - 1–2× Tabellen-Aufgabe (Stakeholder, Teststufen, Vergleich, Fehler)
+//   - 0–1× Berechnung (Netzplan, Kosten)
+//   - Rest reine Text-Aufgaben
+//
+// Teil 2 (Entwicklung) — reale Verteilung:
+//   - 1–2× SQL-Aufgabe (fast immer dabei)
+//   - 1× Pseudocode/Algorithmus (fast immer dabei)
+//   - 1× Diagramm (ER, Sequenz, Klasse) oder Berechnung (Speicher)
+//   - 0–1× Text-Aufgabe
+//
+// Teil 3 (WiSo) — bleibt breit: MC + Freitext mix, keine Typbalance nötig.
+
+interface SlotSpec {
+  /** Punktebereich des Slots. */
+  minPoints: number;
+  maxPoints: number;
+  /** Priorisierte Kind-Liste: der erste Kind, für den eine passende Task
+   *  gefunden wird, wird verwendet. Der letzte Eintrag ist der Fallback-Kind,
+   *  die Schleife versucht ihn zuletzt. Wenn gar nichts passt, wird ohne
+   *  Kind-Filter gesucht (Gesamt-Fallback, damit die Prüfung nicht scheitert). */
+  preferredKinds: TaskKind[];
+}
+
+const SLOT_PROFILES: Record<string, SlotSpec[]> = {
+  teil_1: [
+    // Slot 1 (20-30P): bevorzugt Diagramm-Aufgabe (UML/ER/Mockup)
+    { minPoints: 20, maxPoints: 30, preferredKinds: ['diagram', 'table', 'text'] },
+    // Slot 2 (20-30P): bevorzugt Tabellen-Aufgabe
+    { minPoints: 20, maxPoints: 30, preferredKinds: ['table', 'diagram', 'calc', 'text'] },
+    // Slot 3 (18-28P): Berechnung oder zweite Tabelle
+    { minPoints: 18, maxPoints: 28, preferredKinds: ['calc', 'table', 'diagram', 'text'] },
+    // Slot 4 (15-25P): Text-Aufgabe als Basis
+    { minPoints: 15, maxPoints: 25, preferredKinds: ['text', 'table', 'calc', 'diagram'] },
+  ],
+  teil_2: [
+    // Slot 1 (20-30P): SQL-Aufgabe (Teil 2 hat fast immer SQL)
+    { minPoints: 20, maxPoints: 30, preferredKinds: ['sql', 'code', 'diagram', 'text'] },
+    // Slot 2 (18-28P): Pseudocode/Algorithmus
+    { minPoints: 18, maxPoints: 28, preferredKinds: ['code', 'sql', 'diagram', 'text'] },
+    // Slot 3 (18-28P): Diagramm (ER/Sequenz) oder Berechnung
+    { minPoints: 18, maxPoints: 28, preferredKinds: ['diagram', 'calc', 'table', 'text'] },
+    // Slot 4 (15-25P): zweites SQL oder Text
+    { minPoints: 15, maxPoints: 25, preferredKinds: ['sql', 'text', 'calc', 'table'] },
+  ],
+  teil_3: [
+    // WiSo: 8 Slots, keine Typbalance — nur Punkte-Range.
+    // Leere preferredKinds → alle Kinds gleichwertig
+    { minPoints: 8,  maxPoints: 15, preferredKinds: [] },
+    { minPoints: 8,  maxPoints: 15, preferredKinds: [] },
+    { minPoints: 8,  maxPoints: 15, preferredKinds: [] },
+    { minPoints: 8,  maxPoints: 15, preferredKinds: [] },
+    { minPoints: 8,  maxPoints: 15, preferredKinds: [] },
+    { minPoints: 10, maxPoints: 20, preferredKinds: [] },
+    { minPoints: 10, maxPoints: 20, preferredKinds: [] },
+    { minPoints: 8,  maxPoints: 15, preferredKinds: [] },
+  ],
+};
+
+// Reine Text-Aufgaben-Kappe pro Teil — verhindert, dass der Fallback-Pfad
+// eine Prüfung mit 4× 'text' aufbaut, selbst wenn der Pool keine Diagramme
+// enthält. Bei Teil 3 keine Kappe (alle WiSo-Aufgaben sind quasi "text"-artig).
+const MAX_TEXT_PER_EXAM: Record<string, number> = {
+  teil_1: 2,
+  teil_2: 2,
+  teil_3: 99,
+};
+
 // ─── Prüfung zusammenstellen ──────────────────────────────────────────────────
-// Der neue Flow: assembleExam wählt NUR Tasks aus dem Pool aus — das Szenario
-// wird anschließend in der Route erstellt und passt zu den gezogenen Themen.
-// Dadurch hängen Aufgaben und Ausgangssituation inhaltlich zusammen, wie in
-// echten IHK-Prüfungen.
+// Flow:
+//   1. Für jeden Slot die preferredKinds in Reihenfolge durchgehen.
+//   2. Erste verfügbare Task finden, die Punkte-Range und Topic-Eindeutigkeit
+//      erfüllt, times_used priorisiert (alte Aufgaben zuerst).
+//   3. Wenn kein Kind aus der Liste passt, Fallback: irgendeine Aufgabe im
+//      Punktebereich (ohne Kind-Filter).
+//   4. Text-Kappe enforce'n: wenn bereits MAX_TEXT_PER_EXAM 'text'-Tasks
+//      gewählt sind, 'text' aus der preferredKinds-Liste filtern.
 
 export function assembleExam(part: string, specialty = "fiae"): {
   tasks: Record<string, unknown>[];
   totalPoints: number;
   topics: string[];
 } | null {
-  const structure = STRUCTURES[part];
-  if (!structure) return null;
+  const profile = SLOT_PROFILES[part];
+  if (!profile) return null;
 
   const usedTopics = new Set<string>();
+  const usedIds: string[] = [];
   const selectedTasks: Record<string, unknown>[] = [];
+  const kindCounts: Record<string, number> = {};
+  const textCap = MAX_TEXT_PER_EXAM[part] ?? 99;
 
-  for (const slot of structure) {
-    const usedIds = selectedTasks.map((t) => `'${t.id}'`).join(",") || "''";
+  function findTask(
+    minP: number,
+    maxP: number,
+    kindFilter: TaskKind | null,
+  ): Record<string, unknown> | undefined {
+    const usedIdStr = usedIds.map((id) => `'${id}'`).join(",") || "''";
     const topicEx =
       usedTopics.size > 0
         ? `AND topic_area NOT IN (${[...usedTopics].map((t) => `'${t.replace(/'/g, "''")}'`).join(",")})`
         : "";
+    const kindEx = kindFilter ? `AND task_kind = '${kindFilter}'` : "";
 
-    const candidate = db
+    // Primär: Topic noch ungenutzt (verhindert doppelte Themen in einer Prüfung)
+    const primary = db
       .prepare(
-        `
-      SELECT * FROM tasks
-      WHERE part = ? AND specialty = ? AND points_value BETWEEN ? AND ?
-        AND id NOT IN (${usedIds}) ${topicEx}
-      ORDER BY times_used ASC, RANDOM() LIMIT 1
-    `,
+        `SELECT * FROM tasks
+         WHERE part = ? AND specialty = ? AND points_value BETWEEN ? AND ?
+           AND id NOT IN (${usedIdStr}) ${topicEx} ${kindEx}
+         ORDER BY times_used ASC, RANDOM() LIMIT 1`,
       )
-      .get(part, specialty, slot.minPoints, slot.maxPoints) as
-      | Record<string, unknown>
-      | undefined;
+      .get(part, specialty, minP, maxP) as Record<string, unknown> | undefined;
+    if (primary) return primary;
 
-    const task =
-      candidate ??
-      (db
-        .prepare(
-          `
-      SELECT * FROM tasks
-      WHERE part = ? AND specialty = ? AND points_value BETWEEN ? AND ?
-        AND id NOT IN (${usedIds})
-      ORDER BY times_used ASC, RANDOM() LIMIT 1
-    `,
-        )
-        .get(part, specialty, slot.minPoints, slot.maxPoints) as
-        | Record<string, unknown>
-        | undefined);
+    // Sekundär: Topic-Eindeutigkeit aufweichen (Pool zu klein für strenges Topic-Verbot)
+    return db
+      .prepare(
+        `SELECT * FROM tasks
+         WHERE part = ? AND specialty = ? AND points_value BETWEEN ? AND ?
+           AND id NOT IN (${usedIdStr}) ${kindEx}
+         ORDER BY times_used ASC, RANDOM() LIMIT 1`,
+      )
+      .get(part, specialty, minP, maxP) as Record<string, unknown> | undefined;
+  }
 
+  for (const slot of profile) {
+    let kindsToTry = slot.preferredKinds.slice();
+    // Text-Kappe: wenn das Limit erreicht ist, 'text' rausfiltern
+    if ((kindCounts['text'] ?? 0) >= textCap) {
+      kindsToTry = kindsToTry.filter((k) => k !== 'text');
+    }
+
+    let task: Record<string, unknown> | undefined;
+
+    // Nacheinander die bevorzugten Kinds versuchen
+    for (const kind of kindsToTry) {
+      task = findTask(slot.minPoints, slot.maxPoints, kind);
+      if (task) break;
+    }
+    // Wenn keiner der bevorzugten Kinds verfügbar war: ohne Kind-Filter
+    // (letzter Ausweg damit die Prüfung zustande kommt)
+    if (!task) {
+      task = findTask(slot.minPoints, slot.maxPoints, null);
+    }
     if (!task) return null;
+
     selectedTasks.push(task);
+    usedIds.push(task.id as string);
     usedTopics.add(task.topic_area as string);
+    const kind = (task.task_kind as string) ?? 'text';
+    kindCounts[kind] = (kindCounts[kind] ?? 0) + 1;
   }
 
   const totalPoints = selectedTasks.reduce(
@@ -389,4 +525,52 @@ export function assembleExam(part: string, specialty = "fiae"): {
     totalPoints,
     topics: [...usedTopics],
   };
+}
+
+// ─── Task-Klassifikation nach Aufgaben-Art ──────────────────────────────────
+// Die pure Klassifikations-Logik lebt in services/taskKind.ts (DB-frei), damit
+// Tests die Funktion ohne better-sqlite3-Binding importieren können. Hier
+// re-exportieren wir sie für bestehende Importe, plus die DB-seitige
+// Reklassifikation alter Tasks.
+
+export type { TaskKind, ClassifySubtask } from '../services/taskKind.js';
+export { classifyTaskFromSubtasks } from '../services/taskKind.js';
+
+import { classifyTaskFromSubtasks as _classify } from '../services/taskKind.js';
+import type { ClassifySubtask as _ClassifySubtask } from '../services/taskKind.js';
+
+/**
+ * Geht alle Tasks im Pool durch und setzt `task_kind` basierend auf den
+ * aktuellen Subtasks. Läuft idempotent: wenn task_kind bereits != 'text' gesetzt
+ * ist, wird nichts überschrieben (Admin-Overrides bleiben erhalten). Bei 'text'
+ * wird trotzdem neu klassifiziert, falls die Aufgabe bei der Einführung nur
+ * den Default bekommen hat.
+ */
+function reclassifyExistingTasks(): void {
+  const tasks = db.prepare('SELECT id, task_kind FROM tasks').all() as {
+    id: string;
+    task_kind: string;
+  }[];
+  if (tasks.length === 0) return;
+
+  const getSubtasks = db.prepare(
+    'SELECT task_type, question_text, expected_answer FROM subtasks WHERE task_id = ?',
+  );
+  const updateKind = db.prepare('UPDATE tasks SET task_kind = ? WHERE id = ?');
+
+  let updated = 0;
+  for (const t of tasks) {
+    // Nur neu klassifizieren, wenn aktuell Default "text" gesetzt ist — so
+    // bleiben spätere manuelle Overrides erhalten.
+    if (t.task_kind !== 'text') continue;
+    const subtasks = getSubtasks.all(t.id) as _ClassifySubtask[];
+    const kind = _classify(subtasks);
+    if (kind !== 'text') {
+      updateKind.run(kind, t.id);
+      updated++;
+    }
+  }
+  if (updated > 0) {
+    console.log(`[db] ${updated} Tasks rückwirkend klassifiziert.`);
+  }
 }

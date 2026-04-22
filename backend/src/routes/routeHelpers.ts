@@ -12,7 +12,7 @@ import rateLimit from "express-rate-limit";
 import type { Request } from "express";
 import type { AuthRequest } from "../middleware/auth.js";
 import type { Specialty, ExamPart } from "../types/index.js";
-import { db } from "../db/database.js";
+import { db, classifyTaskFromSubtasks } from "../db/database.js";
 import { generateTasksForPool } from "../services/examGenerator.js";
 
 // ─── Auth helper ──────────────────────────────────────────────────────────────
@@ -65,8 +65,8 @@ export async function insertTasksIntoDB(
   specialty: Specialty = "fiae",
 ): Promise<void> {
   const insertTask = db.prepare(`
-    INSERT INTO tasks (id, part, specialty, topic_area, points_value, difficulty, scenario_context, scenario_description)
-    VALUES (?, ?, ?, ?, ?, ?, null, null)
+    INSERT INTO tasks (id, part, specialty, topic_area, points_value, difficulty, task_kind, scenario_context, scenario_description)
+    VALUES (?, ?, ?, ?, ?, ?, ?, null, null)
   `);
   const insertSubtask = db.prepare(`
     INSERT INTO subtasks (id, task_id, label, task_type, question_text,
@@ -78,7 +78,16 @@ export async function insertTasksIntoDB(
   db.transaction(() => {
     for (const task of tasks) {
       const taskId = randomUUID().replace(/-/g, "");
-      insertTask.run(taskId, part, specialty, task.topicArea, task.pointsValue, task.difficulty ?? "medium");
+      // task_kind aus den Subtasks ableiten — bestimmt die Rolle der Aufgabe
+      // in der typ-balancierten Zusammenstellung (siehe db/database.ts assembleExam).
+      const kind = classifyTaskFromSubtasks(
+        task.subtasks.map((s) => ({
+          task_type: s.taskType,
+          question_text: s.questionText,
+          expected_answer: JSON.stringify(s.expectedAnswer ?? {}),
+        })),
+      );
+      insertTask.run(taskId, part, specialty, task.topicArea, task.pointsValue, task.difficulty ?? "medium", kind);
       for (let i = 0; i < task.subtasks.length; i++) {
         const st = task.subtasks[i];
         insertSubtask.run(
@@ -134,7 +143,46 @@ import {
   REQUIRED_TASKS,
   GENERATE_COUNT,
 } from "../db/database.js";
+import type { TaskKind } from "../db/database.js";
 import type { ProviderMeta } from "./settingsRoutes.js";
+import { pickTopicsByKinds } from "../services/topics.js";
+
+// Pro Teil: welche Kinds sollten mindestens vorhanden sein, damit die
+// typ-balancierte Assembly (siehe db/database.ts SLOT_PROFILES) gute Mischungen
+// erzeugen kann. Die Zahlen sind Mindestbestände pro Kind im Pool.
+//
+// Wenn z.B. im Teil-1-Pool nur 1 Diagramm-Aufgabe liegt, würde assembleExam
+// für zwei aufeinanderfolgende Prüfungen dieselbe Diagramm-Aufgabe ziehen.
+// Bei ≥2 je Kind hat die Zufallsauswahl genug Abwechslung.
+const POOL_KIND_TARGETS: Record<string, Partial<Record<TaskKind, number>>> = {
+  teil_1: { diagram: 2, table: 2, calc: 1, text: 2 },
+  teil_2: { sql: 2, code: 2, diagram: 1, calc: 1, text: 1 },
+  teil_3: {}, // WiSo braucht keine Kind-Balance
+};
+
+/**
+ * Analysiert den aktuellen Pool und gibt zurück, welche Kinds unterrepräsentiert
+ * sind (nach POOL_KIND_TARGETS). Die Liste ist nach Dringlichkeit sortiert:
+ * Kinds mit der größten Lücke zuerst.
+ */
+export function findUnderrepresentedKinds(part: string, specialty: Specialty): TaskKind[] {
+  const targets = POOL_KIND_TARGETS[part] ?? {};
+  const counts = db
+    .prepare(
+      "SELECT task_kind, COUNT(*) as cnt FROM tasks WHERE part = ? AND specialty = ? GROUP BY task_kind",
+    )
+    .all(part, specialty) as { task_kind: string; cnt: number }[];
+  const actual: Record<string, number> = {};
+  for (const row of counts) actual[row.task_kind] = row.cnt;
+
+  const gaps: Array<{ kind: TaskKind; gap: number }> = [];
+  for (const [kind, target] of Object.entries(targets) as [TaskKind, number][]) {
+    const gap = target - (actual[kind] ?? 0);
+    if (gap > 0) gaps.push({ kind, gap });
+  }
+  gaps.sort((a, b) => b.gap - a.gap);
+  return gaps.map((g) => g.kind);
+}
 
 export async function ensurePoolSize(
   part: string,
@@ -160,8 +208,15 @@ export async function ensurePoolSize(
 
   generatingParts.add(lockKey);
   try {
-    console.log(`[pool] ${lockKey}: ${current} Tasks — generiere ${genCount} neue...`);
-    const genResult = await generateTasksForPool(part as ExamPart, genCount, apiKey, meta, serverApiKey, serverMeta, specialty);
+    // Gezielt Topics wählen, deren Kind im Pool fehlt — vermeidet, dass
+    // ein leerer Pool mit 6x zufällig 'text'-lastigen Topics gefüllt wird.
+    const underrepresented = findUnderrepresentedKinds(part, specialty);
+    const topics = underrepresented.length > 0
+      ? pickTopicsByKinds(part as ExamPart, underrepresented, genCount, specialty)
+      : undefined;
+
+    console.log(`[pool] ${lockKey}: ${current} Tasks — generiere ${genCount} neue${topics ? ` (Fokus: ${underrepresented.join("/")})` : ""}...`);
+    const genResult = await generateTasksForPool(part as ExamPart, genCount, apiKey, meta, serverApiKey, serverMeta, specialty, topics);
     await insertTasksIntoDB(part, genResult.tasks, specialty);
     if (genResult.warnings.length > 0) {
       console.warn(`[pool] ${lockKey}: ${genResult.warnings.length} Warnungen:`, genResult.warnings.map((w) => `[${w.source}] ${w.topic}`).join(", "));
@@ -190,8 +245,17 @@ export async function refillPoolInBackground(
     if (current >= target) return;
 
     generatingParts.add(lockKey);
-    console.log(`[pool-refill] ${lockKey}: ${current}/${target} — generiere ${genCount} Tasks im Hintergrund`);
-    const refillResult = await generateTasksForPool(part as ExamPart, genCount, apiKey, meta ?? undefined, serverApiKey, serverMeta, specialty);
+
+    // Auch beim Hintergrund-Refill gezielt Kind-Lücken schließen. Das ist
+    // besonders wichtig, weil der Refill nach jedem Prüfungsstart läuft und
+    // sonst die Ungleichverteilung perpetuiert.
+    const underrepresented = findUnderrepresentedKinds(part, specialty);
+    const topics = underrepresented.length > 0
+      ? pickTopicsByKinds(part as ExamPart, underrepresented, genCount, specialty)
+      : undefined;
+
+    console.log(`[pool-refill] ${lockKey}: ${current}/${target} — generiere ${genCount} Tasks im Hintergrund${topics ? ` (Fokus: ${underrepresented.join("/")})` : ""}`);
+    const refillResult = await generateTasksForPool(part as ExamPart, genCount, apiKey, meta ?? undefined, serverApiKey, serverMeta, specialty, topics);
     await insertTasksIntoDB(part, refillResult.tasks, specialty);
     console.log(`[pool-refill] ${lockKey}: +${refillResult.tasks.length} Tasks${refillResult.warnings.length > 0 ? ` (${refillResult.warnings.length} Warnungen)` : ""}, Pool jetzt ${current + refillResult.tasks.length}`);
   } catch (err) {

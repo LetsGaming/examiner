@@ -43,7 +43,9 @@ import {
   isUserStarting,
   lockUserStart,
   unlockUserStart,
+  findUnderrepresentedKinds,
 } from "./routeHelpers.js";
+import { pickTopicsByKinds } from "../services/topics.js";
 
 export const poolRouter = Router();
 
@@ -94,6 +96,15 @@ poolRouter.post("/generate", generateLimiter, async (req: Request, res: Response
 
   try {
     const genCount = Math.min(count, GENERATE_COUNT[part] ?? 8);
+
+    // Gezielt Topics wählen, deren Kind im Pool fehlt — spiegelt die
+    // kind-aware Logik aus ensurePoolSize/refillPoolInBackground. Ohne das
+    // zieht der manuelle Generate-Button weiterhin zufällig textlastige Topics.
+    const underrepresented = findUnderrepresentedKinds(part, specialty);
+    const topics = underrepresented.length > 0
+      ? pickTopicsByKinds(part as ExamPart, underrepresented, genCount, specialty)
+      : undefined;
+
     const genResult = await generateTasksForPool(
       part as ExamPart,
       genCount,
@@ -102,6 +113,7 @@ poolRouter.post("/generate", generateLimiter, async (req: Request, res: Response
       serverConfig?.apiKey ?? null,
       serverConfig?.meta ?? null,
       specialty,
+      topics,
     );
     await insertTasksIntoDB(part, genResult.tasks, specialty);
 

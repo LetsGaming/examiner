@@ -184,3 +184,83 @@ const TOPICS_FISI: Record<ExamPart, string[]> = {
 export function getTopics(part: ExamPart, specialty: Specialty = 'fiae'): string[] {
   return (specialty === 'fisi' ? TOPICS_FISI : TOPICS_FIAE)[part];
 }
+
+// ─── Topic→Kind-Mapping ──────────────────────────────────────────────────────
+//
+// Ermittelt den erwarteten `task_kind` anhand der Topic-Bezeichnung. Wird von
+// der Pool-Auffüllung genutzt, um gezielt Aufgaben eines bestimmten Kinds zu
+// generieren (z.B. wenn im Pool zu wenige Diagramm-Aufgaben sind).
+//
+// Die Regeln folgen den topicKeywords der TaskRecipes in examGenerator.ts.
+// Wenn sich mehrere Kinds aus einem Topic ableiten lassen (selten), gewinnt
+// die erste zutreffende Regel in der Reihenfolge diagram > calc > sql > code
+// > table > text.
+
+export type TopicKind = 'diagram' | 'calc' | 'sql' | 'code' | 'table' | 'text';
+
+const KIND_PATTERNS: Array<{ kind: TopicKind; pattern: RegExp }> = [
+  // Diagramme (UML, ER, Mockups, Skizzen)
+  { kind: 'diagram', pattern: /aktivität|zustandsdiagramm|klassendiagramm|sequenzdiagramm|use-?case|uml|er[\s\-]?modell|er[\s\-]?diagramm|datenmodell|mockup|skizze|ui[\s\-]?design|darstellungsformen|formular[\s\-]?entwurf/i },
+  // Berechnungen
+  { kind: 'calc', pattern: /netzplan|kritischer pfad|speicherbedarf|komplexität|o[\s\-]?notation|kosten|aufwand|kostenrechnung/i },
+  // SQL
+  { kind: 'sql', pattern: /\bsql\b|join|select|group by|create table|ddl|subquery|aggregation|normalisierung/i },
+  // Code
+  { kind: 'code', pattern: /pseudocode|algorithmus|sortier|suchalgor|rekursion|datenstruktur|testfäll|testüberdeckung|generisch/i },
+  // Tabellen (Vergleich, Stakeholder, ACID, Testkonzept)
+  { kind: 'table', pattern: /stakeholder|acid|teststufen|testkonzept|vergleich|vorgehensmodelle|scrum.*wasserfall|wasserfall.*agil|datentyp/i },
+];
+
+/**
+ * Inferiert den erwarteten Kind für ein Topic. Das Ergebnis ist eine Prognose,
+ * nicht garantiert — die tatsächliche Klassifikation der generierten Aufgabe
+ * erfolgt nach Einfügen in die DB über classifyTaskFromSubtasks.
+ */
+export function inferKindForTopic(topic: string): TopicKind {
+  for (const { kind, pattern } of KIND_PATTERNS) {
+    if (pattern.test(topic)) return kind;
+  }
+  return 'text';
+}
+
+/**
+ * Gibt aus der Themenliste des Teils bis zu `count` Topics zurück, die
+ * (voraussichtlich) die angegebenen Kinds erzeugen. Hilft dem Pool-Refill,
+ * gezielt Lücken zu füllen: z.B. "gib mir 3 Topics, die Diagramm-Aufgaben
+ * generieren" wenn der Pool zu wenige Diagramme hat.
+ *
+ * Wenn nicht genug Topics für die gewünschten Kinds verfügbar sind, füllt die
+ * Funktion den Rest mit Topics anderer Kinds auf — sie gibt immer bis zu
+ * `count` Topics zurück (solange die Themenliste selbst groß genug ist).
+ */
+export function pickTopicsByKinds(
+  part: ExamPart,
+  kinds: TopicKind[],
+  count: number,
+  specialty: Specialty = 'fiae',
+): string[] {
+  const all = getTopics(part, specialty).slice();
+  // Shuffle damit wir nicht immer dieselben Topics ziehen
+  for (let i = all.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [all[i], all[j]] = [all[j], all[i]];
+  }
+
+  const result: string[] = [];
+  const kindSet = new Set(kinds);
+  // Erst Topics aufsammeln, die zu den gewünschten Kinds passen
+  for (const topic of all) {
+    if (result.length >= count) break;
+    if (kindSet.has(inferKindForTopic(topic))) {
+      result.push(topic);
+    }
+  }
+  // Auffüllen mit beliebigen restlichen Topics (nicht schon ausgewählt)
+  for (const topic of all) {
+    if (result.length >= count) break;
+    if (!result.includes(topic)) {
+      result.push(topic);
+    }
+  }
+  return result;
+}

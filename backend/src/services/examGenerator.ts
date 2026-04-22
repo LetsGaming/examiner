@@ -1557,6 +1557,19 @@ export interface GeneratePoolResult {
  *
  * Jede Aufgabe bekommt eine explizite Warnung, wenn Tier 2 oder 3 einspringen.
  */
+/**
+ * Generiert `count` Aufgaben für den Pool. Dreistufiger Fallback pro Thema:
+ *   1. User-AI
+ *   2. Server-AI (falls unterschiedlich)
+ *   3. Fallback-Platzhalteraufgabe (immer erfolgreich)
+ *
+ * Jede Aufgabe bekommt eine explizite Warnung, wenn Tier 2 oder 3 einspringen.
+ *
+ * @param topics Optional: konkrete Themenliste, die abgearbeitet werden soll.
+ *   Wenn nicht angegeben, wird eine Zufallsauswahl aus getTopics(part) getroffen.
+ *   Der Pool-Refill (routeHelpers.refillPoolInBackground) nutzt diesen Parameter,
+ *   um gezielt Topics zu generieren, deren Kind im Pool unterrepräsentiert ist.
+ */
 export async function generateTasksForPool(
   part: ExamPart,
   count: number,
@@ -1565,20 +1578,24 @@ export async function generateTasksForPool(
   serverApiKey?: string | null,
   serverMeta?: ProviderMeta | null,
   specialty: Specialty = 'fiae',
+  topics?: string[],
 ): Promise<GeneratePoolResult> {
-  const allTopics = getTopics(part, specialty);
-  const topics = pickUnique(allTopics, count);
+  const topicsToUse = topics ?? pickUnique(getTopics(part, specialty), count);
   const tasks: GeneratedTask[] = [];
   const warnings: TaskWarning[] = [];
+  // Innerhalb eines Batches erlauben wir jetzt bis zu 2 Diagramm-Aufgaben.
+  // Der alte Wert 1 war zu streng und hat zur Diagramm-Armut im Pool beigetragen
+  // — die Typbalance-Logik in assembleExam braucht mindestens 2 diagram-Tasks
+  // für Teil 1 (einmal als Slot-1-Match, einmal als Fallback).
   let diagramCount = 0;
-  const MAX_DIAGRAM_PER_BATCH = 1;
+  const MAX_DIAGRAM_PER_BATCH = 2;
 
   const hasDistinctServer =
     !!serverApiKey &&
     !!serverMeta &&
     (serverApiKey !== userApiKey || serverMeta.id !== userMeta?.id);
 
-  for (const topic of topics) {
+  for (const topic of topicsToUse) {
     const avoidDiagram = diagramCount >= MAX_DIAGRAM_PER_BATCH;
     let task: GeneratedTask | null = null;
     let userError: string | null = null;

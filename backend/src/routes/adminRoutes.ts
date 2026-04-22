@@ -11,6 +11,7 @@
 
 import { Router, Request, Response } from "express";
 import { db } from "../db/database.js";
+import { reclassifyExistingTasks } from "../db/database.js";
 import { getUserId } from "./routeHelpers.js";
 import { createBackup, listBackups } from "../services/backup.js";
 
@@ -97,7 +98,6 @@ adminRouter.delete("/tasks/:id", (req: Request, res: Response) => {
 
 adminRouter.post("/reclassify", (_req: Request, res: Response) => {
   try {
-    const { reclassifyExistingTasks } = require("../db/database.js");
     reclassifyExistingTasks();
     res.json({ success: true, message: "Reklassifizierung abgeschlossen." });
   } catch (err) {

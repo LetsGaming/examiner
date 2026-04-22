@@ -546,7 +546,7 @@ import type { ClassifySubtask as _ClassifySubtask } from '../services/taskKind.j
  * wird trotzdem neu klassifiziert, falls die Aufgabe bei der Einführung nur
  * den Default bekommen hat.
  */
-function reclassifyExistingTasks(): void {
+export function reclassifyExistingTasks(): void {
   const tasks = db.prepare('SELECT id, task_kind FROM tasks').all() as {
     id: string;
     task_kind: string;

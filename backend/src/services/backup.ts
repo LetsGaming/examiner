@@ -56,15 +56,15 @@ export function listBackups(): { filename: string; sizeMb: number; createdAt: st
 }
 
 export function startBackupScheduler(intervalHours = 24): NodeJS.Timeout {
-  // Sofort beim Start einmal ausführen
-  (async () => {
+  // Erstes Backup 30 Sekunden nach Start (nicht sofort — lässt den Server erstmal hochfahren)
+  setTimeout(async () => {
     try {
       await createBackup();
       await pruneOldBackups(14);
     } catch (err) {
       console.warn("[backup] Fehler beim Start-Backup:", err);
     }
-  })();
+  }, 30_000);
 
   return setInterval(
     async () => {

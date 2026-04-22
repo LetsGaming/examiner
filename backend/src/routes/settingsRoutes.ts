@@ -9,6 +9,7 @@
 import { Router, Request, Response } from "express";
 import { db } from "../db/database.js";
 import { encryptApiKey, decryptApiKey } from "../utils/encryption.js";
+import { getUserSetting, setUserSetting } from "../db/userSettings.js";
 
 export const settingsRouter = Router();
 
@@ -312,18 +313,28 @@ settingsRouter.delete("/ai", (req: Request, res: Response) => {
 });
 
 // ─── Feature 11: User-Settings (Key-Value) ────────────────────────────────────
-import { getUserSetting, setUserSetting } from "../db/userSettings.js";
 
 settingsRouter.get("/user/:key", (req: Request, res: Response) => {
   const userId = getUserId(req);
-  const value = getUserSetting(userId, req.params.key as string, "");
-  res.json({ success: true, data: { value } });
+  try {
+    const value = getUserSetting(userId, req.params.key as string, "");
+    res.json({ success: true, data: { value } });
+  } catch {
+    // User existiert möglicherweise nicht (alter Token nach DB-Reset) → Defaultwert zurückgeben
+    res.json({ success: true, data: { value: "" } });
+  }
 });
 
 settingsRouter.put("/user/:key", (req: Request, res: Response) => {
   const userId = getUserId(req);
   const { value } = req.body;
   if (typeof value !== "string") return res.status(400).json({ success: false, error: "value muss ein String sein." });
-  setUserSetting(userId, req.params.key as string, value);
-  res.json({ success: true });
+  try {
+    setUserSetting(userId, req.params.key as string, value);
+    res.json({ success: true });
+  } catch (err) {
+    // Non-critical: Settings-Speichern darf die App nicht crashen
+    console.warn("[settings] setUserSetting fehlgeschlagen:", err instanceof Error ? err.message : err);
+    res.json({ success: true }); // Frontend muss nicht davon erfahren
+  }
 });

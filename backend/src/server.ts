@@ -78,12 +78,12 @@ initDatabase();
 initSettingsTable();
 initAuthTable();
 initUserSettingsTable();
-initSessionMigrations();       // Feature 8: answers.flagged
-initReviewQueue();             // Feature 3: review_queue Tabelle
-initAdminMigrations();         // Feature 15: users.is_admin, tasks.source
-migratePracticeStatus();       // Feature 2+3: exam_sessions CHECK-Constraint
+initSessionMigrations();            // Feature 8: answers.flagged
+initAdminMigrations();              // Feature 15: users.is_admin, tasks.source
+migratePracticeStatus();            // Feature 2+3: exam_sessions CHECK + is_review Spalte
+initReviewQueue();                  // Feature 3: review_queue Tabelle (nach practice-Migration)
 migrateAiEvaluationsRemoveUnique(); // Feature 9: UNIQUE entfernen
-startBackupScheduler(24);     // Feature 16: täglich um 24h
+startBackupScheduler(24);           // Feature 16: täglich
 
 app.listen(PORT, () => {
   console.log(`✅ AP2 Trainer Backend läuft auf http://localhost:${PORT}`);

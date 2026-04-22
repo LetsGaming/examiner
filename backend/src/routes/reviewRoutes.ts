@@ -20,8 +20,8 @@ export function initReviewQueue(): void {
     db.exec(`
       CREATE TABLE IF NOT EXISTS review_queue (
         id             TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-        user_id        TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        subtask_id     TEXT NOT NULL REFERENCES subtasks(id) ON DELETE CASCADE,
+        user_id        TEXT NOT NULL,
+        subtask_id     TEXT NOT NULL,
         due_at         TEXT NOT NULL,
         interval_days  INTEGER NOT NULL DEFAULT 1,
         ease           REAL NOT NULL DEFAULT 2.5,
@@ -110,11 +110,15 @@ reviewRouter.post("/start", (req: Request, res: Response) => {
   }, 0);
 
   const ins = db.prepare(
-    `INSERT INTO exam_sessions (user_id, part, specialty, title, duration_minutes, max_points, status, is_review)
-     VALUES (?, ?, ?, ?, 0, ?, 'practice', 1)`,
+    `INSERT INTO exam_sessions (user_id, part, specialty, title, duration_minutes, max_points, status)
+     VALUES (?, ?, ?, ?, 0, ?, 'practice')`,
   ).run(userId, firstTask.part, firstTask.specialty ?? "fiae", `Wiederholung ${new Date().toLocaleDateString("de-DE")}`, totalPoints);
 
+  // is_review separat setzen (Spalte könnte auf alten Instanzen fehlen — then ignore)
   const session = db.prepare(`SELECT id FROM exam_sessions WHERE rowid = ?`).get(ins.lastInsertRowid) as { id: string };
+  try {
+    db.prepare(`UPDATE exam_sessions SET is_review = 1 WHERE id = ?`).run(session.id);
+  } catch { /* Spalte noch nicht vorhanden — unkritisch */ }
 
   uniqueTasks.forEach((t, pos) => {
     db.prepare(`INSERT OR IGNORE INTO session_tasks (session_id, task_id, position) VALUES (?, ?, ?)`).run(session.id, t.task_id, pos);

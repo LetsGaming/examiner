@@ -19,7 +19,8 @@ historyRouter.get("/", (req: Request, res: Response) => {
     .prepare(
       `SELECT id, part, specialty, title, scenario_name,
               started_at, submitted_at, status,
-              total_score, max_points, ihk_grade
+              total_score, max_points, ihk_grade,
+              COALESCE(is_review, 0) as is_review
        FROM exam_sessions
        WHERE user_id = ?
        ORDER BY COALESCE(submitted_at, started_at) DESC`,
@@ -36,6 +37,7 @@ historyRouter.get("/", (req: Request, res: Response) => {
     total_score: number | null;
     max_points: number;
     ihk_grade: string | null;
+    is_review: number;
   }[];
 
   const data = sessions.map((s) => ({
@@ -50,8 +52,8 @@ historyRouter.get("/", (req: Request, res: Response) => {
     totalScore: s.total_score,
     maxPoints: s.max_points,
     ihkGrade: s.ihk_grade,
-    isPractice: s.status === "practice",
-    isReview: false, // Feature 3 ergänzt das
+    isPractice: s.status === "practice" || s.status === "review",
+    isReview: !!(s.is_review),
   }));
 
   res.json({ success: true, data });

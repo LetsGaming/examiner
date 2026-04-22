@@ -16,21 +16,25 @@ import type { TaskKind } from "../services/taskKind.js";
 
 export const statsRouter = Router();
 
-// Indexe sicherstellen (idempotent)
-try {
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_sessions_user_status
-      ON exam_sessions(user_id, status);
-    CREATE INDEX IF NOT EXISTS idx_evaluations_answer
-      ON ai_evaluations(answer_id);
-  `);
-} catch {
-  /* ignorieren — Indexe existieren bereits */
+// Indexe einmalig beim ersten Aufruf sicherstellen
+let indexesCreated = false;
+function ensureIndexes() {
+  if (indexesCreated) return;
+  indexesCreated = true;
+  try {
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_sessions_user_status
+        ON exam_sessions(user_id, status);
+      CREATE INDEX IF NOT EXISTS idx_evaluations_answer
+        ON ai_evaluations(answer_id);
+    `);
+  } catch { /* ignorieren */ }
 }
 
 // ─── GET /api/stats/me ────────────────────────────────────────────────────────
 
 statsRouter.get("/me", (req: Request, res: Response) => {
+  ensureIndexes();
   const userId = getUserId(req);
 
   // ── 1. Basis-Zähler ──────────────────────────────────────────────────────

@@ -10,7 +10,7 @@ import { db } from "./database.js";
 export function initUserSettingsTable(): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS user_settings (
-      user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      user_id    TEXT NOT NULL,
       key        TEXT NOT NULL,
       value      TEXT NOT NULL,
       updated_at TEXT DEFAULT (datetime('now')),

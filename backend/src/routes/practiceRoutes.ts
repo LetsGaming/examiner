@@ -67,6 +67,11 @@ export function migratePracticeStatus(): void {
     })();
     console.log("[migration] exam_sessions CHECK-Constraint auf practice/review erweitert.");
   }
+
+  // is_review Spalte sicherstellen (idempotent) — auch wenn der Rebuild oben nicht lief
+  try {
+    db.exec("ALTER TABLE exam_sessions ADD COLUMN is_review INTEGER NOT NULL DEFAULT 0");
+  } catch { /* bereits vorhanden */ }
 }
 
 // ─── POST /api/practice/start ─────────────────────────────────────────────────

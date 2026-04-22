@@ -67,7 +67,7 @@ defineEmits<{ close: []; navigate: [ti: number, si: number] }>();
 .sub-btn:hover { background: rgba(255, 255, 255, 0.04); }
 .sub-btn.sub-active { background: rgba(79, 70, 229, 0.18); }
 .sub-btn.sub-answered .sub-label { color: #22c55e; }
-.sub-label { font-size: 12px; font-weight: 700; color: #6b7280; min-width: 16px; }
+.sub-label { font-size: 12px; font-weight: 700; color: #6b7280; min-width: 22px; flex-shrink: 0; }
 .sub-btn.sub-active .sub-label { color: #818cf8; }
 .sub-type { flex: 1; font-size: 11px; color: #4b5563; }
 .sub-pts { font-size: 10px; color: #374151; }

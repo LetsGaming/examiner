@@ -101,11 +101,32 @@ export async function insertTasksIntoDB(
 /** Set of `"part:specialty"` keys currently being generated — prevents double-generation. */
 export const generatingParts = new Set<string>();
 
-/** Max simultaneous exam-start requests (Node is single-threaded but async gaps create races). */
-export let activeStarts = 0;
-export const MAX_CONCURRENT_STARTS = 1;
-export function incrementActiveStarts() { activeStarts++; }
-export function decrementActiveStarts() { activeStarts--; }
+/**
+ * Per-user start lock.
+ *
+ * Earlier revisions used a single global counter `activeStarts` with MAX=1, which
+ * (a) leaked on any synchronous throw in the /start handler — the decrement sat
+ * after the db.transaction call so a thrown constraint error permanently pinned
+ * the counter at ≥1 and returned 429 forever, and (b) blocked all users globally
+ * even when it worked, so only one student in the whole system could start an
+ * exam at a time.
+ *
+ * The lock is now a Set of user IDs. A user who is already starting an exam gets
+ * 429 for their second concurrent request; different users never block each
+ * other. The `startingUsers` set is always cleaned up in a try/finally in the
+ * handler, so a thrown error can't pin the lock.
+ */
+export const startingUsers = new Set<string>();
+
+export function isUserStarting(userId: string): boolean {
+  return startingUsers.has(userId);
+}
+export function lockUserStart(userId: string): void {
+  startingUsers.add(userId);
+}
+export function unlockUserStart(userId: string): void {
+  startingUsers.delete(userId);
+}
 
 // ─── Pool helpers ─────────────────────────────────────────────────────────────
 

@@ -14,6 +14,7 @@ export type DiagramType =
   | 'uml_sequence'
   | 'uml_use_case'
   | 'uml_activity'
+  | 'uml_state'
   | 'er';
 export type SessionStatus = 'in_progress' | 'submitted' | 'graded';
 export type IhkGrade =

@@ -22,6 +22,7 @@ const DIAGRAM_TYPE_LABELS: Record<DiagramType, string> = {
   uml_sequence: "UML-Sequenzdiagramm",
   uml_use_case: "UML-Use-Case-Diagramm",
   uml_activity: "UML-Aktivitätsdiagramm",
+  uml_state: "UML-Zustandsdiagramm",
   er: "Entity-Relationship-Diagramm",
 };
 
@@ -55,7 +56,7 @@ function buildSystemPrompt(examPart: ExamPart, scenarioContext?: string): string
   const scenarioLine = scenarioContext
     ? `\nPRÜFUNGSKONTEXT: ${scenarioContext}\nAlle Aufgaben beziehen sich auf dieses Unternehmen. Berücksichtige den Kontext bei der Bewertung.\n`
     : "";
-  return `Du bist ein erfahrener, fairer und wohlwollender IHK-Prüfer für den Ausbildungsberuf Fachinformatiker für Anwendungsentwicklung (FIAE).
+  return `Du bist ein erfahrener, fairer IHK-Prüfer für den Ausbildungsberuf Fachinformatiker für Anwendungsentwicklung (FIAE).
 Aktueller Prüfungsbereich: ${PART_DESCRIPTIONS[examPart]}
 ${scenarioLine}
 IHK-NOTENSCHEMA (Pflichtanwendung):
@@ -66,17 +67,23 @@ IHK-NOTENSCHEMA (Pflichtanwendung):
 - 30–49 %  → mangelhaft
 - 0–29 %   → ungenuegend
 
-BEWERTUNGSREGELN (verbindlich — bitte befolgen):
-1. PRÜFUNGSFAIRNESS: Ein echter IHK-Prüfer sucht nach Gründen Punkte zu geben, nicht nach Gründen Punkte abzuziehen. Folge diesem Prinzip.
-2. IM ZWEIFEL FÜR DEN PRÜFLING: Wenn eine Aussage plausibel und sinngemäß richtig ist, aber abweichend formuliert — gib die vollen Punkte. Nur bei klaren fachlichen Fehlern Punkte abziehen.
-3. Der Erwartungshorizont zeigt EINE Musterlösung. Abweichende, aber sachlich korrekte Antworten sind gleichwertig und erhalten volle Punkte.
-4. Anteilige Punktvergabe je Kriterium — kein binäres Alles-oder-Nichts. Auch teilweise richtige Antworten erhalten Teilpunkte (mindestens 30% wenn der Ansatz stimmt).
-5. Sinngemäß korrekte Antworten werden akzeptiert. Fachbegriffe sollten richtig verwendet sein, aber Alltagssprache mit korrektem Inhalt wird nicht abgewertet.
-6. Pseudocode: Bewerte Logik und algorithmische Korrektheit, nicht syntaktische Sprachen-Konformität.
-7. Rechtschreibung und Formulierung werden NICHT bewertet — nur der fachliche Inhalt zählt.
-8. Nur bei komplett falschen oder widersprüchlichen Kernaussagen Punkte deutlich reduzieren.
-9. Sei konstruktiv — Feedback soll dem Lernenden konkret helfen.
+BEWERTUNGSREGELN (verbindlich — Prüfungsausschuss-Niveau, fair aber nicht zu nachsichtig):
+1. FAIRE GRUNDHALTUNG: Im Zweifel für den Prüfling — wenn eine Antwort plausibel und sinngemäß richtig ist, wird sie als richtig gewertet, auch wenn sie vom Erwartungshorizont abweicht.
+2. PROPORTIONALE TEILPUNKTE: Punkte werden proportional zum Anteil korrekter Kernaussagen vergeben. Wenn z.B. 3 Aspekte gefordert sind und 2 davon korrekt genannt wurden, gibt es ⅔ der Punkte. Kein pauschaler Mindestwert — aber auch kein Alles-oder-Nichts.
+3. SINNGEMÄSSE KORREKTHEIT: Abweichende Formulierungen mit korrektem Inhalt sind gleichwertig zur Musterlösung und bekommen volle Punkte. Alltagssprache mit korrektem Inhalt wird nicht abgewertet.
+4. FACHBEGRIFFE: Richtig verwendete Fachbegriffe sind Pluspunkt, falsch verwendete Fachbegriffe (z.B. "Primärschlüssel" gemeint, aber "Fremdschlüssel" geschrieben) sind Punktabzug.
+5. VOLLSTÄNDIGKEIT ZÄHLT: Wenn eine Aufgabe "3 Beispiele" fordert und nur 2 genannt werden, werden die fehlenden Punkte nicht großzügig verschenkt. Das ist die Grenze zwischen fair und zu locker.
+6. KEIN MINDEST-FLOOR: Eine Antwort mit einem richtigen und einem falschen Aspekt bekommt nicht pauschal 60%, sondern die Hälfte. Eine leere oder fachfremde Antwort bekommt 0 Punkte.
+7. PSEUDOCODE: Logik und algorithmische Korrektheit zählen, nicht syntaktische Sprachen-Konformität.
+8. Rechtschreibung und Formulierung werden NICHT bewertet — nur der fachliche Inhalt zählt.
+9. Nur bei komplett falschen oder widersprüchlichen Kernaussagen Punkte deutlich reduzieren.
 10. Wenn die Antwort des Prüflings leer oder extrem kurz ist (<5 Zeichen), vergib 0 Punkte.
+
+FEEDBACK — KONKRETE LÖSUNGSVORSCHLÄGE (wichtig):
+- "improvementHints" enthält KONKRETE, fachliche Hinweise was in der Antwort gefehlt hat und wie es richtig aussehen würde. NICHT "Denken Sie an Datenschutz" (vage), SONDERN "Ergänzen Sie, dass nach DSGVO personenbezogene Daten nur mit Einwilligung gespeichert werden dürfen und eine Löschfrist festzulegen ist" (konkret).
+- Bei jedem improvementHint soll der Prüfling nachvollziehen können, WAS er beim nächsten Mal schreiben muss. Wenn ein Fachbegriff gefehlt hat, nenne ihn. Wenn ein Rechenschritt fehlte, zeige ihn.
+- "keyMistakes" listet stichwortartig die fachlichen Fehler in der Antwort (z.B. "Verwechslung Primärschlüssel/Fremdschlüssel", "fehlende WHERE-Klausel beim DELETE").
+- "feedbackText" fasst die Bewertung in 2–4 Sätzen zusammen und verweist auf die wichtigsten Stärken und Schwächen.
 
 WICHTIG ZU KRITERIEN-NAMEN: Wenn du in criterionScores ein Kriterium benennst, nutze einen sprechenden, aussagekräftigen Namen (z.B. "Inhaltliche Korrektheit", "Vollständigkeit", "Fachbegriffe", "Begründung") — NIEMALS generisches wie "Kriterium 1" oder "Kriterium A".
 
@@ -92,14 +99,53 @@ function stripPlaceholders(text: string): string {
   return text.replace(/\{\{[A-Z_]+\}\}/g, "");
 }
 
+/**
+ * Operator-Dimensionen nach IHK-Standard. Jeder Operator hat ein eigenes
+ * Erwartungsniveau, das der Prüfer bei der Bewertung heranzieht. Das vermeidet
+ * "Essays auf 'nennen'-Fragen werden schlecht bewertet, weil Details fehlen".
+ */
+const OPERATOR_GUIDANCE: Record<string, string> = {
+  nennen:
+    'NENNEN: Stichworte und kurze Begriffe reichen. Keine Begründung, kein ganzer Satz nötig. Volle Punkte, wenn die geforderte Anzahl korrekt benannt ist.',
+  beschreiben:
+    'BESCHREIBEN: 2–3 Sätze, Sachverhalt in eigenen Worten wiedergeben. Keine Wertung oder Begründung nötig — nur sachliche Darstellung.',
+  erklaeren:
+    'ERKLÄREN: 3–5 Sätze mit Begründung/Hintergrund. Der Prüfling soll zeigen, dass er die Ursachen und Zusammenhänge verstanden hat.',
+  erlaeutern:
+    'ERLÄUTERN: 3–5 Sätze mit Begründung und konkretem Bezug. Ähnlich wie "erklären", aber mit Beispiel/Kontext-Bezug.',
+  berechnen:
+    'BERECHNEN: Rechenweg UND Endergebnis mit Einheit. Folgefehler nur einmal abziehen — wenn der Weg ab einem falschen Zwischenergebnis korrekt weitergeht, Teilpunkte geben.',
+  entwerfen:
+    'ENTWERFEN: konkrete Umsetzung (Code, Diagramm, Tabellenstruktur, Formular). Sinngemäße Varianten zulassen, solange die fachlichen Anforderungen erfüllt sind.',
+  vergleichen:
+    'VERGLEICHEN: klare Gegenüberstellung entlang nachvollziehbarer Kriterien. Je Kriterium Teilpunkte; unvollständige Vergleiche entsprechend anteilig werten.',
+  identifizieren:
+    'IDENTIFIZIEREN: Fehler, Elemente oder Zusammenhänge benennen. Teilpunkte je korrekt identifiziertem Element, keine Begründung zwingend (außer explizit gefordert).',
+};
+
 function buildUserPrompt(params: AssessAnswerParams): string {
   const questionText = stripPlaceholders(params.questionText);
-  const expectedAnswerJson = stripPlaceholders(JSON.stringify(params.expectedAnswer, null, 2));
+  const expected = params.expectedAnswer as Record<string, unknown>;
+  const expectedAnswerJson = stripPlaceholders(JSON.stringify(expected, null, 2));
+
+  // Rezept-spezifischer Bewertungshinweis (aus examGenerator) — das ist der
+  // granulare Bepunktungsvorschlag ("je Entitätstyp 1P, je Beziehung 2P"), wie
+  // er auch in echten IHK-Lösungsbögen steht.
+  const gradingHint = typeof expected.gradingHint === 'string' ? expected.gradingHint : '';
+  const operator = typeof expected.operator === 'string' ? String(expected.operator) : '';
+  const operatorLine =
+    operator && OPERATOR_GUIDANCE[operator]
+      ? `\nOPERATOR-DIMENSION: ${OPERATOR_GUIDANCE[operator]}\n`
+      : '';
+  const gradingHintLine = gradingHint
+    ? `\nSPEZIFISCHER BEWERTUNGSHINWEIS: ${gradingHint}\n`
+    : '';
+
   return `AUFGABENSTELLUNG:
 ${questionText}
 
 MAXIMALPUNKTE: ${params.maxPoints}
-
+${operatorLine}${gradingHintLine}
 ERWARTUNGSHORIZONT (vertraulich — EINE mögliche Musterlösung, nicht die einzig richtige):
 ${expectedAnswerJson}
 
@@ -109,9 +155,13 @@ ${params.studentAnswer}
 """
 
 BEWERTUNGSANSATZ:
-- Gib Teilpunkte großzügig. Wenn der Kern der Antwort stimmt, gib mindestens 60% der Punkte — auch wenn Details fehlen.
-- Der Erwartungshorizont zeigt EINE Musterlösung. Andere sachlich korrekte Antworten sind gleichwertig.
-- Bei Aufzählungen (z.B. "Nennen Sie 3 Punkte"): jeder korrekt genannte Punkt zählt anteilig. 2 von 3 = ⅔ der Punkte.
+- Richte dich nach der Operator-Dimension: "nennen"-Antworten dürfen kurz sein; "erläutern"-Antworten brauchen Begründung.
+- Folge dem spezifischen Bewertungshinweis, falls vorhanden — er zeigt dir die Punktverteilung für diese konkrete Aufgabe (z.B. "je Entitätstyp 1P").
+- Punkte proportional zur Qualität und Vollständigkeit der Antwort. Kein pauschaler Mindestwert — Teilpunkte entsprechen dem tatsächlichen Anteil korrekter Kernaussagen.
+- Der Erwartungshorizont ist EINE Musterlösung. Andere sachlich korrekte Antworten sind gleichwertig und bekommen volle Punkte.
+- Bei Aufzählungen (z.B. "Nennen Sie 3 Punkte"): jeder korrekt genannte Punkt zählt anteilig. 2 von 3 = ⅔ der Punkte. Werden mehr genannt als gefordert, zählen die besten.
+- Im Zweifel für den Prüfling: bei plausiblen, aber abweichend formulierten Antworten eher Punkte geben als abziehen.
+- improvementHints MÜSSEN konkrete fachliche Lösungsvorschläge enthalten — was genau hätte in der Antwort stehen sollen (Fachbegriff nennen, Rechenschritt zeigen, fehlenden Aspekt benennen).
 - Kriteriennamen MÜSSEN aussagekräftig sein: "Inhaltliche Korrektheit", "Vollständigkeit", "Begründung", "Fachbegriffe" etc. NIEMALS "Kriterium 1/2".
 
 Bewerte die Antwort und gib ausschließlich dieses JSON zurück:
@@ -121,10 +171,10 @@ Bewerte die Antwort und gib ausschließlich dieses JSON zurück:
   "ihkGrade": <"sehr_gut"|"gut"|"befriedigend"|"ausreichend"|"mangelhaft"|"ungenuegend">,
   "feedbackText": "<2–4 konstruktive Sätze auf Deutsch>",
   "criterionScores": [
-    { "criterion": "<Name>", "awarded": <n>, "max": <n>, "comment": "<1 Satz>" }
+    { "criterion": "<aussagekräftiger Name>", "awarded": <n>, "max": <n>, "comment": "<1 Satz>" }
   ],
   "keyMistakes": ["<Fehler 1>"],
-  "improvementHints": ["<Tipp 1>"]
+  "improvementHints": ["<konkreter Lösungsvorschlag 1>"]
 }`;
 }
 
@@ -168,23 +218,26 @@ ANTWORT DES PRÜFLINGS (SQL):
 ${params.studentAnswer}
 \`\`\`
 
-BEWERTUNGSKRITERIEN (Teilpunkte großzügig vergeben):
-1. Syntaktische Korrektheit (${syntaxP}P) — gültiges SQL, keine fehlenden Keywords. Kleine Syntaxfehler die das Statement noch ausführbar machen: Teilpunkte geben.
-2. Korrekte Tabellen- und Spaltenbezüge (${schemaP}P) — verwendet die richtigen Tabellen aus der Aufgabe, korrekte Spaltennamen. Typos die offensichtlich den richtigen Bezug meinen: Teilpunkte geben.
+BEWERTUNGSKRITERIEN (proportionale Teilpunkte je Kriterium):
+1. Syntaktische Korrektheit (${syntaxP}P) — gültiges SQL, keine fehlenden Keywords. Kleine Syntaxfehler, die das Statement noch ausführbar machen: Teilpunkte geben.
+2. Korrekte Tabellen- und Spaltenbezüge (${schemaP}P) — verwendet die richtigen Tabellen aus der Aufgabe, korrekte Spaltennamen. Typos, die offensichtlich den richtigen Bezug meinen: Teilpunkte geben.
 3. Logische Korrektheit (${logicP}P) — richtige JOIN-Bedingungen, WHERE-Prädikate, GROUP BY/HAVING, korrekte Aggregatfunktionen, Subqueries wenn nötig.
-4. Erwartete Ergebnismenge (${resultP}P) — das Statement liefert die angeforderten Daten. Abweichende Sortierung oder zusätzliche Spalten: nicht abziehen wenn nicht explizit gefordert.
+4. Erwartete Ergebnismenge (${resultP}P) — das Statement liefert die angeforderten Daten. Abweichende Sortierung oder zusätzliche Spalten: nicht abziehen, wenn nicht explizit gefordert.
 
-AKZEPTIERE GROSSZÜGIG:
+AKZEPTIERE:
 - Sinngemäß äquivalente Formulierungen (INNER JOIN vs. impliziter Join, Aliase, case-insensitive Keywords, Zeilenumbrüche).
 - Verschiedene korrekte Lösungswege mit identischem Ergebnis.
-- Kleine Abweichungen in Spaltennamen wenn der Bezug eindeutig ist.
+- Kleine Abweichungen in Spaltennamen, wenn der Bezug eindeutig ist.
 - Fehlende Semikolons oder Formatierungsunterschiede.
 
-PUNKTE DEUTLICH ABZIEHEN NUR BEI:
+PUNKTE DEUTLICH ABZIEHEN BEI:
 - Fehlende JOIN-Bedingung (führt zu kartesischem Produkt) — echter Fehler.
 - Fehlende WHERE-Klausel bei UPDATE/DELETE (kritischer Fehler).
-- Völlig falsche Logik die nicht das geforderte Ergebnis liefert.
+- Völlig falsche Logik, die nicht das geforderte Ergebnis liefert.
 - Aggregatfunktion ohne GROUP BY bei gleichzeitiger Auswahl nicht-aggregierter Spalten.
+- Fehlende Pflicht-Bausteine aus der Aufgabenstellung (jeder fehlende Baustein kostet anteilig Punkte).
+
+improvementHints MÜSSEN konkret sein: zeige, wie das Statement richtig aussehen würde oder welche Klausel fehlte — nicht "achte auf WHERE", sondern z.B. "Ergänze WHERE abteilung_id = 3 damit nur IT-Mitarbeiter zurückkommen".
 
 Gib AUSSCHLIESSLICH dieses JSON zurück:
 {
@@ -218,11 +271,15 @@ ${params.expectedElements.map((e, i) => `${i + 1}. ${e}`).join("\n")}
 
 ${params.plantUmlCode ? `PLANTUML-CODE DES PRÜFLINGS:\n\`\`\`plantuml\n${params.plantUmlCode}\n\`\`\`` : "Das Diagramm ist als Bild beigefügt. Erkenne und bewerte alle sichtbaren Elemente."}
 
-Bewertungskriterien:
+Bewertungskriterien (proportionale Teilpunkte je Kriterium):
 1. Syntaktische Korrektheit der UML/ER-Notation (${Math.round(params.maxPoints * 0.25)}P)
-2. Vollständigkeit aller geforderten Elemente (${Math.round(params.maxPoints * 0.35)}P)
+2. Vollständigkeit aller geforderten Elemente (${Math.round(params.maxPoints * 0.35)}P) — jedes fehlende Element kostet anteilig Punkte.
 3. Semantische Korrektheit der Beziehungen/Multiplizitäten (${Math.round(params.maxPoints * 0.25)}P)
 4. Lesbarkeit und sinnvolle Benennung (${Math.round(params.maxPoints * 0.15)}P)
+
+FAIRE GRUNDHALTUNG: Im Zweifel für den Prüfling — wenn ein Element sinngemäß richtig modelliert ist, auch wenn Notation leicht abweicht, volle Punkte. Falsche Multiplizitäten oder fehlende Elemente werden aber konsequent als Abzug gewertet.
+
+improvementHints MÜSSEN konkret sein: benenne welches Element fehlt oder welche Beziehung falsch ist (z.B. "Die Beziehung zwischen Kunde und Bestellung sollte 1:n sein, nicht n:m" statt "achte auf Multiplizitäten").
 
 Antworte AUSSCHLIESSLICH mit diesem JSON:
 {

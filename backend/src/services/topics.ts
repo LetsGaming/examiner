@@ -1,55 +1,123 @@
 /**
- * topics.ts — IHK AP2 topic pools per specialty and exam part.
+ * topics.ts — AP2 Themenkatalog (abgeleitet aus realen IHK-Prüfungen 2019–2025).
  *
- * Topics are drawn from real IHK exam question sets. The FISI pool covers
- * network administration and IT infrastructure, while FIAE covers software
- * development. Teil 3 (WiSo) is identical for both since it covers business
- * and employment law shared across all IT specialties.
+ * Jedes Thema erscheint in mindestens einer echten AP2-Prüfung der letzten
+ * Jahrgänge. Die Liste ist bewusst breit, damit der Pool abwechslungsreich
+ * wird. Verteilung orientiert sich grob an der Häufigkeit in den realen
+ * Prüfungen (siehe pruefungen/).
  */
 import type { ExamPart, Specialty } from '../types/index.js';
 
 const TOPICS_FIAE: Record<ExamPart, string[]> = {
+  // ── TEIL 1: PLANEN ────────────────────────────────────────────────────────
   teil_1: [
+    // Stakeholder / Anforderungen
     'Stakeholder-Analyse',
-    'Anforderungsanalyse',
+    'Anforderungsanalyse (funktional/nicht-funktional)',
     'User Stories & INVEST',
     'Use-Case-Diagramme',
-    'Aktivitätsdiagramme',
-    'Scrum & Agile',
-    'Testkonzept & Teststrategie',
-    'Green-IT & Nachhaltigkeit',
-    'DSGVO & Datenschutz',
-    'ER-Diagramme',
-    'Change Management',
     'Lastenheft & Pflichtenheft',
-    'Qualitätssicherung',
-    'Cloud-Computing',
-    'UX/UI & Benutzeroberflächen',
-    'Klassendiagramme',
-    'Risikomanagement',
+    'Umfeldanalyse (technisch/rechtlich)',
+
+    // Projektmanagement
+    'Scrum & agile Vorgehensmodelle',
+    'Wasserfall vs. Agil (Vergleich)',
     'Projektplanung & Meilensteine',
+    'Netzplan & kritischer Pfad',
+    'Risikomanagement',
+    'Change Management',
+    'Abschlussprotokoll & Projektabschluss',
+
+    // UML / Modellierung
+    'UML-Aktivitätsdiagramme',
+    'UML-Zustandsdiagramme',
+    'UML-Klassendiagramme',
+    'UML-Use-Case-Diagramme',
+    'ER-Modellierung',
+    'ER-Diagramm vervollständigen',
+    'Relationales Datenmodell aus ER ableiten',
+
+    // Qualität / Test
+    'Testkonzept & Teststrategie',
+    'Teststufen (Unit, Integration, System, Abnahme)',
+    'Qualitätssicherung',
+
+    // UI / UX
+    'UI-Design & Mockups',
+    'Darstellungsformen (Liste/Kachel/Karte) mit Begründung',
+    'UX-Kriterien (Schriftart, Farbgebung, Barrierefreiheit)',
+    'Formular-Entwurf',
+
+    // Datenschutz / Sicherheit / Recht
+    'DSGVO & Datenschutz',
+    'Green-IT & Nachhaltigkeit',
+    'IT-Sicherheitskonzepte',
+    'Verschlüsselung (symmetrisch/asymmetrisch/hybrid)',
+    'TLS & Zertifikate',
+    'Identity Provider & SSO',
+    'Rechteverwaltung / Rollenkonzept',
+    'Passwort-Hashing & Salting',
+
+    // DevOps / Architektur
+    'Continuous Integration / CI-CD-Pipelines',
+    'Cloud-Computing (IaaS/PaaS/SaaS)',
+    'Open Source Software (Chancen/Risiken)',
+    'Webanwendungen (Architektur Frontend/Backend/DB)',
+
+    // OOP / Entwurf
+    'OOP-Grundlagen (Klassen, Objekte, Kapselung)',
+    'OOP-Vererbung & Polymorphismus',
+    'Abstrakte Klassen & Interfaces',
+    'Entwurfsmuster (Factory, Singleton, Observer)',
   ],
+
+  // ── TEIL 2: ENTWICKLUNG ───────────────────────────────────────────────────
   teil_2: [
-    'Sequenzdiagramme',
-    'Relationales Datenbankmodell',
+    // SQL
     'SQL SELECT & JOIN',
     'SQL GROUP BY & Aggregation',
     'SQL UPDATE & DELETE',
-    'Pseudocode & Algorithmen',
+    'SQL CREATE TABLE (DDL)',
+    'SQL Subqueries',
+    'Relationales Datenbankmodell',
+    'Normalisierung (1NF/2NF/3NF)',
+
+    // Algorithmen / Pseudocode
+    'Pseudocode & Algorithmen entwerfen',
+    'Pseudocode-Fehler finden und korrigieren',
     'Sortieralgorithmen',
     'Suchalgorithmen',
     'Rekursion',
-    'Datenstrukturen',
+    'Datenstrukturen (Liste, Stack, Queue, Baum)',
+
+    // OOP in Code
+    'OOP-Vererbung (Codebeispiel)',
+    'OOP-Polymorphismus (Codebeispiel)',
+    'Generische Klassen',
+    'Testfälle & Testüberdeckung',
+
+    // UML / Modellierung
+    'Sequenzdiagramme',
+    'Klassendiagramme (Code→UML)',
+    'Zustandsdiagramme',
+
+    // Berechnungen
     'Speicherbedarf & Datenkodierung',
-    'JSON & NoSQL',
-    'OOP-Vererbung',
-    'OOP-Polymorphismus',
-    'Klassendiagramme',
-    'Komplexitätsanalyse',
+    'Komplexitätsanalyse (O-Notation)',
+    'Kostenrechnung & Performance-Abschätzung',
+
+    // Schnittstellen / Datenformate
     'REST-APIs',
-    'Netzwerktechnik',
+    'JSON-Datenformat',
+    'XML (Wohlgeformtheit/Gültigkeit/DTD)',
+    'XML-Fehler finden und korrigieren',
+
+    // Netzwerk / Sicherheit
     'IT-Sicherheit & Verschlüsselung',
+    'Netzwerktechnik (Grundlagen)',
   ],
+
+  // ── TEIL 3: WISO ──────────────────────────────────────────────────────────
   teil_3: [
     'Kündigungsrecht',
     'Probezeit & Ausbildungsrecht',
@@ -110,7 +178,6 @@ const TOPICS_FISI: Record<ExamPart, string[]> = {
     'SNMP & Netzwerkmanagement',
     'Container & Docker-Grundlagen',
   ],
-  // WiSo is shared across both specialties
   teil_3: TOPICS_FIAE.teil_3,
 };
 

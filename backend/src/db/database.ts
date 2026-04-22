@@ -2,7 +2,6 @@ import DatabaseConstructor from "better-sqlite3"; // Import the default construc
 import type { Database as DatabaseType } from "better-sqlite3"; // Import the Type
 import path from "path";
 import fs from "fs";
-import { SCENARIOS, pickRandomScenario, type Scenario } from "../services/scenarios.js";
 
 const DB_DIR = path.resolve(process.cwd(), "data");
 const DB_PATH = path.join(DB_DIR, process.env.DB_FILENAME ?? "ap2_trainer.db");
@@ -324,21 +323,18 @@ export function canAssembleExam(part: string, specialty = "fiae"): boolean {
 }
 
 // ─── Prüfung zusammenstellen ──────────────────────────────────────────────────
-// FIX: Szenario wird hier zufällig gewählt und Platzhalter in allen Subtasks ersetzt.
-// Das bedeutet jede Prüfung hat eine andere Ausgangssituation — auch wenn dieselben
-// Aufgaben aus dem Pool gewählt werden.
+// Der neue Flow: assembleExam wählt NUR Tasks aus dem Pool aus — das Szenario
+// wird anschließend in der Route erstellt und passt zu den gezogenen Themen.
+// Dadurch hängen Aufgaben und Ausgangssituation inhaltlich zusammen, wie in
+// echten IHK-Prüfungen.
 
 export function assembleExam(part: string, specialty = "fiae"): {
   tasks: Record<string, unknown>[];
   totalPoints: number;
-  scenarioName: string;
-  scenarioDescription: string;
+  topics: string[];
 } | null {
   const structure = STRUCTURES[part];
   if (!structure) return null;
-
-  // Szenario zufällig wählen — jede Prüfung bekommt ein anderes
-  const scenario: Scenario = pickRandomScenario();
 
   const usedTopics = new Set<string>();
   const selectedTasks: Record<string, unknown>[] = [];
@@ -391,14 +387,6 @@ export function assembleExam(part: string, specialty = "fiae"): {
   return {
     tasks: selectedTasks,
     totalPoints,
-    scenarioName: scenario.name,
-    scenarioDescription: scenario.description,
-    // Szenario-Objekt mitgeben für Platzhalter-Ersetzung in Routes
-    _scenario: scenario,
-  } as Record<string, unknown> & {
-    tasks: Record<string, unknown>[];
-    totalPoints: number;
-    scenarioName: string;
-    scenarioDescription: string;
+    topics: [...usedTopics],
   };
 }

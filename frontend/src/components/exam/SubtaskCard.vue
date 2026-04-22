@@ -130,7 +130,12 @@ function onTableCellInput(ri: number, ci: number, value: string) { emit('table-c
 <style scoped>
 .subtask-card { background: #131620; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; overflow: hidden; margin-bottom: 16px; }
 .sc-header { display: flex; align-items: center; gap: 10px; padding: 13px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02); }
-.sc-badge { width: 30px; height: 30px; border-radius: 8px; background: rgba(79,70,229,0.3); color: #a5b4fc; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; flex-shrink: 0; }
+.sc-badge {
+  min-width: 30px; height: 30px; padding: 0 8px;
+  border-radius: 8px; background: rgba(79,70,229,0.3); color: #a5b4fc;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 800; flex-shrink: 0;
+}
 .sc-type-chip { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; }
 .chip-freitext       { background: rgba(79,70,229,0.2);   color: #a5b4fc; }
 .chip-pseudocode     { background: rgba(34,197,94,0.15);  color: #86efac; }

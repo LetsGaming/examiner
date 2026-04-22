@@ -46,7 +46,11 @@ export function usePool() {
   /** Returns session ID on success, throws on failure. */
   async function launchExam(part: ExamPart, specialty: Specialty): Promise<string> {
     generating.value = part;
-    statusMessage.value = 'Prüfung wird zusammengestellt…';
+    // Der Backend-/start-Call macht zwei Dinge: (1) Tasks aus dem Pool ziehen
+    // (Millisekunden) und (2) eine passende Ausgangssituation per KI generieren
+    // (kann mehrere Sekunden dauern). Die Statusmeldung erwähnt beides, damit
+    // der User weiß, dass die Wartezeit nicht an ihm hängt.
+    statusMessage.value = 'Prüfung wird zusammengestellt und Ausgangssituation erstellt…';
     errors.value[part] = '';
 
     try {
@@ -62,7 +66,7 @@ export function usePool() {
         warnings.value[part] = generated.warnings ?? [];
         await loadStatus(specialty);
 
-        statusMessage.value = 'Prüfung wird zusammengestellt…';
+        statusMessage.value = 'Prüfung wird zusammengestellt und Ausgangssituation erstellt…';
         const result = await startExam(part, specialty);
         return result.sessionId;
       }

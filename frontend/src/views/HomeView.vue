@@ -21,6 +21,26 @@
               </svg>
             </button>
           </div>
+          <button class="settings-btn settings-btn--nav" @click="router.push('/stats')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Mein Fortschritt
+          </button>
+          <button class="settings-btn settings-btn--nav" @click="router.push('/history')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Historie
+          </button>
+          <button class="settings-btn settings-btn--nav" @click="router.push('/practice')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Übungsmodus
+          </button>
+          <button v-if="reviewCount > 0" class="review-badge-btn" @click="router.push('/review')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.95"/></svg>
+            {{ reviewCount }} fällig
+          </button>
+          <button class="theme-btn" @click="toggleTheme" :title="theme === 'dark' ? 'Zum Hellmodus wechseln' : 'Zum Dunkelmodus wechseln'">
+            <svg v-if="theme === 'dark'" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            <svg v-else width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          </button>
           <button class="settings-btn" @click="aiSettings.open()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="3"/>
@@ -154,13 +174,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { IonPage } from '@ionic/vue';
 import { useAuth } from '../composables/useAuth.js';
 import { useSpecialty } from '../composables/useSpecialty.js';
 import { useAiSettings } from '../composables/useAiSettings.js';
 import { usePool, POOL_MIN } from '../composables/usePool.js';
+import { useTheme } from '../composables/useTheme.js';
+import { fetchReviewDue } from '../composables/useApi.js';
 import AppLogo from '../components/ui/AppLogo.vue';
 import SpecialtyToggle from '../components/ui/SpecialtyToggle.vue';
 import AiSettingsModal from '../components/ui/AiSettingsModal.vue';
@@ -182,6 +204,8 @@ const { user, logout } = useAuth();
 const { specialty } = useSpecialty();
 const aiSettings = useAiSettings();
 const pool = usePool();
+const { theme, init: initTheme, toggle: toggleTheme } = useTheme();
+const reviewCount = ref(0);
 
 function specialtyPartLabel(part: string): string {
   if (specialty.value === 'fisi' && PARTS_FISI_LABELS[part]) return PARTS_FISI_LABELS[part];
@@ -217,6 +241,8 @@ async function launch(part: ExamPart) {
 
 onMounted(async () => {
   await Promise.all([pool.loadStatus(specialty.value), aiSettings.load()]);
+  initTheme();
+  try { const r = await fetchReviewDue(); reviewCount.value = r.count; } catch { /* ignore */ }
 });
 </script>
 
@@ -270,6 +296,8 @@ onMounted(async () => {
   background: rgba(255, 255, 255, 0.04); color: #9ca3af; font-size: 13px;
   font-weight: 500; cursor: pointer; transition: all 0.15s;
 }
+.settings-btn--nav { color: #a5b4fc; border-color: rgba(79,70,229,0.25); background: rgba(79,70,229,0.08); }
+.settings-btn--nav:hover { background: rgba(79,70,229,0.18); border-color: rgba(79,70,229,0.4); }
 .settings-btn:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.18); color: #e8eaf0; }
 
 .key-badge { padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; }
@@ -377,4 +405,8 @@ onMounted(async () => {
   .header-center { order: 3; width: 100%; }
   .home-grid { grid-template-columns: 1fr; gap: 32px; }
 }
+.review-badge-btn { display: flex; align-items: center; gap: 5px; padding: 6px 12px; background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.35); border-radius: 20px; cursor: pointer; font-size: 12px; font-weight: 700; color: #fcd34d; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.3); } 50% { box-shadow: 0 0 0 5px rgba(245,158,11,0); } }
+.theme-btn { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; cursor: pointer; color: #9ca3af; flex-shrink: 0; }
+.theme-btn:hover { background: rgba(255,255,255,0.1); color: #f3f4f6; }
 </style>

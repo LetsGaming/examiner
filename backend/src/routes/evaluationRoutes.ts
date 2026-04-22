@@ -19,6 +19,7 @@ import { db } from "../db/database.js";
 import { assessFreitext, analyzeDiagram } from "../services/aiService.js";
 import { resolveAiConfig } from "./settingsRoutes.js";
 import { getUserId, evaluateLimiter } from "./routeHelpers.js";
+import { enqueueForReview } from "./reviewRoutes.js";
 import type { AiEvaluation, DiagramType, TaskType, ExamPart } from "../types/index.js";
 
 export const evaluationRouter = Router();
@@ -234,6 +235,12 @@ evaluationRouter.post(
       );
 
       res.json({ success: true, data: evaluation });
+
+      // Feature 3: Auto-Enqueue für Wiederholungs-Queue
+      try {
+        const subtaskId = (answer as Record<string, unknown>).subtask_id as string;
+        enqueueForReview(userId, subtaskId, evaluation.percentageScore);
+      } catch { /* non-critical */ }
     } catch (err) {
       console.error("[evaluate]", err);
       res.status(500).json({

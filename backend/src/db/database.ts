@@ -574,3 +574,55 @@ function reclassifyExistingTasks(): void {
     console.log(`[db] ${updated} Tasks rückwirkend klassifiziert.`);
   }
 }
+
+// ─── Migration: ai_evaluations UNIQUE-Constraint entfernen (Feature 9) ───────
+// Ermöglicht mehrere Evaluationen pro Antwort (Zweitbewertung).
+// SQLite kann UNIQUE nicht per ALTER TABLE entfernen → Tabellen-Rebuild.
+export function migrateAiEvaluationsRemoveUnique(): void {
+  try {
+    // Probe: Wenn INSERT mit doppelter answer_id durchgeht, ist UNIQUE schon weg
+    db.pragma("foreign_keys = OFF");
+    const probe = db.prepare(`SELECT id FROM ai_evaluations LIMIT 1`).get() as { id: string } | undefined;
+    if (probe) {
+      // Versuche zweiten Eintrag mit gleicher answer_id
+      db.prepare(
+        `INSERT INTO ai_evaluations (answer_id, awarded_points, max_points, percentage_score, ihk_grade, feedback_text, model_used)
+         VALUES ((SELECT answer_id FROM ai_evaluations WHERE id = ?), 0, 0, 0, 'sehr_gut', '', '_probe')`,
+      ).run(probe.id);
+      db.prepare(`DELETE FROM ai_evaluations WHERE model_used = '_probe'`).run();
+    }
+    db.pragma("foreign_keys = ON");
+    // Kein Fehler → UNIQUE ist schon weg oder Tabelle leer
+  } catch {
+    db.pragma("foreign_keys = ON");
+    // UNIQUE existiert noch → Rebuild
+    db.transaction(() => {
+      db.exec(`DROP TABLE IF EXISTS ai_evaluations_new`);
+      db.exec(`
+        CREATE TABLE ai_evaluations_new (
+          id                TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+          answer_id         TEXT NOT NULL REFERENCES answers(id) ON DELETE CASCADE,
+          awarded_points    INTEGER NOT NULL,
+          max_points        INTEGER NOT NULL,
+          percentage_score  REAL NOT NULL,
+          ihk_grade         TEXT NOT NULL,
+          feedback_text     TEXT NOT NULL,
+          criterion_scores  TEXT NOT NULL DEFAULT '[]',
+          key_mistakes      TEXT NOT NULL DEFAULT '[]',
+          improvement_hints TEXT NOT NULL DEFAULT '[]',
+          detected_elements TEXT DEFAULT '[]',
+          missing_elements  TEXT DEFAULT '[]',
+          notation_errors   TEXT DEFAULT '[]',
+          model_used        TEXT NOT NULL,
+          ai_agent          TEXT,
+          created_at        TEXT DEFAULT (datetime('now'))
+        )
+      `);
+      db.exec(`INSERT INTO ai_evaluations_new SELECT * FROM ai_evaluations`);
+      db.exec(`DROP TABLE ai_evaluations`);
+      db.exec(`ALTER TABLE ai_evaluations_new RENAME TO ai_evaluations`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_eval_answer ON ai_evaluations(answer_id)`);
+    })();
+    console.log("[db] ai_evaluations UNIQUE-Constraint entfernt.");
+  }
+}

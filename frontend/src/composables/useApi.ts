@@ -160,3 +160,78 @@ export async function submitSession(sessionId: string): Promise<{
   return data.data;
 }
 
+
+// ─── Stats (Feature 1) ────────────────────────────────────────────────────────
+
+export async function fetchMyStats(): Promise<import('../types/index.js').MyStats> {
+  const { data } = await api.get<import('../types/index.js').ApiResponse<import('../types/index.js').MyStats>>('/stats/me');
+  if (!data.success || !data.data) throw new Error(data.error ?? 'Statistik-Fehler');
+  return data.data;
+}
+
+// ─── History (Feature 6) ─────────────────────────────────────────────────────
+
+export async function fetchSessionList(): Promise<import('../types/index.js').SessionListItem[]> {
+  const { data } = await api.get<import('../types/index.js').ApiResponse<import('../types/index.js').SessionListItem[]>>('/sessions');
+  if (!data.success || !data.data) throw new Error(data.error ?? 'History-Fehler');
+  return data.data;
+}
+
+export async function fetchSessionDetail(sessionId: string): Promise<ExamSession> {
+  const { data } = await api.get<import('../types/index.js').ApiResponse<ExamSession>>(`/sessions/${sessionId}/detail`);
+  if (!data.success || !data.data) throw new Error(data.error ?? 'Session-Detail-Fehler');
+  return data.data;
+}
+
+// ─── Practice (Feature 2) ─────────────────────────────────────────────────────
+export async function startPractice(body: {
+  part: import('../types/index.js').ExamPart;
+  topic?: string;
+  taskKind?: string;
+  count: number;
+  specialty: import('../types/index.js').Specialty;
+}): Promise<{ sessionId: string }> {
+  const { data } = await api.post<import('../types/index.js').ApiResponse<{ sessionId: string }>>('/practice/start', body);
+  if (!data.success || !data.data) throw new Error(data.error ?? 'Fehler beim Starten');
+  return data.data;
+}
+
+// ─── Review (Feature 3) ───────────────────────────────────────────────────────
+export async function fetchReviewDue(): Promise<{ count: number; items: unknown[] }> {
+  const { data } = await api.get<import('../types/index.js').ApiResponse<{ count: number; items: unknown[] }>>('/review/due');
+  if (!data.success || !data.data) throw new Error(data.error ?? 'Fehler');
+  return data.data;
+}
+export async function startReviewSession(count: number): Promise<{ sessionId: string }> {
+  const { data } = await api.post<import('../types/index.js').ApiResponse<{ sessionId: string }>>('/review/start', { count });
+  if (!data.success || !data.data) throw new Error(data.error ?? 'Fehler');
+  return data.data;
+}
+export async function skipReview(id: string): Promise<void> {
+  await api.post(`/review/${id}/skip`);
+}
+
+// ─── Flagging (Feature 8) ─────────────────────────────────────────────────────
+export async function setAnswerFlag(sessionId: string, subtaskId: string, flagged: boolean): Promise<void> {
+  await api.patch(`/sessions/${sessionId}/answers/${subtaskId}`, { flagged });
+}
+
+// ─── Second Opinion (Feature 9) ───────────────────────────────────────────────
+export async function requestSecondOpinion(sessionId: string, answerId: string): Promise<AiEvaluation> {
+  const { data } = await api.post<import('../types/index.js').ApiResponse<AiEvaluation>>(
+    `/sessions/${sessionId}/answers/${answerId}/re-evaluate`
+  );
+  if (!data.success || !data.data) throw new Error(data.error ?? 'Fehler');
+  return data.data;
+}
+
+// ─── User Settings (Feature 11) ───────────────────────────────────────────────
+export async function fetchUserSetting(key: string): Promise<string | null> {
+  try {
+    const { data } = await api.get<import('../types/index.js').ApiResponse<{ value: string }>>(`/settings/user/${key}`);
+    return data.data?.value ?? null;
+  } catch { return null; }
+}
+export async function saveUserSetting(key: string, value: string): Promise<void> {
+  await api.put(`/settings/user/${key}`, { value });
+}

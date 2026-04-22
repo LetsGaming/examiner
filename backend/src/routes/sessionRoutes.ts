@@ -66,7 +66,7 @@ function loadSession(sessionId: string, userId: string) {
   const tasks = rawTasks.map((t) => {
     const subtasks = db
       .prepare(
-        `SELECT id, label, task_type, question_text, points,
+        `SELECT id, label, task_type, question_text, expected_answer, points,
                 diagram_type, expected_elements, mc_options, table_config, position
          FROM subtasks WHERE task_id = ? ORDER BY position ASC`,
       )
@@ -79,24 +79,37 @@ function loadSession(sessionId: string, userId: string) {
       position: t.position,
       topicArea: t.topic_area,
       maxPoints: totalPts,
-      subtasks: subtasks.map((st) => ({
-        id: st.id,
-        label: st.label,
-        taskType: st.task_type,
-        questionText: overrides.get(st.id as string) ?? st.question_text,
-        points: st.points,
-        diagramType: st.diagram_type ?? null,
-        expectedElements: JSON.parse((st.expected_elements as string) ?? "[]"),
-        mcOptions: JSON.parse((st.mc_options as string) ?? "[]"),
-        tableConfig: st.table_config ? JSON.parse(st.table_config as string) : null,
-      })),
+      subtasks: subtasks.map((st) => {
+        const base: Record<string, unknown> = {
+          id: st.id,
+          label: st.label,
+          taskType: st.task_type,
+          questionText: overrides.get(st.id as string) ?? st.question_text,
+          points: st.points,
+          diagramType: st.diagram_type ?? null,
+          expectedElements: JSON.parse((st.expected_elements as string) ?? "[]"),
+          mcOptions: JSON.parse((st.mc_options as string) ?? "[]"),
+          tableConfig: st.table_config ? JSON.parse(st.table_config as string) : null,
+        };
+        // Feature 4 Security: Musterlösung nur nach Abgabe ausliefern
+        if (session && (session.status as string) !== "in_progress") {
+          try {
+            base.expectedAnswer = JSON.parse(
+              (st.expected_answer as string) ?? "{}",
+            );
+          } catch {
+            base.expectedAnswer = {};
+          }
+        }
+        return base;
+      }),
     };
   });
 
   const answers = db
     .prepare(
       `SELECT a.id, a.subtask_id, a.text_value, a.selected_mc_option,
-              a.diagram_image_path, a.answered_at,
+              a.diagram_image_path, a.answered_at, a.flagged,
               ae.awarded_points, ae.max_points, ae.percentage_score,
               ae.ihk_grade, ae.feedback_text, ae.criterion_scores,
               ae.key_mistakes, ae.improvement_hints,
@@ -116,6 +129,7 @@ function loadSession(sessionId: string, userId: string) {
     selectedMcOption: a.selected_mc_option,
     diagramImagePath: a.diagram_image_path,
     answeredAt: a.answered_at,
+    flagged: !!(a.flagged as number),
     evaluation:
       a.awarded_points != null
         ? {
@@ -249,4 +263,32 @@ sessionRouter.post("/:sessionId/submit", (req: Request, res: Response) => {
     .run(total, grade, req.params.sessionId as string);
 
   res.json({ success: true, data: { totalScore: total, maxPoints: session.max_points, percentageScore: percent, ihkGrade: grade } });
+});
+
+// ─── Feature 8: Flagged-Spalte Migration ─────────────────────────────────────
+try {
+  db.exec("ALTER TABLE answers ADD COLUMN flagged INTEGER NOT NULL DEFAULT 0");
+} catch { /* bereits vorhanden */ }
+
+// ─── PATCH /api/sessions/:sessionId/answers/:subtaskId (flag toggle) ─────────
+sessionRouter.patch("/:sessionId/answers/:subtaskId", (req: Request, res: Response) => {
+  const { sessionId, subtaskId } = req.params;
+  const { flagged } = req.body;
+
+  if (!assertOwnership(sessionId as string, getUserId(req), res)) return;
+
+  // Sicherstellen dass ein Answer-Record existiert
+  const existing = db
+    .prepare("SELECT id FROM answers WHERE session_id = ? AND subtask_id = ?")
+    .get(sessionId, subtaskId) as { id: string } | undefined;
+
+  if (!existing) {
+    // Leeren Record anlegen damit das Flag gespeichert werden kann
+    db.prepare(`INSERT INTO answers (session_id, subtask_id, text_value, flagged) VALUES (?, ?, '', ?)`)
+      .run(sessionId, subtaskId, flagged ? 1 : 0);
+  } else {
+    db.prepare("UPDATE answers SET flagged = ? WHERE id = ?").run(flagged ? 1 : 0, existing.id);
+  }
+
+  res.json({ success: true });
 });

@@ -15,11 +15,12 @@
         v-for="(st, si) in task.subtasks"
         :key="st.id"
         class="sub-btn"
-        :class="{ 'sub-active': activeTask === ti && activeSubtask === si, 'sub-answered': isAnswered(ti, si) }"
+        :class="{ 'sub-active': activeTask === ti && activeSubtask === si, 'sub-answered': isAnswered(ti, si), 'sub-flagged': isFlagged(ti, si) }"
         @click="$emit('navigate', ti, si)"
       >
         <span class="sub-label">{{ st.label }})</span>
         <span class="sub-type">{{ TASK_TYPE_SHORT[st.taskType] }}</span>
+        <span class="sub-flag" v-if="isFlagged(ti, si)" title="Markiert">⚑</span>
         <span class="sub-pts">{{ st.points }}P</span>
       </button>
     </div>
@@ -37,6 +38,7 @@ defineProps<{
   activeTask: number;
   activeSubtask: number;
   isAnswered: (ti: number, si: number) => boolean;
+  isFlagged: (ti: number, si: number) => boolean;
 }>();
 
 defineEmits<{ close: []; navigate: [ti: number, si: number] }>();
@@ -71,6 +73,8 @@ defineEmits<{ close: []; navigate: [ti: number, si: number] }>();
 .sub-btn.sub-active .sub-label { color: #818cf8; }
 .sub-type { flex: 1; font-size: 11px; color: #4b5563; }
 .sub-pts { font-size: 10px; color: #374151; }
+.sub-btn.sub-flagged { border-left: 2px solid #f59e0b; }
+.sub-flag { font-size: 10px; color: #f59e0b; margin-left: auto; }
 .sidebar-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 49; display: none; }
 
 @media (max-width: 768px) {

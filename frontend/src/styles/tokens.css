@@ -59,3 +59,23 @@
   /* Transitions */
   --transition: 0.15s ease;
 }
+
+/* ─── Feature 11: Dark / Light Theme ────────────────────────────────────────── */
+/* Default is dark (already defined above). Light-mode overrides: */
+[data-theme="light"] {
+  --bg-base:    #f5f5f7;
+  --bg-surface: #ffffff;
+  --bg-raised:  #f0f0f4;
+  --bg-overlay: #e8e8ef;
+
+  --text-primary:   #1a1a2e;
+  --text-secondary: #1f2937;
+  --text-muted:     #4b5563;
+  --text-subtle:    #6b7280;
+  --text-faint:     #9ca3af;
+  --text-ghost:     #d1d5db;
+
+  --border:       rgba(0, 0, 0, 0.1);
+  --border-light: rgba(0, 0, 0, 0.07);
+  --border-hover: rgba(0, 0, 0, 0.2);
+}

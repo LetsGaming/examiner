@@ -31,13 +31,58 @@ export const generateLimiter = rateLimit({
   message: { success: false, error: "Zu viele Generierungsanfragen. Bitte warte eine Stunde." },
 });
 
+// ─── Feature 17: Per-Provider Rate-Limits ────────────────────────────────────
+
+const PROVIDER_LIMITS: Record<string, { max: number; windowMs: number }> = {
+  openai:     { max: 100, windowMs: 60_000 },
+  anthropic:  { max: 50,  windowMs: 60_000 },
+  google:     { max: 200, windowMs: 60_000 },
+  mistral:    { max: 80,  windowMs: 60_000 },
+  default:    { max: 100, windowMs: 60_000 },
+};
+
+// Map von "userId::provider" → Limiter-Instanz
+const providerLimiters = new Map<string, ReturnType<typeof rateLimit>>();
+
+function getProviderLimiter(provider: string): ReturnType<typeof rateLimit> {
+  const key = provider.split("_")[0].toLowerCase(); // z.B. "openai" aus "openai_gpt4"
+  const limits = PROVIDER_LIMITS[key] ?? PROVIDER_LIMITS.default;
+
+  if (!providerLimiters.has(key)) {
+    providerLimiters.set(
+      key,
+      rateLimit({
+        windowMs: limits.windowMs,
+        max: limits.max,
+        standardHeaders: true,
+        legacyHeaders: false,
+        keyGenerator: (req) => {
+          const userId = (req as any).userId ?? "anon";
+          return `${userId}::${key}`;
+        },
+        message: {
+          success: false,
+          error: `Du hast ${limits.max} Anfragen pro ${limits.windowMs / 1000}s für ${key} erreicht. Bitte kurz warten oder Provider wechseln.`,
+        },
+      }),
+    );
+  }
+  return providerLimiters.get(key)!;
+}
+
 export const evaluateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 100,
+  max: 200,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => (req as any).userId ?? "anon",
   message: { success: false, error: "Zu viele Bewertungsanfragen. Bitte warte eine Stunde." },
 });
+
+/** Dynamischer Per-Provider-Limiter — in evaluationRoutes nutzen. */
+export function providerRateLimit(provider: string): ReturnType<typeof rateLimit> {
+  return getProviderLimiter(provider);
+}
 
 // ─── File upload ──────────────────────────────────────────────────────────────
 

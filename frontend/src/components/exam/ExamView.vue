@@ -22,6 +22,7 @@
         :active-task="activeTask"
         :active-subtask="activeSubtask"
         :is-answered="isAnswered"
+        :is-flagged="isFlagged"
         @close="navOpen = false"
         @navigate="goToTask"
       />
@@ -44,7 +45,18 @@
               <span class="th-sep">/</span>
               <span class="th-topic">{{ currentTask.topicArea }}</span>
             </div>
-            <span class="th-pts">{{ currentTask.maxPoints }} Punkte</span>
+            <div class="th-actions">
+              <button
+                class="flag-btn"
+                :class="{ 'flag-btn--active': isFlagged(activeTask, activeSubtask) }"
+                @click="toggleFlag"
+                title="Zur Durchsicht markieren (Ctrl+M)"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+                {{ isFlagged(activeTask, activeSubtask) ? 'Markiert' : 'Markieren' }}
+              </button>
+              <span class="th-pts">{{ currentTask.maxPoints }} Punkte</span>
+            </div>
           </div>
 
           <!-- Subtask card -->
@@ -119,6 +131,9 @@
         @confirm="handleSubmit"
       >
         {{ answeredCount }} von {{ totalSubtasks }} Unteraufgaben beantwortet.<br />
+        <span v-if="flaggedSubtasks.size > 0" style="color:#fcd34d">
+          ⚑ {{ flaggedSubtasks.size }} Aufgabe(n) noch als „zur Durchsicht" markiert.<br />
+        </span>
         Beantwortete Aufgaben werden von der KI bewertet.
       </ConfirmDialog>
 
@@ -132,6 +147,25 @@
       >
         Deine bisherigen Antworten gehen verloren und die Prüfung wird <strong>nicht</strong> bewertet.
       </ConfirmDialog>
+
+      <!-- Feature 12: Shortcut Overlay -->
+      <Teleport to="body">
+        <div v-if="shortcutOverlay" class="shortcut-overlay" @click.self="shortcutOverlay = false">
+          <div class="shortcut-panel">
+            <div class="shortcut-header">
+              <span>Tastaturkürzel</span>
+              <button @click="shortcutOverlay = false">✕</button>
+            </div>
+            <table class="shortcut-table">
+              <tr><td><kbd>→</kbd></td><td>Nächste Teilaufgabe</td></tr>
+              <tr><td><kbd>←</kbd></td><td>Vorherige Teilaufgabe</td></tr>
+              <tr><td><kbd>Ctrl+M</kbd></td><td>Markieren / Entmarkieren</td></tr>
+              <tr><td><kbd>Esc</kbd></td><td>Sidebar schließen</td></tr>
+              <tr><td><kbd>?</kbd></td><td>Diese Übersicht</td></tr>
+            </table>
+          </div>
+        </div>
+      </Teleport>
     </Teleport>
   </div>
 </template>
@@ -139,9 +173,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { requestEvaluation, submitSession } from '../../composables/useApi.js';
+import { requestEvaluation, submitSession, setAnswerFlag } from '../../composables/useApi.js';
 import { useExamTimer } from '../../composables/useExamTimer.js';
 import { useAnswerState } from '../../composables/useAnswerState.js';
+import { useKeyboardShortcuts } from '../../composables/useKeyboardShortcuts.js';
 import ExamTopbar    from './ExamTopbar.vue';
 import ExamSidebar   from './ExamSidebar.vue';
 import SubtaskCard   from './SubtaskCard.vue';
@@ -195,7 +230,34 @@ function goToTask(ti: number, si: number) {
 function nextSubtask() { const n = flatSubtasks.value[flatIndex.value + 1]; if (n) goToTask(n.ti, n.si); }
 function prevSubtask() { const p = flatSubtasks.value[flatIndex.value - 1]; if (p) goToTask(p.ti, p.si); }
 
-// ─── Overlay flags ────────────────────────────────────────────────────────────
+// ─── Feature 8: Flagging ──────────────────────────────────────────────────────
+
+const flaggedSubtasks = ref<Set<string>>(new Set());
+
+function isFlagged(ti: number, si: number): boolean {
+  const st = props.tasks[ti]?.subtasks[si];
+  return st ? flaggedSubtasks.value.has(st.id) : false;
+}
+
+async function toggleFlag() {
+  const st = currentSubtask.value;
+  if (!st) return;
+  const newState = !flaggedSubtasks.value.has(st.id);
+  if (newState) flaggedSubtasks.value.add(st.id);
+  else flaggedSubtasks.value.delete(st.id);
+  flaggedSubtasks.value = new Set(flaggedSubtasks.value); // trigger reactivity
+  try { await setAnswerFlag(props.sessionId, st.id, newState); } catch { /* non-critical */ }
+}
+
+// ─── Feature 12: Keyboard shortcuts ──────────────────────────────────────────
+
+const { overlayVisible: shortcutOverlay } = useKeyboardShortcuts([
+  { key: 'ArrowRight', description: 'Nächste Teilaufgabe', action: nextSubtask },
+  { key: 'ArrowLeft',  description: 'Vorherige Teilaufgabe', action: prevSubtask },
+  { key: 'Escape',     description: 'Sidebar schließen', action: () => { navOpen.value = false; } },
+  { key: 'm', ctrl: true, description: 'Markieren / Entmarkieren', action: toggleFlag },
+  { key: 's', ctrl: true, description: 'Antwort speichern', action: () => { /* autosave already active */ } },
+]);
 
 const isSubmitting     = ref(false);
 const submitError      = ref<string | null>(null);
@@ -351,4 +413,19 @@ onMounted(() => {
 .confirm-ok { flex: 1; padding: 10px; border-radius: 9px; border: none; background: #4f46e5; color: white; font-size: 13px; font-weight: 600; cursor: pointer; }
 .confirm-ok:hover { background: #4338ca; }
 @media (max-width: 768px) { .mobile-nav { display: flex; } }
+/* ─── Feature 8: Flag button ─────────────────────────────────────────────── */
+.th-actions { display: flex; align-items: center; gap: 10px; }
+.flag-btn { display: flex; align-items: center; gap: 5px; padding: 5px 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 7px; cursor: pointer; font-size: 12px; color: #6b7280; transition: all 0.15s; }
+.flag-btn:hover { border-color: rgba(245,158,11,0.4); color: #f59e0b; }
+.flag-btn--active { background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.4); color: #fcd34d; }
+
+/* ─── Feature 12: Shortcut overlay ──────────────────────────────────────── */
+.shortcut-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200; display: flex; align-items: center; justify-content: center; }
+.shortcut-panel { background: #1a1d2e; border: 1px solid rgba(255,255,255,0.12); border-radius: 14px; padding: 24px; min-width: 300px; }
+.shortcut-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; font-weight: 700; font-size: 15px; }
+.shortcut-header button { background: none; border: none; color: #6b7280; cursor: pointer; font-size: 16px; }
+.shortcut-table { width: 100%; border-collapse: collapse; }
+.shortcut-table tr td { padding: 6px 8px; font-size: 13px; color: #d1d5db; }
+.shortcut-table tr td:first-child { width: 110px; }
+kbd { display: inline-block; padding: 2px 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 5px; font-family: monospace; font-size: 12px; color: #e8eaf0; }
 </style>

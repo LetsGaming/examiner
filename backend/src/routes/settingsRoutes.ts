@@ -310,3 +310,20 @@ settingsRouter.delete("/ai", (req: Request, res: Response) => {
     data: { message: "Gespeicherter API-Key wurde entfernt." },
   });
 });
+
+// ─── Feature 11: User-Settings (Key-Value) ────────────────────────────────────
+import { getUserSetting, setUserSetting } from "../db/userSettings.js";
+
+settingsRouter.get("/user/:key", (req: Request, res: Response) => {
+  const userId = getUserId(req);
+  const value = getUserSetting(userId, req.params.key as string, "");
+  res.json({ success: true, data: { value } });
+});
+
+settingsRouter.put("/user/:key", (req: Request, res: Response) => {
+  const userId = getUserId(req);
+  const { value } = req.body;
+  if (typeof value !== "string") return res.status(400).json({ success: false, error: "value muss ein String sein." });
+  setUserSetting(userId, req.params.key as string, value);
+  res.json({ success: true });
+});

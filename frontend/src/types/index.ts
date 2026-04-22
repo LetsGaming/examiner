@@ -1,5 +1,7 @@
 export type ExamPart = 'teil_1' | 'teil_2' | 'teil_3';
 export type Specialty = 'fiae' | 'fisi';
+export type TaskKind = 'diagram' | 'calc' | 'sql' | 'code' | 'table' | 'text';
+export type SessionStatus = 'in_progress' | 'submitted' | 'graded' | 'practice';
 export type TaskType =
   | 'freitext'
   | 'pseudocode'
@@ -16,7 +18,7 @@ export type DiagramType =
   | 'uml_activity'
   | 'uml_state'
   | 'er';
-export type SessionStatus = 'in_progress' | 'submitted' | 'graded';
+
 export type IhkGrade =
   | 'sehr_gut'
   | 'gut'
@@ -206,4 +208,72 @@ export interface ProviderInfo {
   docsUrl: string;
   textModel: string;
   visionModel: string;
+}
+
+// ─── Stats types (Feature 1) ──────────────────────────────────────────────────
+
+export interface TopicPerformance {
+  topicArea: string;
+  part: ExamPart;
+  attempts: number;
+  avgPercentage: number;
+  lastAttemptAt: string;
+}
+
+export interface KindPerformance {
+  taskKind: TaskKind;
+  avgPercentage: number;
+  attempts: number;
+}
+
+export interface TimelineEntry {
+  date: string;
+  part: ExamPart;
+  percentage: number;
+  sessionId: string;
+}
+
+export interface MyStats {
+  totalExams: number;
+  examsByPart: Record<ExamPart, number>;
+  averageScoreByPart: Record<ExamPart, number>;
+  averageScoreTimeline: TimelineEntry[];
+  topicPerformance: TopicPerformance[];
+  kindPerformance: KindPerformance[];
+  currentStreak: number;
+}
+
+// ─── History types (Feature 6) ────────────────────────────────────────────────
+
+export interface SessionListItem {
+  id: string;
+  part: ExamPart;
+  specialty: string;
+  title: string;
+  scenarioName: string | null;
+  startedAt: string;
+  submittedAt: string | null;
+  status: SessionStatus;
+  totalScore: number | null;
+  maxPoints: number;
+  ihkGrade: IhkGrade | null;
+  isPractice: boolean;
+  isReview: boolean;
+}
+
+// ─── Extended SubTask with expectedAnswer (Feature 4) ────────────────────────
+
+export interface ExpectedAnswer {
+  keyPoints?: string[];
+  explanation?: string;
+  correctOption?: string;
+  correctOptions?: string[];
+  solutionSql?: string;
+  exampleRow?: string[];
+  expectedElements?: string[];
+  [key: string]: unknown;
+}
+
+export interface SubTaskWithAnswer extends SubTask {
+  expectedAnswer?: ExpectedAnswer;
 }

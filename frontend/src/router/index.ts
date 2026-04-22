@@ -29,6 +29,31 @@ const routes: RouteRecordRaw[] = [
     name: 'Results',
     component: () => import('../views/ResultsView.vue'),
   },
+  {
+    path: '/stats',
+    name: 'Stats',
+    component: () => import('../views/StatsView.vue'),
+  },
+  {
+    path: '/history',
+    name: 'History',
+    component: () => import('../views/HistoryView.vue'),
+  },
+  {
+    path: '/history/:sessionId',
+    name: 'HistoryDetail',
+    component: () => import('../views/HistoryDetailView.vue'),
+  },
+  {
+    path: '/practice',
+    name: 'Practice',
+    component: () => import('../views/PracticeSetupView.vue'),
+  },
+  {
+    path: '/review',
+    name: 'Review',
+    component: () => import('../views/ReviewStartView.vue'),
+  },
 ]
 
 const router = createRouter({

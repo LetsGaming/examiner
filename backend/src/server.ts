@@ -8,6 +8,16 @@ import { evaluationRouter } from "./routes/evaluationRoutes.js";
 import { settingsRouter, initSettingsTable } from "./routes/settingsRoutes.js";
 import { authRouter, initAuthTable } from "./routes/authRoutes.js";
 import { authMiddleware } from "./middleware/auth.js";
+import { statsRouter } from "./routes/statsRoutes.js";
+import { historyRouter } from "./routes/historyRoutes.js";
+import { practiceRouter } from "./routes/practiceRoutes.js";
+import { reviewRouter } from "./routes/reviewRoutes.js";
+import { secondOpinionRouter } from "./routes/secondOpinionRoutes.js";
+import { exportRouter } from "./routes/exportRoutes.js";
+import { adminRouter } from "./routes/adminRoutes.js";
+import { initUserSettingsTable } from "./db/userSettings.js";
+import { migrateAiEvaluationsRemoveUnique } from "./db/database.js";
+import { startBackupScheduler } from "./services/backup.js";
 
 const app = express();
 const PORT = process.env.PORT ?? 8031;
@@ -53,12 +63,22 @@ app.use("/api/auth", authRouter);
 app.use("/api/exams",    authMiddleware, poolRouter);
 app.use("/api/sessions", authMiddleware, sessionRouter);
 app.use("/api/sessions", authMiddleware, evaluationRouter);
+app.use("/api/sessions", authMiddleware, historyRouter);
+app.use("/api/sessions", authMiddleware, secondOpinionRouter);
 app.use("/api/settings", authMiddleware, settingsRouter);
+app.use("/api/stats",    authMiddleware, statsRouter);
+app.use("/api/practice", authMiddleware, practiceRouter);
+app.use("/api/review",   authMiddleware, reviewRouter);
+app.use("/api/export",   authMiddleware, exportRouter);
+app.use("/api/admin",    authMiddleware, adminRouter);
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 initDatabase();
 initSettingsTable();
 initAuthTable();
+initUserSettingsTable();
+migrateAiEvaluationsRemoveUnique();
+startBackupScheduler(24);
 
 app.listen(PORT, () => {
   console.log(`✅ AP2 Trainer Backend läuft auf http://localhost:${PORT}`);

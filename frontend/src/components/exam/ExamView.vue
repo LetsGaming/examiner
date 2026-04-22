@@ -212,7 +212,7 @@ function onTextInput(value: string) {
   debouncedSave(activeTask.value, activeSubtask.value);
 }
 
-function onMcSelect(id: string) {
+function onMcSelect(id: string | null) {
   const a = currentAnswerState.value;
   if (a) a.selectedMcOption = id;
   debouncedSave(activeTask.value, activeSubtask.value);

@@ -9,13 +9,30 @@
     <div class="sc-question">{{ subtask.questionText }}</div>
 
     <div class="sc-body">
-      <!-- Multiple Choice -->
+      <!-- Multiple Choice (Einzelauswahl) -->
       <McInput
         v-if="subtask.taskType === 'mc'"
         :options="subtask.mcOptions"
         :model-value="state.selectedMcOption"
         :name="`mc-${subtask.id}`"
         @update:model-value="onMcSelect"
+      />
+
+      <!-- Multiple Choice (Mehrfachauswahl) -->
+      <McInput
+        v-else-if="subtask.taskType === 'mc_multi'"
+        :options="subtask.mcOptions"
+        :model-value="state.selectedMcOption"
+        :name="`mc-${subtask.id}`"
+        multi
+        @update:model-value="onMcSelect"
+      />
+
+      <!-- SQL -->
+      <SqlInput
+        v-else-if="subtask.taskType === 'sql'"
+        :model-value="state.textValue"
+        @update:model-value="onTextInput"
       />
 
       <!-- PlantUML -->
@@ -77,6 +94,7 @@ import type { SubTask, TableConfig } from '../../types/index.js';
 import { TASK_TYPE_LABELS } from '../../types/index.js';
 import type { AnswerState } from '../../composables/useAnswerState.js';
 import McInput       from './McInput.vue';
+import SqlInput      from './SqlInput.vue';
 import PlantUmlInput from './PlantUmlInput.vue';
 import FileUploadInput from './FileUploadInput.vue';
 import TableInput    from './TableInput.vue';
@@ -92,7 +110,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'text-input': [value: string];
-  'mc-select': [id: string];
+  'mc-select': [id: string | null];
   'file-selected': [file: File];
   'table-cell-input': [ri: number, ci: number, value: string];
   'add-table-row': [];
@@ -102,7 +120,7 @@ function onTextInput(e: Event | string) {
   const value = typeof e === 'string' ? e : (e.target as HTMLTextAreaElement).value;
   emit('text-input', value);
 }
-function onMcSelect(id: string) { emit('mc-select', id); }
+function onMcSelect(id: string | null) { emit('mc-select', id); }
 function onFileSelected(file: File | null) {
   if (file) emit('file-selected', file);
 }
@@ -116,7 +134,9 @@ function onTableCellInput(ri: number, ci: number, value: string) { emit('table-c
 .sc-type-chip { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; }
 .chip-freitext       { background: rgba(79,70,229,0.2);   color: #a5b4fc; }
 .chip-pseudocode     { background: rgba(34,197,94,0.15);  color: #86efac; }
+.chip-sql            { background: rgba(20,184,166,0.15); color: #5eead4; }
 .chip-mc             { background: rgba(245,158,11,0.15); color: #fcd34d; }
+.chip-mc_multi       { background: rgba(249,115,22,0.15); color: #fdba74; }
 .chip-plantuml       { background: rgba(168,85,247,0.2);  color: #d8b4fe; }
 .chip-diagram_upload { background: rgba(249,115,22,0.15); color: #fdba74; }
 .chip-table          { background: rgba(20,184,166,0.15); color: #5eead4; }

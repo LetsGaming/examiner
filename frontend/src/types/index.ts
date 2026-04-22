@@ -3,7 +3,9 @@ export type Specialty = 'fiae' | 'fisi';
 export type TaskType =
   | 'freitext'
   | 'pseudocode'
+  | 'sql'
   | 'mc'
+  | 'mc_multi'
   | 'plantuml'
   | 'diagram_upload'
   | 'table';
@@ -48,7 +50,9 @@ export const PART_LABELS_FISI: Record<ExamPart, string> = {
 export const TASK_TYPE_LABELS: Record<TaskType, string> = {
   freitext:       'Freitext',
   pseudocode:     'Pseudocode',
+  sql:            'SQL',
   mc:             'Multiple Choice',
+  mc_multi:       'Multiple Choice (Mehrfach)',
   plantuml:       'PlantUML',
   diagram_upload: 'Diagramm-Upload',
   table:          'Tabelle',
@@ -57,7 +61,9 @@ export const TASK_TYPE_LABELS: Record<TaskType, string> = {
 export const TASK_TYPE_SHORT: Record<TaskType, string> = {
   freitext:       'Text',
   pseudocode:     'Code',
+  sql:            'SQL',
   mc:             'MC',
+  mc_multi:       'MC+',
   plantuml:       'UML',
   diagram_upload: 'Upload',
   table:          'Tabelle',

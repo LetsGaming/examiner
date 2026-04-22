@@ -3,7 +3,9 @@ export type Specialty = 'fiae' | 'fisi';
 export type TaskType =
   | 'freitext'
   | 'pseudocode'
+  | 'sql'
   | 'mc'
+  | 'mc_multi'
   | 'plantuml'
   | 'diagram_upload'
   | 'table';

@@ -88,6 +88,7 @@ evaluationRouter.post(
                 COALESCE(sso.question_text, st.question_text) AS question_text,
                 st.expected_answer,
                 st.points AS max_points, st.diagram_type, st.expected_elements,
+                st.mc_options,
                 s.part AS exam_part, t.topic_area,
                 s.scenario_name, s.scenario_description
          FROM answers a
@@ -163,11 +164,26 @@ evaluationRouter.post(
           meta,
         );
       } else {
-        // freitext, pseudocode, mc — MC dispatches to local gradeMcAnswer (no LLM call)
+        // freitext, pseudocode, sql, mc, mc_multi.
+        // MC types use selected_mc_option; mc_multi stores a JSON array there.
+        // MC/MC-Multi dispatch to local scoring (no LLM call).
         const studentAnswer =
-          taskType === "mc"
+          taskType === "mc" || taskType === "mc_multi"
             ? ((answer.selected_mc_option as string) ?? "")
             : ((answer.text_value as string) ?? "");
+
+        // mc_multi needs the list of presented option IDs for scoring.
+        let mcOptionIds: string[] | undefined;
+        if (taskType === "mc_multi") {
+          try {
+            const opts = JSON.parse(
+              (answer.mc_options as string) ?? "[]",
+            ) as { id: string }[];
+            mcOptionIds = opts.map((o) => o.id);
+          } catch {
+            mcOptionIds = ["A", "B", "C", "D"];
+          }
+        }
 
         evaluation = await assessFreitext(
           {
@@ -179,6 +195,7 @@ evaluationRouter.post(
             maxPoints: answer.max_points as number,
             topicArea: answer.topic_area as string | undefined,
             scenarioContext,
+            mcOptionIds,
           },
           apiKey,
           meta,

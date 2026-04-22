@@ -130,3 +130,121 @@ describe('IHK Notenberechnung', () => {
     })
   })
 })
+
+// ─── Multi-Select MC Scoring ──────────────────────────────────────────────────
+// Replica of gradeMcMultiAnswer's core scoring logic. If the formula in
+// aiService.ts changes, update here too.
+
+function scoreMcMulti(
+  studentSelectionRaw: string,
+  optionIds: string[],
+  correctOptions: string[],
+  maxPoints: number,
+): { awarded: number; percent: number; correctMarks: number; wrong: string[]; missed: string[] } {
+  let studentSelected: string[] = []
+  const trimmed = (studentSelectionRaw ?? '').trim()
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed)
+      if (Array.isArray(parsed)) studentSelected = parsed.map((v) => String(v).toUpperCase().trim())
+    } catch { /* noop */ }
+  } else if (trimmed) {
+    studentSelected = trimmed.split(',').map((v) => v.toUpperCase().trim()).filter(Boolean)
+  }
+
+  const allIds = optionIds.map((id) => id.toUpperCase())
+  const correctSet = new Set(correctOptions.map((v) => v.toUpperCase()))
+  const studentSet = new Set(studentSelected.filter((id) => allIds.includes(id)))
+
+  let correctMarks = 0
+  const wrong: string[] = []
+  const missed: string[] = []
+  for (const id of allIds) {
+    const shouldBe = correctSet.has(id)
+    const isSelected = studentSet.has(id)
+    if (shouldBe === isSelected) correctMarks++
+    else if (isSelected) wrong.push(id)
+    else missed.push(id)
+  }
+  const ratio = allIds.length > 0 ? correctMarks / allIds.length : 0
+  return {
+    awarded: Math.round(ratio * maxPoints),
+    percent: Math.round(ratio * 100),
+    correctMarks,
+    wrong,
+    missed,
+  }
+}
+
+describe('Multi-Select MC Scoring', () => {
+  const OPTS = ['A', 'B', 'C', 'D']
+
+  it('perfekte Auswahl: alle richtig ausgewählt, keine falsch', () => {
+    const r = scoreMcMulti('["A","C"]', OPTS, ['A', 'C'], 6)
+    expect(r.awarded).toBe(6)
+    expect(r.percent).toBe(100)
+    expect(r.correctMarks).toBe(4)
+    expect(r.wrong).toEqual([])
+    expect(r.missed).toEqual([])
+  })
+
+  it('komplett leer bei 2 korrekten Antworten → 50% (B und D richtig als nicht-markiert)', () => {
+    const r = scoreMcMulti('', OPTS, ['A', 'C'], 6)
+    expect(r.correctMarks).toBe(2) // B und D korrekt als nicht-selektiert
+    expect(r.percent).toBe(50)
+    expect(r.missed).toEqual(['A', 'C'])
+  })
+
+  it('eine korrekt markiert, eine übersehen → 75% (3 von 4 Optionen richtig eingeordnet)', () => {
+    const r = scoreMcMulti('["A"]', OPTS, ['A', 'C'], 8)
+    expect(r.correctMarks).toBe(3)
+    expect(r.percent).toBe(75)
+    expect(r.awarded).toBe(6)
+    expect(r.missed).toEqual(['C'])
+    expect(r.wrong).toEqual([])
+  })
+
+  it('zusätzlich falsche Option markiert bestraft', () => {
+    const r = scoreMcMulti('["A","B","C"]', OPTS, ['A', 'C'], 8)
+    expect(r.correctMarks).toBe(3) // A und C richtig, D richtig nicht-markiert, B falsch markiert
+    expect(r.wrong).toEqual(['B'])
+    expect(r.percent).toBe(75)
+  })
+
+  it('alles falsch: nur falsche ausgewählt, alle richtigen übersehen → 0%', () => {
+    const r = scoreMcMulti('["B","D"]', OPTS, ['A', 'C'], 6)
+    expect(r.correctMarks).toBe(0)
+    expect(r.awarded).toBe(0)
+    expect(r.percent).toBe(0)
+  })
+
+  it('alle 4 Optionen markiert bei 2 korrekten → 50% (2 falsch markiert)', () => {
+    const r = scoreMcMulti('["A","B","C","D"]', OPTS, ['A', 'C'], 6)
+    expect(r.correctMarks).toBe(2)
+    expect(r.wrong).toEqual(['B', 'D'])
+    expect(r.percent).toBe(50)
+  })
+
+  it('comma-separated fallback parsen', () => {
+    const r = scoreMcMulti('A,C', OPTS, ['A', 'C'], 6)
+    expect(r.awarded).toBe(6)
+  })
+
+  it('drei-korrekte Aufgabe perfekt lösen', () => {
+    const r = scoreMcMulti('["A","B","D"]', OPTS, ['A', 'B', 'D'], 9)
+    expect(r.awarded).toBe(9)
+    expect(r.percent).toBe(100)
+  })
+
+  it('case-insensitive: kleinbuchstaben werden akzeptiert', () => {
+    const r = scoreMcMulti('["a","c"]', OPTS, ['A', 'C'], 6)
+    expect(r.awarded).toBe(6)
+  })
+
+  it('ungültige Option-IDs werden ignoriert', () => {
+    const r = scoreMcMulti('["A","X","C"]', OPTS, ['A', 'C'], 6)
+    expect(r.correctMarks).toBe(4) // X wird rausgefiltert, A+C richtig, B+D richtig nicht-markiert
+    expect(r.awarded).toBe(6)
+  })
+})
+

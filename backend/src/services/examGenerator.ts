@@ -251,21 +251,76 @@ const TEMPLATES_TEIL1: TaskTemplate[] = [
 ];
 
 // Gewichtete Templates für Teil 2 — exakt nach echter IHK-Verteilung
+// SQL ist eigenständiger TaskType (nicht mehr pseudocode-getarnt).
+// Gewichtung: SQL ~40%, Pseudocode ~20%, Freitext ~20%, Tabelle ~12%, UML ~8%
 const TEMPLATES_TEIL2: TaskTemplate[] = [
-  // SQL schreiben (~25%)
+  // ── SQL-Aufgaben (~40%) ──────────────────────────────────────────────────
+  // SELECT + JOIN (~12%)
   {
     typeA: "freitext",
-    typeB: "pseudocode",
-    weight: 25,
+    typeB: "sql",
+    weight: 12,
     promptA:
       "Erläutern Sie das Datenbankkonzept und nennen Sie 2 Vorteile für {{UNTERNEHMEN}}.",
     promptB:
-      "Schreiben Sie eine SQL-Abfrage (SELECT/JOIN/GROUP BY/UPDATE) für das beschriebene Szenario. Verwende SQL-Syntax.",
+      "Formulieren Sie eine SQL-SELECT-Abfrage mit einem JOIN über zwei Tabellen für das beschriebene Szenario. Geben Sie nur das SQL-Statement an.",
     ptsA: 8,
     ptsB: 17,
   },
 
-  // Pseudocode / Algorithmus (~20%)
+  // SELECT + GROUP BY / HAVING / Aggregation (~10%)
+  {
+    typeA: "freitext",
+    typeB: "sql",
+    weight: 10,
+    promptA:
+      "Beschreiben Sie, welche Aggregatfunktionen SQL anbietet und wofür sie eingesetzt werden.",
+    promptB:
+      "Formulieren Sie eine SQL-SELECT-Abfrage mit GROUP BY und einer Aggregatfunktion (COUNT, SUM, AVG, MIN oder MAX) für das beschriebene Szenario. Ergänzen Sie bei Bedarf eine HAVING-Bedingung.",
+    ptsA: 8,
+    ptsB: 17,
+  },
+
+  // CREATE TABLE (DDL) (~8%)
+  {
+    typeA: "freitext",
+    typeB: "sql",
+    weight: 8,
+    promptA:
+      "Erläutern Sie den Unterschied zwischen DDL und DML anhand je eines Beispiels.",
+    promptB:
+      "Schreiben Sie ein CREATE TABLE Statement inklusive Primär- und Fremdschlüsselangabe sowie passender Datentypen und NOT NULL Constraints für das beschriebene Szenario.",
+    ptsA: 8,
+    ptsB: 17,
+  },
+
+  // UPDATE / DELETE (DML Mutation) (~5%)
+  {
+    typeA: "freitext",
+    typeB: "sql",
+    weight: 5,
+    promptA:
+      "Erläutern Sie, warum bei UPDATE- und DELETE-Anweisungen eine WHERE-Klausel unverzichtbar ist. Nennen Sie ein Risiko.",
+    promptB:
+      "Formulieren Sie ein UPDATE- oder DELETE-Statement mit WHERE-Bedingung für das beschriebene Szenario.",
+    ptsA: 8,
+    ptsB: 17,
+  },
+
+  // Relationales Modell + passende SQL-Abfrage (~5%)
+  {
+    typeA: "freitext",
+    typeB: "sql",
+    weight: 5,
+    promptA:
+      "Erstellen Sie ein relationales Datenbankmodell (Tabellen mit Attributen, PK und FK) in Textform.",
+    promptB:
+      "Schreiben Sie eine SQL-SELECT-Abfrage, die die unter a) erstellten Tabellen verknüpft.",
+    ptsA: 14,
+    ptsB: 11,
+  },
+
+  // ── Pseudocode / Algorithmus (~20%) ──────────────────────────────────────
   {
     typeA: "freitext",
     typeB: "pseudocode",
@@ -278,11 +333,11 @@ const TEMPLATES_TEIL2: TaskTemplate[] = [
     ptsB: 17,
   },
 
-  // Freitext + Freitext (Konzept, Berechnung, Analyse) (~25%)
+  // ── Freitext + Freitext (Konzept, Berechnung, Analyse) (~12%) ────────────
   {
     typeA: "freitext",
     typeB: "freitext",
-    weight: 25,
+    weight: 12,
     promptA:
       "Erläutern Sie das Konzept und erklären Sie 2 Eigenschaften/Merkmale im Kontext von {{UNTERNEHMEN}}.",
     promptB:
@@ -291,24 +346,11 @@ const TEMPLATES_TEIL2: TaskTemplate[] = [
     ptsB: 15,
   },
 
-  // Relationales Datenbankmodell (~15%)
-  {
-    typeA: "freitext",
-    typeB: "freitext",
-    weight: 15,
-    promptA:
-      "Erstellen Sie ein relationales Datenbankmodell (Tabellen mit Attributen, PK und FK) in Textform.",
-    promptB:
-      "Schreiben Sie eine SQL-Abfrage, die die unter a) erstellten Tabellen verknüpft.",
-    ptsA: 14,
-    ptsB: 11,
-  },
-
-  // UML (~10%) — nur 1× pro Prüfung erlaubt
+  // ── UML (~8%) — nur 1× pro Prüfung erlaubt ───────────────────────────────
   {
     typeA: "freitext",
     typeB: "plantuml",
-    weight: 10,
+    weight: 8,
     diagramTypeB: "uml_sequence",
     promptA:
       "Erläutern Sie den beschriebenen Ablauf und identifizieren Sie die beteiligten Klassen/Objekte.",
@@ -318,14 +360,12 @@ const TEMPLATES_TEIL2: TaskTemplate[] = [
     ptsB: 17,
   },
 
-  // ── Tabellen-Aufgaben (~15%) ─────────────────────────────────────────────
-  // Echte IHK: ACID-Tabelle, Datenbankmodell in Tabellenform, Komplexitätstabellen
-
+  // ── Tabellen-Aufgaben (~12%) ─────────────────────────────────────────────
   // ACID / Datenbankeigenschaften als Tabelle
   {
     typeA: "table",
     typeB: "freitext",
-    weight: 8,
+    weight: 6,
     tableSide: "a",
     tableColumns: ["Eigenschaft", "Bedeutung", "Beispiel"],
     tableRowCount: 4,
@@ -338,11 +378,11 @@ const TEMPLATES_TEIL2: TaskTemplate[] = [
     ptsB: 10,
   },
 
-  // Relationales Datenbankmodell als Tabelle
+  // Relationales Datenbankmodell als Tabelle + SQL
   {
     typeA: "table",
-    typeB: "pseudocode",
-    weight: 7,
+    typeB: "sql",
+    weight: 6,
     tableSide: "a",
     tableColumns: ["Tabellenname", "Attribute (PK, FK)", "Beziehung"],
     tableRowCount: 4,
@@ -350,7 +390,7 @@ const TEMPLATES_TEIL2: TaskTemplate[] = [
     promptA:
       "Erstellen Sie ein relationales Datenbankmodell in Tabellenform für das beschriebene Szenario.",
     promptB:
-      "Schreiben Sie eine SQL-SELECT-Abfrage, die auf dem obigen Modell basiert.",
+      "Schreiben Sie eine SQL-SELECT-Abfrage, die auf dem obigen Modell basiert und mindestens einen JOIN enthält.",
     ptsA: 12,
     ptsB: 10,
   },
@@ -358,41 +398,66 @@ const TEMPLATES_TEIL2: TaskTemplate[] = [
 
 // Gewichtete Templates für Teil 3 — WiSo
 const TEMPLATES_TEIL3: TaskTemplate[] = [
-  // MC + Freitext (~50%)
+  // MC (Einzelauswahl) + Freitext (~30%)
   {
     typeA: "mc",
     typeB: "freitext",
-    weight: 50,
+    weight: 30,
     promptA:
-      "Welche der folgenden Aussagen trifft zu? (Genau 4 Antwortoptionen A–D)",
+      "Welche der folgenden Aussagen trifft zu? (Genau 4 Antwortoptionen A–D, nur EINE ist korrekt)",
     promptB: "Berechnen oder erläutern Sie den beschriebenen Sachverhalt.",
     ptsA: 4,
     ptsB: 6,
   },
 
-  // Freitext + MC (~30%)
+  // MC (Mehrfachauswahl) + Freitext (~20%)
+  {
+    typeA: "mc_multi",
+    typeB: "freitext",
+    weight: 20,
+    promptA:
+      "Welche der folgenden Aussagen treffen zu? (4 Antwortoptionen A–D, MEHRERE können korrekt sein — typisch 2 oder 3)",
+    promptB: "Begründen Sie Ihre Auswahl mit einem Beispiel.",
+    ptsA: 5,
+    ptsB: 5,
+  },
+
+  // Freitext + MC (Einzelauswahl) (~20%)
   {
     typeA: "freitext",
     typeB: "mc",
-    weight: 30,
+    weight: 20,
     promptA: "Nennen Sie 2–3 Aspekte oder Unterschiede und begründen Sie kurz.",
     promptB:
-      "Welche Aussage trifft auf den beschriebenen Fall zu? (Genau 4 Antwortoptionen A–D)",
+      "Welche Aussage trifft auf den beschriebenen Fall zu? (Genau 4 Antwortoptionen A–D, nur EINE ist korrekt)",
     ptsA: 6,
     ptsB: 4,
   },
 
-  // MC + MC (~20%)
+  // MC (Einzelauswahl) + MC (Mehrfachauswahl) (~15%)
   {
     typeA: "mc",
-    typeB: "mc",
-    weight: 20,
+    typeB: "mc_multi",
+    weight: 15,
     promptA:
-      "Welche der folgenden Aussagen ist korrekt? (Genau 4 Antwortoptionen A–D)",
+      "Welche der folgenden Aussagen ist korrekt? (Genau 4 Antwortoptionen A–D, nur EINE ist korrekt)",
     promptB:
-      "Welche der folgenden Maßnahmen/Antworten trifft zu? (Genau 4 Antwortoptionen A–D)",
-    ptsA: 5,
-    ptsB: 5,
+      "Welche der folgenden Maßnahmen/Antworten treffen zu? (4 Antwortoptionen A–D, MEHRERE können korrekt sein)",
+    ptsA: 4,
+    ptsB: 6,
+  },
+
+  // MC (Mehrfachauswahl) allein groß gewichtet (~15%)
+  {
+    typeA: "mc_multi",
+    typeB: "mc",
+    weight: 15,
+    promptA:
+      "Welche der folgenden Aussagen treffen zu? (4 Antwortoptionen A–D, MEHRERE korrekt)",
+    promptB:
+      "Welche Aussage trifft zu? (Genau 4 Antwortoptionen A–D, nur EINE korrekt)",
+    ptsA: 6,
+    ptsB: 4,
   },
 ];
 
@@ -464,12 +529,26 @@ async function generateOneTask(
   const system = `Du bist IHK-Prüfungsersteller für ${specialtyLabel} AP2. Antworte NUR mit gültigem JSON, kein Markdown.
 Platzhalter für Fragetext: {{UNTERNEHMEN}}, {{BRANCHE}}, {{PRODUKT}}, {{MITARBEITER}}.
 Sprache: Deutsch. Stil: knapp, sachlich, IHK-typisch (nennen/erläutern/beschreiben/berechnen).
-WICHTIG für Multiple-Choice-Aufgaben:
+
+WICHTIG für Multiple-Choice-Einzelauswahl (taskType "mc"):
 - Erstelle 4 Antwortoptionen (A, B, C, D) mit KONKRETEM Inhalt — kein "..." oder Platzhaltertext.
 - Setze "correctOption" auf den Buchstaben der TATSÄCHLICH korrekten Antwort (A, B, C oder D).
 - "correctOption" darf NUR einer dieser Werte sein: "A", "B", "C" oder "D".
 - Variiere die Position der richtigen Antwort — nicht immer A oder B.
-- "explanation" erklärt kurz WARUM diese Option korrekt ist. Keine {{PLATZHALTER}} in explanation.`;
+- "explanation" erklärt kurz WARUM diese Option korrekt ist. Keine {{PLATZHALTER}} in explanation.
+
+WICHTIG für Multiple-Choice-Mehrfachauswahl (taskType "mc_multi"):
+- Erstelle 4 Antwortoptionen (A, B, C, D) mit KONKRETEM Inhalt.
+- "correctOptions" ist ein ARRAY von Buchstaben, typisch 2 oder 3 Einträge. NIE 0 Einträge, NIE alle 4.
+- Beispiel: "correctOptions": ["A", "C"] oder ["B", "C", "D"].
+- Variiere die Anzahl korrekter Antworten zwischen 2 und 3.
+- "explanation" erklärt kurz WARUM genau diese Optionen korrekt sind (und warum die anderen nicht).
+
+WICHTIG für SQL-Aufgaben (taskType "sql"):
+- questionText MUSS die notwendigen Tabellenstrukturen textuell enthalten, sodass der Prüfling weiß welche Tabellen und Spalten existieren. Format: "Tabelle mitarbeiter(id PK, name, abteilung_id FK, gehalt)".
+- "expectedAnswer.solutionSql" enthält eine beispielhafte Musterlösung als SQL-Statement (kein Markdown, kein Backtick).
+- "expectedAnswer.keyElements" ist ein Array mit den Pflicht-Bausteinen der Lösung, z.B. ["SELECT mit JOIN", "WHERE abteilung = 'IT'", "ORDER BY name"].
+- "expectedAnswer.gradingHint" beschreibt kurz, worauf geachtet wird (Syntax, korrekte Tabellenbezüge, Ergebnismenge).`;
 
   // Schemata je nach Template-Typen aufbauen
   // TableConfig für Tabellen-Aufgaben aufbauen
@@ -499,20 +578,28 @@ WICHTIG für Multiple-Choice-Aufgaben:
   const schemaA =
     tpl.typeA === "mc"
       ? `{"label":"a","taskType":"mc","questionText":"FRAGE?","points":${tpl.ptsA},"mcOptions":[{"id":"A","text":"Konkrete Antwort A"},{"id":"B","text":"Konkrete Antwort B"},{"id":"C","text":"Konkrete Antwort C"},{"id":"D","text":"Konkrete Antwort D"}],"expectedAnswer":{"correctOption":"X","explanation":"Begründung warum X korrekt ist"}}`
-      : tpl.typeA === "table"
-        ? `{"label":"a","taskType":"table","questionText":"FRAGE","points":${tpl.ptsA},"expectedAnswer":{"columns":${JSON.stringify(tpl.tableColumns ?? [])},"keyPoints":["Musterlösung Zeile 1","Musterlösung Zeile 2"]}}`
-        : `{"label":"a","taskType":"freitext","questionText":"FRAGE","points":${tpl.ptsA},"expectedAnswer":{"keyPoints":["Punkt 1","Punkt 2"]}}`;
+      : tpl.typeA === "mc_multi"
+        ? `{"label":"a","taskType":"mc_multi","questionText":"FRAGE?","points":${tpl.ptsA},"mcOptions":[{"id":"A","text":"Konkrete Aussage A"},{"id":"B","text":"Konkrete Aussage B"},{"id":"C","text":"Konkrete Aussage C"},{"id":"D","text":"Konkrete Aussage D"}],"expectedAnswer":{"correctOptions":["A","C"],"explanation":"Begründung warum diese Optionen korrekt sind"}}`
+        : tpl.typeA === "sql"
+          ? `{"label":"a","taskType":"sql","questionText":"FRAGE mit Tabellenstruktur(en)","points":${tpl.ptsA},"expectedAnswer":{"solutionSql":"SELECT ... FROM ... WHERE ...;","keyElements":["SELECT","JOIN","WHERE"],"gradingHint":"Syntax, korrekte Tabellen und Joins, richtige WHERE-Bedingung"}}`
+          : tpl.typeA === "table"
+            ? `{"label":"a","taskType":"table","questionText":"FRAGE","points":${tpl.ptsA},"expectedAnswer":{"columns":${JSON.stringify(tpl.tableColumns ?? [])},"keyPoints":["Musterlösung Zeile 1","Musterlösung Zeile 2"]}}`
+            : `{"label":"a","taskType":"freitext","questionText":"FRAGE","points":${tpl.ptsA},"expectedAnswer":{"keyPoints":["Punkt 1","Punkt 2"]}}`;
 
   const schemaB =
     tpl.typeB === "mc"
       ? `{"label":"b","taskType":"mc","questionText":"FRAGE?","points":${tpl.ptsB},"mcOptions":[{"id":"A","text":"Konkrete Antwort A"},{"id":"B","text":"Konkrete Antwort B"},{"id":"C","text":"Konkrete Antwort C"},{"id":"D","text":"Konkrete Antwort D"}],"expectedAnswer":{"correctOption":"X","explanation":"Begründung warum X korrekt ist"}}`
-      : tpl.typeB === "plantuml"
-        ? `{"label":"b","taskType":"plantuml","questionText":"FRAGE","points":${tpl.ptsB},"diagramType":"${diagramType}","expectedElements":["Element1","Element2","Element3"],"expectedAnswer":{"keyPoints":[]}}`
-        : tpl.typeB === "pseudocode"
-          ? `{"label":"b","taskType":"pseudocode","questionText":"FRAGE","points":${tpl.ptsB},"expectedAnswer":{"keyPoints":["Schritt 1","Schritt 2"]}}`
-          : tpl.typeB === "table"
-            ? `{"label":"b","taskType":"table","questionText":"FRAGE","points":${tpl.ptsB},"expectedAnswer":{"columns":${JSON.stringify(tpl.tableColumns ?? [])},"keyPoints":["Musterlösung Zeile 1","Musterlösung Zeile 2"]}}`
-            : `{"label":"b","taskType":"freitext","questionText":"FRAGE","points":${tpl.ptsB},"expectedAnswer":{"keyPoints":["Punkt 1","Punkt 2"]}}`;
+      : tpl.typeB === "mc_multi"
+        ? `{"label":"b","taskType":"mc_multi","questionText":"FRAGE?","points":${tpl.ptsB},"mcOptions":[{"id":"A","text":"Konkrete Aussage A"},{"id":"B","text":"Konkrete Aussage B"},{"id":"C","text":"Konkrete Aussage C"},{"id":"D","text":"Konkrete Aussage D"}],"expectedAnswer":{"correctOptions":["A","C"],"explanation":"Begründung warum diese Optionen korrekt sind"}}`
+        : tpl.typeB === "sql"
+          ? `{"label":"b","taskType":"sql","questionText":"FRAGE mit Tabellenstruktur(en)","points":${tpl.ptsB},"expectedAnswer":{"solutionSql":"SELECT ... FROM ... WHERE ...;","keyElements":["SELECT","JOIN","WHERE"],"gradingHint":"Syntax, korrekte Tabellen und Joins, richtige WHERE-Bedingung"}}`
+          : tpl.typeB === "plantuml"
+            ? `{"label":"b","taskType":"plantuml","questionText":"FRAGE","points":${tpl.ptsB},"diagramType":"${diagramType}","expectedElements":["Element1","Element2","Element3"],"expectedAnswer":{"keyPoints":[]}}`
+            : tpl.typeB === "pseudocode"
+              ? `{"label":"b","taskType":"pseudocode","questionText":"FRAGE","points":${tpl.ptsB},"expectedAnswer":{"keyPoints":["Schritt 1","Schritt 2"]}}`
+              : tpl.typeB === "table"
+                ? `{"label":"b","taskType":"table","questionText":"FRAGE","points":${tpl.ptsB},"expectedAnswer":{"columns":${JSON.stringify(tpl.tableColumns ?? [])},"keyPoints":["Musterlösung Zeile 1","Musterlösung Zeile 2"]}}`
+                : `{"label":"b","taskType":"freitext","questionText":"FRAGE","points":${tpl.ptsB},"expectedAnswer":{"keyPoints":["Punkt 1","Punkt 2"]}}`;
 
   const totalPts = tpl.ptsA + tpl.ptsB;
 
@@ -524,7 +611,9 @@ Unteraufgabe b (${tpl.ptsB}P): ${tpl.promptB}
 
 Gib genau dieses JSON zurück. Ersetze dabei:
 - FRAGE durch eine konkrete IHK-typische Fragestellung
-- Bei MC: "Konkrete Antwort X" durch echte Antwortoptionen, "X" in correctOption durch den Buchstaben der tatsächlich richtigen Option (A/B/C/D), "Begründung..." durch eine kurze Erklärung ohne {{PLATZHALTER}}
+- Bei "mc": "Konkrete Antwort X" durch echte Antwortoptionen, "X" in correctOption durch den Buchstaben der tatsächlich richtigen Option (A/B/C/D), "Begründung..." durch eine kurze Erklärung ohne {{PLATZHALTER}}
+- Bei "mc_multi": 4 echte Aussagen als Optionen, correctOptions als Array mit 2 oder 3 Buchstaben (z.B. ["A","C"] oder ["B","C","D"]), Begründung ohne {{PLATZHALTER}}
+- Bei "sql": questionText enthält konkrete Tabellenstrukturen (Name + Spalten + PK/FK), solutionSql ist eine ausführbare Musterlösung, keyElements listet die erwarteten SQL-Bausteine
 {"topicArea":"${topic}","pointsValue":${totalPts},"difficulty":"medium","subtasks":[${schemaA},${schemaB}]}`;
 
   const raw = await callOpenAI(system, user, apiKey, isWiso ? 650 : 750, meta);
@@ -592,12 +681,61 @@ Gib genau dieses JSON zurück. Ersetze dabei:
           .replace(/\{\{[A-Z_]+\}\}/g, "");
       }
     }
+    if (expected === "mc_multi") {
+      if (!st.mcOptions || st.mcOptions.length < 4) {
+        st.mcOptions = [
+          { id: "A", text: st.mcOptions?.[0]?.text ?? "Aussage A" },
+          { id: "B", text: st.mcOptions?.[1]?.text ?? "Aussage B" },
+          { id: "C", text: st.mcOptions?.[2]?.text ?? "Aussage C" },
+          { id: "D", text: st.mcOptions?.[3]?.text ?? "Aussage D" },
+        ];
+      }
+      // Validate correctOptions — must be an array of valid option IDs, length 1..n-1 (nicht alle 4).
+      const validIds = new Set(st.mcOptions.map((o) => o.id.toUpperCase()));
+      const rawList = Array.isArray(st.expectedAnswer?.correctOptions)
+        ? (st.expectedAnswer.correctOptions as unknown[])
+        : [];
+      const normalised = rawList
+        .map((v) => String(v).toUpperCase().trim())
+        .filter((v) => validIds.has(v));
+      const unique = Array.from(new Set(normalised));
+      let finalList = unique;
+      if (finalList.length === 0 || finalList.length >= st.mcOptions.length) {
+        // Fallback: zwei Optionen zufällig-deterministisch wählen (A + C)
+        console.warn(
+          `[generator] correctOptions ungültig für Aufgabe "${topic}" — Fallback auf ["A","C"]`,
+        );
+        finalList = ["A", "C"];
+      }
+      st.expectedAnswer = { ...st.expectedAnswer, correctOptions: finalList };
+      if (typeof st.expectedAnswer?.explanation === "string") {
+        st.expectedAnswer.explanation = (st.expectedAnswer.explanation as string)
+          .replace(/\{\{[A-Z_]+\}\}/g, "");
+      }
+    }
+    if (expected === "sql") {
+      // Ensure solutionSql, keyElements and gradingHint exist (for AI-based evaluation)
+      if (!st.expectedAnswer) st.expectedAnswer = {};
+      if (typeof st.expectedAnswer.solutionSql !== "string" || !st.expectedAnswer.solutionSql.trim()) {
+        st.expectedAnswer.solutionSql = "-- Musterlösung nicht verfügbar";
+      }
+      if (!Array.isArray(st.expectedAnswer.keyElements)) {
+        st.expectedAnswer.keyElements = [];
+      }
+      if (typeof st.expectedAnswer.gradingHint !== "string") {
+        st.expectedAnswer.gradingHint = "Bewertung: SQL-Syntax, korrekte Tabellen- und Spaltenbezüge, passende WHERE/JOIN-Bedingungen, erwartete Ergebnismenge.";
+      }
+    }
   }
 
-  // WiSo: keine UML/Pseudocode erlaubt
+  // WiSo: keine UML/Pseudocode/SQL erlaubt — nur Freitext und MC
   if (isWiso) {
     for (const st of task.subtasks) {
-      if (st.taskType !== "freitext" && st.taskType !== "mc") {
+      if (
+        st.taskType !== "freitext" &&
+        st.taskType !== "mc" &&
+        st.taskType !== "mc_multi"
+      ) {
         st.taskType = "freitext";
       }
     }
@@ -621,6 +759,27 @@ function buildFallbackTask(
       : part === "teil_1"
         ? TEMPLATES_TEIL1[0]
         : TEMPLATES_TEIL2[0]);
+
+  function fallbackOptions() {
+    return [
+      { id: "A", text: "Aussage A" },
+      { id: "B", text: "Aussage B" },
+      { id: "C", text: "Aussage C" },
+      { id: "D", text: "Aussage D" },
+    ];
+  }
+  function fallbackExpected(type: TaskType, defaultCorrect: string) {
+    if (type === "mc") return { correctOption: defaultCorrect, explanation: "" };
+    if (type === "mc_multi") return { correctOptions: ["A", "C"], explanation: "" };
+    if (type === "sql")
+      return {
+        solutionSql: "-- Musterlösung nicht verfügbar",
+        keyElements: [],
+        gradingHint: "Bewertung nach SQL-Syntax und sinngemäßer Korrektheit.",
+      };
+    return { keyPoints: [], minKeyPointsRequired: 2 };
+  }
+
   return {
     topicArea: topic,
     pointsValue: t.ptsA + t.ptsB,
@@ -634,18 +793,10 @@ function buildFallbackTask(
           : `Erläutern Sie das Thema „${topic}" im Kontext von {{UNTERNEHMEN}}.`,
         points: t.ptsA,
         mcOptions:
-          t.typeA === "mc"
-            ? [
-                { id: "A", text: "Aussage A" },
-                { id: "B", text: "Aussage B" },
-                { id: "C", text: "Aussage C" },
-                { id: "D", text: "Aussage D" },
-              ]
+          t.typeA === "mc" || t.typeA === "mc_multi"
+            ? fallbackOptions()
             : undefined,
-        expectedAnswer:
-          t.typeA === "mc"
-            ? { correctOption: "A", explanation: "" }
-            : { keyPoints: [], minKeyPointsRequired: 2 },
+        expectedAnswer: fallbackExpected(t.typeA, "A"),
       },
       {
         label: "b",
@@ -657,18 +808,10 @@ function buildFallbackTask(
             ? (t.diagramTypeB ?? "uml_activity")
             : undefined,
         mcOptions:
-          t.typeB === "mc"
-            ? [
-                { id: "A", text: "Aussage A" },
-                { id: "B", text: "Aussage B" },
-                { id: "C", text: "Aussage C" },
-                { id: "D", text: "Aussage D" },
-              ]
+          t.typeB === "mc" || t.typeB === "mc_multi"
+            ? fallbackOptions()
             : undefined,
-        expectedAnswer:
-          t.typeB === "mc"
-            ? { correctOption: "B", explanation: "" }
-            : { keyPoints: [], minKeyPointsRequired: 2 },
+        expectedAnswer: fallbackExpected(t.typeB, "B"),
       },
     ],
   };

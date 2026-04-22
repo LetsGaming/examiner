@@ -41,7 +41,7 @@ export function initDatabase(): void {
       id                TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
       task_id           TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
       label             TEXT NOT NULL,
-      task_type         TEXT NOT NULL CHECK(task_type IN ('freitext','pseudocode','mc','plantuml','diagram_upload','table')),
+      task_type         TEXT NOT NULL CHECK(task_type IN ('freitext','pseudocode','sql','mc','mc_multi','plantuml','diagram_upload','table')),
       question_text     TEXT NOT NULL,
       expected_answer   TEXT NOT NULL DEFAULT '{}',
       points            INTEGER NOT NULL,
@@ -144,14 +144,14 @@ export function initDatabase(): void {
       db.pragma("foreign_keys = OFF");
       db.prepare(
         `INSERT INTO subtasks (id, task_id, label, task_type, question_text, points, position)
-         VALUES (?, 'nonexistent', 'x', 'table', 'x', 0, 0)`,
+         VALUES (?, 'nonexistent', 'x', 'sql', 'x', 0, 0)`,
       ).run(testId);
       db.prepare("DELETE FROM subtasks WHERE id = ?").run(testId);
       db.pragma("foreign_keys = ON");
-      return false; // 'table' ist bereits erlaubt
+      return false; // 'sql' ist bereits erlaubt → CHECK ist aktuell
     } catch {
       db.pragma("foreign_keys = ON");
-      return true; // CHECK schlägt fehl → Rebuild nötig
+      return true; // CHECK schlägt fehl → Rebuild nötig (alte Installation ohne 'sql'/'mc_multi')
     }
   })();
 
@@ -166,7 +166,7 @@ export function initDatabase(): void {
           id                TEXT PRIMARY KEY,
           task_id           TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
           label             TEXT NOT NULL,
-          task_type         TEXT NOT NULL CHECK(task_type IN ('freitext','pseudocode','mc','plantuml','diagram_upload','table')),
+          task_type         TEXT NOT NULL CHECK(task_type IN ('freitext','pseudocode','sql','mc','mc_multi','plantuml','diagram_upload','table')),
           question_text     TEXT NOT NULL,
           expected_answer   TEXT NOT NULL DEFAULT '{}',
           points            INTEGER NOT NULL,

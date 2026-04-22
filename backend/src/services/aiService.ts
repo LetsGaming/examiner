@@ -35,6 +35,8 @@ export interface AssessAnswerParams {
   topicArea?: string;
   /** Formatted scenario context string, e.g. "Unternehmenskontext: TravelTech GmbH — ..." */
   scenarioContext?: string;
+  /** MC option IDs in the order they were presented — required for mc_multi scoring */
+  mcOptionIds?: string[];
 }
 
 export interface AnalyzeDiagramParams {
@@ -107,6 +109,79 @@ Bewerte die Antwort und gib ausschließlich dieses JSON zurück:
   "feedbackText": "<2–4 konstruktive Sätze auf Deutsch>",
   "criterionScores": [
     { "criterion": "<Name>", "awarded": <n>, "max": <n>, "comment": "<1 Satz>" }
+  ],
+  "keyMistakes": ["<Fehler 1>"],
+  "improvementHints": ["<Tipp 1>"]
+}`;
+}
+
+/**
+ * SQL-spezifischer Bewertungsprompt.
+ * Unterscheidet explizit zwischen syntaktischer Korrektheit und semantischer
+ * Korrektheit (richtige Tabellen/Spalten, richtige JOIN-Bedingungen, richtige
+ * Ergebnismenge). Sinngemäß äquivalente Lösungen werden akzeptiert.
+ */
+function buildUserPromptSql(params: AssessAnswerParams): string {
+  const questionText = stripPlaceholders(params.questionText);
+  const expected = params.expectedAnswer as Record<string, unknown>;
+  const solutionSql = stripPlaceholders(String(expected.solutionSql ?? ""));
+  const keyElements = Array.isArray(expected.keyElements)
+    ? (expected.keyElements as string[]).map(stripPlaceholders).join(", ")
+    : "";
+  const gradingHint = stripPlaceholders(String(expected.gradingHint ?? ""));
+
+  const syntaxP = Math.max(1, Math.round(params.maxPoints * 0.2));
+  const schemaP = Math.max(1, Math.round(params.maxPoints * 0.3));
+  const logicP = Math.max(1, Math.round(params.maxPoints * 0.35));
+  const resultP = Math.max(1, params.maxPoints - syntaxP - schemaP - logicP);
+
+  return `Du bewertest eine SQL-Aufgabe.
+
+AUFGABENSTELLUNG:
+${questionText}
+
+MAXIMALPUNKTE: ${params.maxPoints}
+
+MUSTERLÖSUNG (SQL, vertraulich):
+\`\`\`sql
+${solutionSql || "-- nicht angegeben"}
+\`\`\`
+
+PFLICHT-BAUSTEINE: ${keyElements || "(keine spezifischen Bausteine vorgegeben)"}
+BEWERTUNGSHINWEIS: ${gradingHint || "Standard-SQL-Bewertung"}
+
+ANTWORT DES PRÜFLINGS (SQL):
+\`\`\`sql
+${params.studentAnswer}
+\`\`\`
+
+BEWERTUNGSKRITERIEN (Punkte strikt anwenden):
+1. Syntaktische Korrektheit (${syntaxP}P) — gültiges SQL, keine fehlenden Keywords.
+2. Korrekte Tabellen- und Spaltenbezüge (${schemaP}P) — verwendet die richtigen Tabellen aus der Aufgabe, korrekte Spaltennamen.
+3. Logische Korrektheit (${logicP}P) — richtige JOIN-Bedingungen, WHERE-Prädikate, GROUP BY/HAVING, korrekte Aggregatfunktionen, Subqueries wenn nötig.
+4. Erwartete Ergebnismenge (${resultP}P) — das Statement liefert genau die angeforderten Daten (nicht zu viel, nicht zu wenig).
+
+AKZEPTIERE:
+- Sinngemäß äquivalente Formulierungen (INNER JOIN vs. impliziter Join, Aliase, case-insensitive Keywords, Zeilenumbrüche).
+- Verschiedene korrekte Lösungswege mit identischem Ergebnis.
+
+BESTRAFE:
+- Fehlende JOIN-Bedingung (führt zu kartesischem Produkt).
+- Fehlende WHERE-Klausel bei UPDATE/DELETE (kritischer Fehler).
+- Aggregatfunktion ohne GROUP BY bei gleichzeitiger Auswahl nicht-aggregierter Spalten.
+- Falsche Spaltennamen oder Tabellen die nicht in der Aufgabe stehen.
+
+Gib AUSSCHLIESSLICH dieses JSON zurück:
+{
+  "awardedPoints": <integer 0–${params.maxPoints}>,
+  "percentageScore": <integer 0–100>,
+  "ihkGrade": <"sehr_gut"|"gut"|"befriedigend"|"ausreichend"|"mangelhaft"|"ungenuegend">,
+  "feedbackText": "<2–4 konstruktive Sätze auf Deutsch>",
+  "criterionScores": [
+    { "criterion": "Syntax", "awarded": <n>, "max": ${syntaxP}, "comment": "<1 Satz>" },
+    { "criterion": "Tabellen/Spalten", "awarded": <n>, "max": ${schemaP}, "comment": "<1 Satz>" },
+    { "criterion": "Logik (JOINs/WHERE/GROUP BY)", "awarded": <n>, "max": ${logicP}, "comment": "<1 Satz>" },
+    { "criterion": "Ergebnismenge", "awarded": <n>, "max": ${resultP}, "comment": "<1 Satz>" }
   ],
   "keyMistakes": ["<Fehler 1>"],
   "improvementHints": ["<Tipp 1>"]
@@ -420,6 +495,120 @@ function gradeMcAnswer(
   };
 }
 
+/**
+ * Grade a multi-select MC answer with partial credit.
+ *
+ * Scoring: for each option the student marks correctly (select=true when correct,
+ * select=false when wrong), one "unit" is earned. Units are scaled to maxPoints.
+ *
+ * Formula: awarded = round( (correctlyMarked / totalOptions) * maxPoints )
+ *
+ * studentAnswer comes in as a JSON-stringified array like '["A","C"]',
+ * or as a comma-separated fallback like "A,C".
+ */
+function gradeMcMultiAnswer(
+  studentSelectionRaw: string,
+  mcOptionIds: string[],
+  expectedAnswer: Record<string, unknown>,
+  maxPoints: number,
+): Omit<AiEvaluation, "id" | "answerId" | "createdAt"> {
+  // Parse student selection (JSON array preferred, fallback to comma-separated)
+  let studentSelected: string[] = [];
+  const trimmed = (studentSelectionRaw ?? "").trim();
+  if (trimmed.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        studentSelected = parsed.map((v) => String(v).toUpperCase().trim());
+      }
+    } catch {
+      /* fall through */
+    }
+  } else if (trimmed) {
+    studentSelected = trimmed
+      .split(",")
+      .map((v) => v.toUpperCase().trim())
+      .filter(Boolean);
+  }
+
+  const allIds = mcOptionIds.map((id) => id.toUpperCase());
+  const correctSet = new Set(
+    Array.isArray(expectedAnswer.correctOptions)
+      ? (expectedAnswer.correctOptions as unknown[]).map((v) =>
+          String(v).toUpperCase().trim(),
+        )
+      : [],
+  );
+  const studentSet = new Set(studentSelected.filter((id) => allIds.includes(id)));
+
+  // Count correct marks: for each option, did the student's inclusion match the truth?
+  let correctMarks = 0;
+  const wrongSelected: string[] = []; // marked but shouldn't be
+  const missed: string[] = []; // should have been marked but wasn't
+  for (const id of allIds) {
+    const shouldBe = correctSet.has(id);
+    const isSelected = studentSet.has(id);
+    if (shouldBe === isSelected) {
+      correctMarks++;
+    } else if (isSelected && !shouldBe) {
+      wrongSelected.push(id);
+    } else if (!isSelected && shouldBe) {
+      missed.push(id);
+    }
+  }
+
+  const ratio = allIds.length > 0 ? correctMarks / allIds.length : 0;
+  const awarded = Math.round(ratio * maxPoints);
+  const percent = Math.round(ratio * 100);
+  const isPerfect = correctMarks === allIds.length;
+
+  const explanation = stripPlaceholders(
+    (expectedAnswer.explanation as string) ?? "",
+  );
+  const correctList = Array.from(correctSet).sort().join(", ");
+  const studentList = Array.from(studentSet).sort().join(", ") || "(keine)";
+
+  let feedbackText: string;
+  if (isPerfect) {
+    feedbackText = `Richtig! Alle korrekten Optionen (${correctList}) wurden ausgewählt und keine falschen markiert.${explanation ? " " + explanation : ""}`;
+  } else if (correctMarks === 0) {
+    feedbackText = `Leider komplett daneben. Korrekte Auswahl wäre: ${correctList}. Du hast ausgewählt: ${studentList}.${explanation ? " " + explanation : ""}`;
+  } else {
+    feedbackText = `Teilweise korrekt (${correctMarks} von ${allIds.length} Optionen richtig eingeordnet). Erwartet: ${correctList}. Ausgewählt: ${studentList}.${explanation ? " " + explanation : ""}`;
+  }
+
+  const keyMistakes: string[] = [];
+  if (wrongSelected.length) {
+    keyMistakes.push(
+      `Fälschlicherweise ausgewählt: ${wrongSelected.sort().join(", ")}`,
+    );
+  }
+  if (missed.length) {
+    keyMistakes.push(
+      `Richtige Option(en) übersehen: ${missed.sort().join(", ")}`,
+    );
+  }
+
+  return {
+    awardedPoints: awarded,
+    maxPoints,
+    percentageScore: percent,
+    ihkGrade: deriveIhkGrade(percent),
+    feedbackText,
+    criterionScores: [
+      {
+        criterion: "Korrekte Mehrfachauswahl",
+        awarded,
+        max: maxPoints,
+        comment: `${correctMarks} von ${allIds.length} Optionen korrekt eingeordnet`,
+      },
+    ],
+    keyMistakes,
+    improvementHints: isPerfect ? [] : explanation ? [explanation] : [],
+    modelUsed: "local_mc_multi_evaluation",
+  };
+}
+
 async function assessTableAnswer(
   params: AssessAnswerParams,
   apiKey: string,
@@ -514,8 +703,20 @@ export async function assessFreitext(
       params.expectedAnswer,
       params.maxPoints,
     );
+  if (params.taskType === "mc_multi")
+    return gradeMcMultiAnswer(
+      params.studentAnswer,
+      params.mcOptionIds ?? ["A", "B", "C", "D"],
+      params.expectedAnswer,
+      params.maxPoints,
+    );
 
-  const fullPrompt = `${buildSystemPrompt(params.examPart)}\n\n${buildUserPrompt(params)}`;
+  // SQL uses an SQL-specific prompt; everything else falls through to the generic freitext prompt.
+  const userPrompt =
+    params.taskType === "sql"
+      ? buildUserPromptSql(params)
+      : buildUserPrompt(params);
+  const fullPrompt = `${buildSystemPrompt(params.examPart, params.scenarioContext)}\n\n${userPrompt}`;
   const raw = await callAiProvider(fullPrompt, apiKey, meta);
   const parsed = parseLlmJson(raw) as Record<string, unknown>;
   const awarded = Math.min(

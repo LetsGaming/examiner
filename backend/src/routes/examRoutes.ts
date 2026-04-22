@@ -753,6 +753,7 @@ sessionRouter.post(
         `
     SELECT a.*, st.task_type, st.question_text, st.expected_answer,
            st.points AS max_points, st.diagram_type, st.expected_elements,
+           st.mc_options,
            s.part AS exam_part, t.topic_area
     FROM answers a
     JOIN subtasks st ON st.id = a.subtask_id
@@ -832,10 +833,24 @@ sessionRouter.post(
           evalMeta,
         );
       } else {
+        const taskType = answer.task_type as string;
         const studentAnswer =
-          (answer.task_type as string) === "mc"
+          taskType === "mc" || taskType === "mc_multi"
             ? ((answer.selected_mc_option as string) ?? "")
             : ((answer.text_value as string) ?? "");
+
+        let mcOptionIds: string[] | undefined;
+        if (taskType === "mc_multi") {
+          try {
+            const opts = JSON.parse(
+              (answer.mc_options as string) ?? "[]",
+            ) as { id: string }[];
+            mcOptionIds = opts.map((o) => o.id);
+          } catch {
+            mcOptionIds = ["A", "B", "C", "D"];
+          }
+        }
+
         evaluation = await assessFreitext(
           {
             taskType: answer.task_type as TaskType,
@@ -847,6 +862,7 @@ sessionRouter.post(
             studentAnswer,
             maxPoints: answer.max_points as number,
             topicArea: answer.topic_area as string | undefined,
+            mcOptionIds,
           },
           apiKey,
           evalMeta,

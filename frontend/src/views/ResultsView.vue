@@ -1,5 +1,5 @@
 <template>
-  <ion-page style="overflow-y: auto">
+  <ion-page>
     <div class="results-page">
       <header class="results-header">
         <button class="back-btn" @click="router.push('/')">
@@ -310,11 +310,12 @@ onMounted(async () => {
   padding: 0;
 }
 .results-page {
-  min-height: 100vh;
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   background: #0f1117;
   color: #e8eaf0;
   font-family: "Inter", system-ui, sans-serif;
-  overflow-y: auto;
 }
 
 .results-header {

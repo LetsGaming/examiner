@@ -116,9 +116,19 @@ interface TaskTemplate {
   typeA: TaskType;
   typeB: TaskType;
   tableSide?: "a" | "b"; // welche Unteraufgabe ist eine Tabelle
-  tableColumns?: string[]; // Spaltenüberschriften
+  /** Spaltenvorschlag an die KI — darf kontextuell verfeinert werden. Nur bei tableKind === "fixed-columns" ist es bindend. */
+  tableColumns?: string[];
   tableRowCount?: number; // Anzahl auszufüllender Zeilen
   fixedFirstColumn?: boolean; // erste Spalte vorausgefüllt
+  /** Bindende Werte für die erste Spalte (z.B. ACID: ["Atomicity","Consistency","Isolation","Durability"]). */
+  fixedFirstColumnValues?: string[];
+  /** Wie frei darf die KI die Spalten gestalten? 
+   *  - "flexible": KI darf Spalten komplett umbenennen/austauschen passend zum Thema
+   *  - "guided":   KI nimmt die vorgegebenen Spalten als Basis, darf sie aber an den konkreten Themenkontext anpassen
+   *  - "fixed":    Spalten sind bindend (für Template-semantisch notwendige Fälle wie ACID) */
+  tableKind?: "flexible" | "guided" | "fixed";
+  /** Kurze semantische Beschreibung der Tabelle für die KI (z.B. "Stakeholder-Tabelle: Rolle, Interesse, Einfluss"). */
+  tableDescription?: string;
   diagramTypeB?: DiagramType;
   weight: number; // relative Häufigkeit (höher = öfter gewählt)
   promptA: string; // Aufgabenform für Unteraufgabe a
@@ -142,7 +152,9 @@ const TEMPLATES_TEIL1: TaskTemplate[] = [
     ptsB: 10,
   },
 
-  // Freitext + Tabelle ausfüllen (~20%)
+  // Freitext + Tabellen-Beispiele aufzählen (~20%)
+  // Wichtig: beides ist Freitext — keine "Tabelle ausfüllen"-Formulierung, damit
+  // der Prüfling nicht eine Tabelle erwartet wo nur Fließtext kommt.
   {
     typeA: "freitext",
     typeB: "freitext",
@@ -150,7 +162,7 @@ const TEMPLATES_TEIL1: TaskTemplate[] = [
     promptA:
       "Erläutern Sie den Begriff/das Konzept im Kontext von {{UNTERNEHMEN}}. (3–4 Sätze)",
     promptB:
-      "Füllen Sie die folgende Tabelle aus: Nennen Sie 3 Beispiele mit je Bezeichnung und Erklärung (Tabellenformat im Text).",
+      "Nennen Sie 3 Beispiele und erläutern Sie diese jeweils in 1–2 Sätzen.",
     ptsA: 10,
     ptsB: 12,
   },
@@ -175,7 +187,7 @@ const TEMPLATES_TEIL1: TaskTemplate[] = [
     typeB: "freitext",
     weight: 15,
     promptA:
-      "Nennen Sie 3 Stakeholder und deren jeweiliges Interesse am Projekt bei {{UNTERNEHMEN}}. (Tabellenformat)",
+      "Nennen Sie 3 Stakeholder und deren jeweiliges Interesse am Projekt bei {{UNTERNEHMEN}}. Je Stakeholder 1–2 Sätze.",
     promptB:
       'Formulieren Sie 2 User Stories nach dem Schema "Als <Rolle> möchte ich <Ziel>, damit <Nutzen>".',
     ptsA: 9,
@@ -204,11 +216,14 @@ const TEMPLATES_TEIL1: TaskTemplate[] = [
     typeB: "freitext",
     weight: 7,
     tableSide: "a",
-    tableColumns: ["Stakeholder", "Interesse", "Einfluss"],
+    tableColumns: ["Stakeholder", "Interesse", "Einfluss (hoch/mittel/gering)"],
     tableRowCount: 3,
     fixedFirstColumn: false,
+    tableKind: "guided",
+    tableDescription:
+      "Stakeholder-Analyse: je Zeile ein konkreter Stakeholder des Projekts (Rolle/Person), dessen Interesse am Projekt, und dessen Einfluss.",
     promptA:
-      "Nennen Sie 3 Stakeholder des Projekts bei {{UNTERNEHMEN}} und beschreiben Sie deren Interesse und Einfluss (Tabelle ausfüllen).",
+      "Nennen Sie 3 Stakeholder des Projekts bei {{UNTERNEHMEN}} und beschreiben Sie deren Interesse und Einfluss.",
     promptB:
       "Erläutern Sie, wie Widerstände eines der genannten Stakeholder überwunden werden können.",
     ptsA: 9,
@@ -224,10 +239,13 @@ const TEMPLATES_TEIL1: TaskTemplate[] = [
     tableColumns: ["Kriterium", "Option A", "Option B"],
     tableRowCount: 4,
     fixedFirstColumn: true,
+    tableKind: "flexible",
+    tableDescription:
+      "Vergleichstabelle: Spalten sind das Vergleichskriterium + zwei konkrete Vergleichsobjekte. Ersetze 'Option A' und 'Option B' durch die realen Namen (z.B. 'Scrum' vs 'Wasserfall', 'MySQL' vs 'MongoDB'). Erste Spalte enthält 4 konkrete, themenrelevante Kriterien (z.B. 'Planungsaufwand', 'Flexibilität bei Änderungen'). Spaltennamen dürfen komplett neu gesetzt werden.",
     promptA:
       "Erläutern Sie den Unterschied zwischen den beiden Konzepten im Kontext von {{UNTERNEHMEN}}.",
     promptB:
-      "Füllen Sie die Vergleichstabelle aus. Die Kriterien sind vorgegeben, tragen Sie die Ausprägungen für beide Optionen ein.",
+      "Füllen Sie die Vergleichstabelle aus. Die Vergleichskriterien sind vorgegeben, tragen Sie die Ausprägungen für beide Optionen ein.",
     ptsA: 8,
     ptsB: 14,
   },
@@ -241,6 +259,9 @@ const TEMPLATES_TEIL1: TaskTemplate[] = [
     tableColumns: ["Teststufe", "Beschreibung", "Beispiel"],
     tableRowCount: 3,
     fixedFirstColumn: false,
+    tableKind: "guided",
+    tableDescription:
+      "Teststufen-Tabelle: je Zeile eine Teststufe (z.B. Unit-Test, Integrationstest, Systemtest, Abnahmetest) mit Kurzbeschreibung und konkretem Beispiel aus dem Szenario.",
     promptA:
       "Beschreiben Sie die Notwendigkeit eines Testkonzepts für das Projekt bei {{UNTERNEHMEN}}.",
     promptB:
@@ -370,6 +391,10 @@ const TEMPLATES_TEIL2: TaskTemplate[] = [
     tableColumns: ["Eigenschaft", "Bedeutung", "Beispiel"],
     tableRowCount: 4,
     fixedFirstColumn: true,
+    fixedFirstColumnValues: ["Atomicity", "Consistency", "Isolation", "Durability"],
+    tableKind: "fixed",
+    tableDescription:
+      "ACID-Tabelle: erste Spalte enthält fest die vier ACID-Eigenschaften (Atomicity, Consistency, Isolation, Durability). Spalten 2 und 3 sind 'Bedeutung' und 'Beispiel'. Spaltennamen NICHT ändern.",
     promptA:
       "Erläutern Sie die vier ACID-Eigenschaften. Die Eigenschaftsnamen sind vorgegeben.",
     promptB:
@@ -384,9 +409,12 @@ const TEMPLATES_TEIL2: TaskTemplate[] = [
     typeB: "sql",
     weight: 6,
     tableSide: "a",
-    tableColumns: ["Tabellenname", "Attribute (PK, FK)", "Beziehung"],
+    tableColumns: ["Tabellenname", "Attribute (PK, FK)", "Beziehung zu anderen Tabellen"],
     tableRowCount: 4,
     fixedFirstColumn: false,
+    tableKind: "guided",
+    tableDescription:
+      "Relationales Datenmodell: je Zeile eine Tabelle des Datenmodells mit Namen, Attributen (inkl. Primärschlüssel und Fremdschlüsseln) und Beziehung zu anderen Tabellen (z.B. '1:n zu bestellung').",
     promptA:
       "Erstellen Sie ein relationales Datenbankmodell in Tabellenform für das beschriebene Szenario.",
     promptB:
@@ -481,6 +509,36 @@ function pickWeighted<T extends { weight: number }>(items: T[]): T {
 // Struktur (taskType, Punkte, Diagrammtyp) wird vom Backend vorgegeben.
 // Die KI liefert NUR Fragetext, keyPoints und MC-Optionen.
 
+// Baut die Tabellen-spezifischen Anweisungen für den KI-Prompt.
+// Je nach tableKind mehr oder weniger restriktiv.
+function buildTableSchemaHint(
+  tpl: TaskTemplate,
+  kind: "flexible" | "guided" | "fixed",
+): string {
+  const cols = tpl.tableColumns ?? [];
+  const rowCount = tpl.tableRowCount ?? 3;
+  const descr = tpl.tableDescription
+    ? `  Semantik: ${tpl.tableDescription}\n`
+    : "";
+  if (kind === "fixed") {
+    const fixedVals = tpl.fixedFirstColumnValues
+      ? `  "firstColumnValues": ${JSON.stringify(tpl.fixedFirstColumnValues)} (BINDEND, genau so übernehmen)\n`
+      : "";
+    return `  TabellenSPALTEN (BINDEND, nicht ändern): ${JSON.stringify(cols)}
+  Zeilenzahl: ${rowCount}
+${fixedVals}${descr}  "exampleRow": liefere EINE vollständig ausgefüllte Beispielzeile (${cols.length} Einträge, alle Zellen befüllt, konkret auf das Szenario bezogen).`;
+  }
+  if (kind === "guided") {
+    return `  Spalten-Vorschlag: ${JSON.stringify(cols)} — darf an das Thema angepasst werden (konkretere Namen sind erwünscht), Anzahl (${cols.length}) bleibt erhalten.
+  Zeilenzahl: ${rowCount}
+${descr}  "exampleRow": liefere EINE vollständig ausgefüllte Beispielzeile mit ${cols.length} Einträgen — alle Zellen befüllt, konkret auf das Szenario bezogen, inhaltlich korrekt.`;
+  }
+  // flexible
+  return `  Spalten-Richtung: ${JSON.stringify(cols)} — ERSETZE abstrakte Namen wie "Option A"/"Option B"/"Kriterium" durch konkrete, themenspezifische Bezeichnungen (z.B. bei Scrum-vs-Wasserfall: ["Vergleichsmerkmal", "Scrum", "Wasserfall"]). Anzahl Spalten (${cols.length}) bleibt gleich.
+  Zeilenzahl: ${rowCount}
+${descr}  "exampleRow": liefere EINE vollständig ausgefüllte Beispielzeile mit ${cols.length} Einträgen — alle Zellen befüllt, konkret, inhaltlich korrekt.`;
+}
+
 async function generateOneTask(
   part: ExamPart,
   topic: string,
@@ -548,32 +606,45 @@ WICHTIG für SQL-Aufgaben (taskType "sql"):
 - questionText MUSS die notwendigen Tabellenstrukturen textuell enthalten, sodass der Prüfling weiß welche Tabellen und Spalten existieren. Format: "Tabelle mitarbeiter(id PK, name, abteilung_id FK, gehalt)".
 - "expectedAnswer.solutionSql" enthält eine beispielhafte Musterlösung als SQL-Statement (kein Markdown, kein Backtick).
 - "expectedAnswer.keyElements" ist ein Array mit den Pflicht-Bausteinen der Lösung, z.B. ["SELECT mit JOIN", "WHERE abteilung = 'IT'", "ORDER BY name"].
-- "expectedAnswer.gradingHint" beschreibt kurz, worauf geachtet wird (Syntax, korrekte Tabellenbezüge, Ergebnismenge).`;
+- "expectedAnswer.gradingHint" beschreibt kurz, worauf geachtet wird (Syntax, korrekte Tabellenbezüge, Ergebnismenge).
+
+WICHTIG für Tabellen-Aufgaben (taskType "table"):
+- "columns" enthält KONKRETE, themenspezifische Spaltennamen. Bei "flexible" Tabellen: benenne die Spalten so dass sie die reale Aufgabe beschreiben (z.B. statt "Option A"/"Option B" die echten Vergleichsobjekte wie "Scrum" und "Wasserfall"; statt "Kriterium" gegebenenfalls "Vergleichsmerkmal"). Bei "guided" Tabellen: nimm die Vorschlagsspalten als Basis und verfeinere sie auf das konkrete Szenario. Bei "fixed" Tabellen: Spalten sind bindend und dürfen NICHT verändert werden.
+- "exampleRow" ist EINE vollständig ausgefüllte Beispielzeile zur Veranschaulichung der Aufgabe. Alle Zellen müssen befüllt sein, inhaltlich korrekt, und konkret auf das Szenario bezogen. Beispiel bei Stakeholder: ["Projektleiter", "Termingerechte Fertigstellung", "hoch"]. Die Anzahl der Einträge MUSS der Anzahl der Spalten entsprechen.
+- "firstColumnValues" ist nur relevant wenn die erste Spalte vorbelegt sein soll. Array mit so vielen Einträgen wie Zeilen (z.B. ["Atomicity","Consistency","Isolation","Durability"]). Nur bei expliziter Anweisung ausfüllen, sonst weglassen.
+- "keyPoints" in expectedAnswer ist eine kurze Liste mit 2-4 inhaltlichen Musterlösungs-Stichpunkten (was zumindest enthalten sein sollte).`;
 
   // Schemata je nach Template-Typen aufbauen
-  // TableConfig für Tabellen-Aufgaben aufbauen
-  function buildTableConfig(side: "a" | "b"): TableConfig | null {
+  // TableConfig aufbauen — nur Skelett, finale Spalten/Beispielzeile kommen von der KI
+  // (außer bei tableKind === "fixed")
+  const tableKind = tpl.tableKind ?? (tpl.tableColumns ? "guided" : "flexible");
+  function buildSkeletonTableConfig(side: "a" | "b"): TableConfig | null {
     if (tpl.tableSide !== side || !tpl.tableColumns) return null;
     const rowCount = tpl.tableRowCount ?? 3;
-    const rows: string[][] = Array.from({ length: rowCount }, (_, i) => {
-      if (tpl.fixedFirstColumn) {
-        // Erste Spalte mit Platzhalter vorausgefüllt, Rest leer
-        return tpl.tableColumns!.map((col, ci) =>
-          ci === 0 ? `${col} ${i + 1}` : "",
-        );
-      }
-      return tpl.tableColumns!.map(() => "");
-    });
+    const columns = tpl.tableColumns.slice();
+    const rows: string[][] = Array.from({ length: rowCount }, () =>
+      columns.map(() => ""),
+    );
     return {
-      columns: tpl.tableColumns,
+      columns,
       rows,
       rowCount,
       fixedFirstColumn: tpl.fixedFirstColumn ?? false,
+      fixedFirstColumnValues: tpl.fixedFirstColumnValues,
     };
   }
 
-  const tableConfigA = buildTableConfig("a");
-  const tableConfigB = buildTableConfig("b");
+  const tableConfigA = buildSkeletonTableConfig("a");
+  const tableConfigB = buildSkeletonTableConfig("b");
+
+  // Schema-Bausteine für die KI: bei "fixed" werden Spalten/fixedFirstColumnValues
+  // bindend mitgegeben, sonst bekommt die KI nur Vorschläge und soll sie verfeinern.
+  const tableSchemaHintA = tpl.typeA === "table"
+    ? buildTableSchemaHint(tpl, tableKind)
+    : "";
+  const tableSchemaHintB = tpl.typeB === "table"
+    ? buildTableSchemaHint(tpl, tableKind)
+    : "";
 
   const schemaA =
     tpl.typeA === "mc"
@@ -583,7 +654,7 @@ WICHTIG für SQL-Aufgaben (taskType "sql"):
         : tpl.typeA === "sql"
           ? `{"label":"a","taskType":"sql","questionText":"FRAGE mit Tabellenstruktur(en)","points":${tpl.ptsA},"expectedAnswer":{"solutionSql":"SELECT ... FROM ... WHERE ...;","keyElements":["SELECT","JOIN","WHERE"],"gradingHint":"Syntax, korrekte Tabellen und Joins, richtige WHERE-Bedingung"}}`
           : tpl.typeA === "table"
-            ? `{"label":"a","taskType":"table","questionText":"FRAGE","points":${tpl.ptsA},"expectedAnswer":{"columns":${JSON.stringify(tpl.tableColumns ?? [])},"keyPoints":["Musterlösung Zeile 1","Musterlösung Zeile 2"]}}`
+            ? `{"label":"a","taskType":"table","questionText":"FRAGE","points":${tpl.ptsA},"tableConfigProposed":{"columns":["Spalte1","Spalte2","Spalte3"],"exampleRow":["Beispielwert 1","Beispielwert 2","Beispielwert 3"]${tpl.fixedFirstColumn ? `,"firstColumnValues":${JSON.stringify(tpl.fixedFirstColumnValues ?? [])}` : ""}},"expectedAnswer":{"keyPoints":["Musterinhalt 1","Musterinhalt 2"]}}`
             : `{"label":"a","taskType":"freitext","questionText":"FRAGE","points":${tpl.ptsA},"expectedAnswer":{"keyPoints":["Punkt 1","Punkt 2"]}}`;
 
   const schemaB =
@@ -598,25 +669,32 @@ WICHTIG für SQL-Aufgaben (taskType "sql"):
             : tpl.typeB === "pseudocode"
               ? `{"label":"b","taskType":"pseudocode","questionText":"FRAGE","points":${tpl.ptsB},"expectedAnswer":{"keyPoints":["Schritt 1","Schritt 2"]}}`
               : tpl.typeB === "table"
-                ? `{"label":"b","taskType":"table","questionText":"FRAGE","points":${tpl.ptsB},"expectedAnswer":{"columns":${JSON.stringify(tpl.tableColumns ?? [])},"keyPoints":["Musterlösung Zeile 1","Musterlösung Zeile 2"]}}`
+                ? `{"label":"b","taskType":"table","questionText":"FRAGE","points":${tpl.ptsB},"tableConfigProposed":{"columns":["Spalte1","Spalte2","Spalte3"],"exampleRow":["Beispielwert 1","Beispielwert 2","Beispielwert 3"]${tpl.fixedFirstColumn ? `,"firstColumnValues":${JSON.stringify(tpl.fixedFirstColumnValues ?? [])}` : ""}},"expectedAnswer":{"keyPoints":["Musterinhalt 1","Musterinhalt 2"]}}`
                 : `{"label":"b","taskType":"freitext","questionText":"FRAGE","points":${tpl.ptsB},"expectedAnswer":{"keyPoints":["Punkt 1","Punkt 2"]}}`;
 
   const totalPts = tpl.ptsA + tpl.ptsB;
+
+  // Tabellen-spezifische Anweisungen nur anhängen wenn nötig
+  const tableInstructions = [
+    tableSchemaHintA ? `Unteraufgabe a (Tabelle):\n${tableSchemaHintA}` : "",
+    tableSchemaHintB ? `Unteraufgabe b (Tabelle):\n${tableSchemaHintB}` : "",
+  ].filter(Boolean).join("\n\n");
 
   const user = `Thema: "${topic}"
 Unternehmen-Kontext: {{UNTERNEHMEN}} (Branche: {{BRANCHE}}, Produkt: {{PRODUKT}}, ${tpl.ptsA + tpl.ptsB > 15 ? "größeres Unternehmen" : "kleineres Unternehmen"} mit {{MITARBEITER}} Mitarbeitern)
 
 Unteraufgabe a (${tpl.ptsA}P): ${tpl.promptA}
 Unteraufgabe b (${tpl.ptsB}P): ${tpl.promptB}
-
+${tableInstructions ? "\n" + tableInstructions + "\n" : ""}
 Gib genau dieses JSON zurück. Ersetze dabei:
 - FRAGE durch eine konkrete IHK-typische Fragestellung
 - Bei "mc": "Konkrete Antwort X" durch echte Antwortoptionen, "X" in correctOption durch den Buchstaben der tatsächlich richtigen Option (A/B/C/D), "Begründung..." durch eine kurze Erklärung ohne {{PLATZHALTER}}
 - Bei "mc_multi": 4 echte Aussagen als Optionen, correctOptions als Array mit 2 oder 3 Buchstaben (z.B. ["A","C"] oder ["B","C","D"]), Begründung ohne {{PLATZHALTER}}
 - Bei "sql": questionText enthält konkrete Tabellenstrukturen (Name + Spalten + PK/FK), solutionSql ist eine ausführbare Musterlösung, keyElements listet die erwarteten SQL-Bausteine
+- Bei "table": tableConfigProposed enthält columns (konkret, themenspezifisch) und exampleRow (eine ausgefüllte Musterzeile mit der gleichen Anzahl Einträge wie Spalten). Der questionText darf auf die Tabelle verweisen (z.B. "Füllen Sie die Tabelle aus. Eine Beispielzeile ist vorgegeben.").
 {"topicArea":"${topic}","pointsValue":${totalPts},"difficulty":"medium","subtasks":[${schemaA},${schemaB}]}`;
 
-  const raw = await callOpenAI(system, user, apiKey, isWiso ? 650 : 750, meta);
+  const raw = await callOpenAI(system, user, apiKey, isWiso ? 650 : 900, meta);
   const task = safeParseTask(raw);
 
   if (!task) {
@@ -639,13 +717,73 @@ Gib genau dieses JSON zurück. Ersetze dabei:
     st.points = i === 0 ? tpl.ptsA : tpl.ptsB;
 
     if (expected === "table") {
-      const tc = i === 0 ? tableConfigA : tableConfigB;
-      if (tc) st.tableConfig = tc;
-      // expectedAnswer mit Spalten anreichern für KI-Bewertung
+      const skeleton = i === 0 ? tableConfigA : tableConfigB;
+      if (skeleton) {
+        // KI-Vorschlag aus tableConfigProposed übernehmen (falls vorhanden)
+        const proposed = (st as unknown as Record<string, unknown>)
+          .tableConfigProposed as Record<string, unknown> | undefined;
+        let columns = skeleton.columns.slice();
+        let exampleRow: string[] | undefined;
+        let firstColumnValues: string[] | undefined = skeleton.fixedFirstColumnValues?.slice();
+
+        if (proposed && typeof proposed === "object") {
+          const proposedCols = proposed.columns as string[] | undefined;
+          const proposedExample = proposed.exampleRow as string[] | undefined;
+          const proposedFirst = proposed.firstColumnValues as string[] | undefined;
+
+          // Spalten übernehmen — aber bei "fixed" verwerfen und Template-Werte erzwingen
+          if (tableKind !== "fixed" &&
+              Array.isArray(proposedCols) &&
+              proposedCols.length === columns.length &&
+              proposedCols.every(c => typeof c === "string" && c.trim().length > 0)) {
+            columns = proposedCols.map(c => c.trim());
+          }
+
+          // Beispielzeile übernehmen — muss Länge der Spalten haben
+          if (Array.isArray(proposedExample) &&
+              proposedExample.length === columns.length &&
+              proposedExample.every(c => typeof c === "string" && c.trim().length > 0)) {
+            exampleRow = proposedExample.map(c => c.trim());
+          }
+
+          // Fixed first column values: bei "fixed" Template-Wert behalten, sonst übernehmen wenn valide
+          if (tableKind !== "fixed" && tpl.fixedFirstColumn &&
+              Array.isArray(proposedFirst) &&
+              proposedFirst.length === skeleton.rowCount &&
+              proposedFirst.every(v => typeof v === "string" && v.trim().length > 0)) {
+            firstColumnValues = proposedFirst.map(v => v.trim());
+          }
+        }
+
+        // Leere Zeilen-Matrix: bei fixedFirstColumn erste Spalte mit konkreten Werten füllen
+        const rows: string[][] = Array.from({ length: skeleton.rowCount }, (_, ri) =>
+          columns.map((_c, ci) => {
+            if (ci === 0 && tpl.fixedFirstColumn && firstColumnValues && firstColumnValues[ri]) {
+              return firstColumnValues[ri];
+            }
+            return "";
+          })
+        );
+
+        st.tableConfig = {
+          columns,
+          rows,
+          rowCount: skeleton.rowCount,
+          fixedFirstColumn: tpl.fixedFirstColumn ?? false,
+          fixedFirstColumnValues: firstColumnValues,
+          exampleRow,
+        };
+      }
+      // expectedAnswer mit Spalten/Beispielzeile anreichern für KI-Bewertung
       if (!st.expectedAnswer) st.expectedAnswer = {};
-      st.expectedAnswer.columns = tpl.tableColumns ?? [];
+      st.expectedAnswer.columns = st.tableConfig?.columns ?? tpl.tableColumns ?? [];
+      if (st.tableConfig?.exampleRow) {
+        st.expectedAnswer.exampleRow = st.tableConfig.exampleRow;
+      }
       st.expectedAnswer.gradingHint =
-        "Tabelle: Je Zeile und Spalte sinngemäß korrekte Angabe akzeptieren.";
+        "Tabelle: Je Zeile und Spalte sinngemäß korrekte Angabe akzeptieren. Die exampleRow ist nur Veranschaulichung — fehlende Wiederholung der Beispielzeile ist KEIN Fehler.";
+      // Proposed-Feld aus dem Subtask-Objekt entfernen (nicht Teil des finalen Schemas)
+      delete (st as unknown as Record<string, unknown>).tableConfigProposed;
     }
     if (expected === "plantuml") {
       st.diagramType = diagramType;
@@ -779,6 +917,26 @@ function buildFallbackTask(
       };
     return { keyPoints: [], minKeyPointsRequired: 2 };
   }
+  function fallbackTableConfig(side: "a" | "b"): TableConfig | undefined {
+    if (t.tableSide !== side || !t.tableColumns) return undefined;
+    const rowCount = t.tableRowCount ?? 3;
+    const columns = t.tableColumns.slice();
+    const firstCol = t.fixedFirstColumnValues;
+    const rows: string[][] = Array.from({ length: rowCount }, (_, ri) =>
+      columns.map((_c, ci) =>
+        ci === 0 && t.fixedFirstColumn && firstCol && firstCol[ri]
+          ? firstCol[ri]
+          : ""
+      )
+    );
+    return {
+      columns,
+      rows,
+      rowCount,
+      fixedFirstColumn: t.fixedFirstColumn ?? false,
+      fixedFirstColumnValues: firstCol,
+    };
+  }
 
   return {
     topicArea: topic,
@@ -790,18 +948,23 @@ function buildFallbackTask(
         taskType: t.typeA,
         questionText: isWiso
           ? `Welche Aussage zum Thema „${topic}" trifft zu?`
-          : `Erläutern Sie das Thema „${topic}" im Kontext von {{UNTERNEHMEN}}.`,
+          : t.typeA === "table"
+            ? `Füllen Sie die folgende Tabelle zum Thema „${topic}" aus.`
+            : `Erläutern Sie das Thema „${topic}" im Kontext von {{UNTERNEHMEN}}.`,
         points: t.ptsA,
         mcOptions:
           t.typeA === "mc" || t.typeA === "mc_multi"
             ? fallbackOptions()
             : undefined,
+        tableConfig: t.typeA === "table" ? fallbackTableConfig("a") : undefined,
         expectedAnswer: fallbackExpected(t.typeA, "A"),
       },
       {
         label: "b",
         taskType: t.typeB,
-        questionText: `Nennen Sie Vor- und Nachteile im Zusammenhang mit „${topic}" bei {{UNTERNEHMEN}}.`,
+        questionText: t.typeB === "table"
+          ? `Füllen Sie die folgende Tabelle zum Thema „${topic}" aus.`
+          : `Nennen Sie Vor- und Nachteile im Zusammenhang mit „${topic}" bei {{UNTERNEHMEN}}.`,
         points: t.ptsB,
         diagramType:
           t.typeB === "plantuml"
@@ -811,6 +974,7 @@ function buildFallbackTask(
           t.typeB === "mc" || t.typeB === "mc_multi"
             ? fallbackOptions()
             : undefined,
+        tableConfig: t.typeB === "table" ? fallbackTableConfig("b") : undefined,
         expectedAnswer: fallbackExpected(t.typeB, "B"),
       },
     ],

@@ -94,10 +94,12 @@ async function submit() {
 
 <style scoped>
 .login-page {
-  min-height: 100vh; background: #0f1117;
-  display: flex; align-items: center; justify-content: center;
+  height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  background: #0f1117;
   padding: 24px; font-family: 'Inter', system-ui, sans-serif;
+  display: flex; flex-direction: column;
 }
+.login-page > * { margin-top: auto; margin-bottom: auto; }
 .login-card {
   width: 100%; max-width: 400px; background: #16181f;
   border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px;

@@ -29,6 +29,12 @@ export interface TableConfig {
   rows: string[][];
   rowCount: number;
   fixedFirstColumn?: boolean;
+  /** Optional: konkrete Werte für die erste Spalte wenn fixedFirstColumn === true.
+   *  Wenn nicht gesetzt, nutzt das Frontend ggf. generische Label aus der Row. */
+  fixedFirstColumnValues?: string[];
+  /** Optional: eine bereits vollständig ausgefüllte Beispielzeile zur Veranschaulichung.
+   *  Wird im Frontend als Musterzeile gekennzeichnet und ist nicht editierbar. */
+  exampleRow?: string[];
 }
 
 export interface CriterionScore {

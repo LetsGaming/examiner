@@ -48,7 +48,7 @@
             </div>
             <div class="bs-section">
               <h3 class="bs-h1">User Story Format</h3>
-              <div class="bs-code">Als &lt;Rolle&gt; möchte ich &lt;Funktion&gt;, damit &lt;Nutzen&gt;.</div>
+              <pre class="bs-code">Als &lt;Rolle&gt; möchte ich &lt;Funktion&gt;, damit &lt;Nutzen&gt;.</pre>
               <h4 class="bs-h2">INVEST-Kriterien</h4>
               <table class="bs-table"><tbody>
                 <tr><td>I – Independent</td><td>Unabhängig von anderen Stories</td></tr>
@@ -100,11 +100,11 @@
             </div>
             <div class="bs-section">
               <h3 class="bs-h1">UML — Klassendiagramm</h3>
-              <div class="bs-code">Sichtbarkeit Attributname : Typ {Eigenschaften}
+              <pre class="bs-code">Sichtbarkeit Attributname : Typ {Eigenschaften}
 Sichtbarkeit Methode(param : Typ, ...) : Rückgabetyp
 
 +  public   #  protected   -  private   ~  package
-Eigenschaften: {static}  {final}  {abstract}</div>
+Eigenschaften: {static}  {final}  {abstract}</pre>
               <h4 class="bs-h2">Beziehungen</h4>
               <table class="bs-table"><tbody>
                 <tr><td class="mono">——▷</td><td>Vererbung / Generalisierung</td></tr>
@@ -135,14 +135,14 @@ Eigenschaften: {static}  {final}  {abstract}</div>
             <div class="bs-section">
               <h3 class="bs-h1">SQL-Syntax (Auszug)</h3>
               <h4 class="bs-h2">DDL — Tabellen definieren</h4>
-              <div class="bs-code">CREATE TABLE Name (
+              <pre class="bs-code">CREATE TABLE Name (
   Spalte DATENTYP [NOT NULL] [DEFAULT Wert],
   ...
   PRIMARY KEY (Spalte),
   FOREIGN KEY (Spalte) REFERENCES Tabelle(Spalte)
 )
 ALTER TABLE Name ADD|DROP|MODIFY COLUMN ...
-DROP TABLE Name</div>
+DROP TABLE Name</pre>
               <h4 class="bs-h2">Datentypen</h4>
               <table class="bs-table"><tbody>
                 <tr><td class="mono">CHAR(n) / VARCHAR(n)</td><td>Zeichenkette fester/variabler Länge</td></tr>
@@ -153,7 +153,7 @@ DROP TABLE Name</div>
                 <tr><td class="mono">BOOLEAN</td><td>TRUE / FALSE</td></tr>
               </tbody></table>
               <h4 class="bs-h2">DML — Daten abfragen &amp; ändern</h4>
-              <div class="bs-code">SELECT [DISTINCT] * | Spalte1 [AS Alias], ...
+              <pre class="bs-code">SELECT [DISTINCT] * | Spalte1 [AS Alias], ...
 FROM Tabelle [AS Alias]
   [INNER JOIN | LEFT JOIN | RIGHT JOIN T2 ON Bed.]
   [WHERE Bedingung]
@@ -164,7 +164,7 @@ FROM Tabelle [AS Alias]
 
 INSERT INTO Tabelle (Spalten) VALUES (Werte)
 UPDATE Tabelle SET Spalte = Wert [WHERE Bedingung]
-DELETE FROM Tabelle [WHERE Bedingung]</div>
+DELETE FROM Tabelle [WHERE Bedingung]</pre>
               <h4 class="bs-h2">Aggregatfunktionen</h4>
               <div class="bs-chips">
                 <span>COUNT(*)</span><span>SUM(x)</span><span>AVG(x)</span>
@@ -187,7 +187,7 @@ DELETE FROM Tabelle [WHERE Bedingung]</div>
             </div>
             <div class="bs-section">
               <h3 class="bs-h1">Pseudocode-Referenz</h3>
-              <div class="bs-code">BEGIN / END
+              <pre class="bs-code">BEGIN / END
 
 IF &lt;Bedingung&gt; THEN
   ...
@@ -208,7 +208,7 @@ FUNCTION &lt;Name&gt;(&lt;Param&gt;: &lt;Typ&gt;, ...): &lt;Rückgabetyp&gt;
   RETURN &lt;Wert&gt;
 END FUNCTION
 
-OUTPUT &lt;Ausdruck&gt;   INPUT &lt;Variable&gt;</div>
+OUTPUT &lt;Ausdruck&gt;   INPUT &lt;Variable&gt;</pre>
             </div>
             <div class="bs-section">
               <h3 class="bs-h1">Komplexitätsnotation (O-Notation)</h3>
@@ -287,9 +287,10 @@ defineEmits<{ 'update:modelValue': [value: boolean] }>()
 .sym  { text-align: center; font-size: 14px; color: #818cf8; }
 .bs-code {
   background: #0a0c12; border: 1px solid rgba(255,255,255,.08);
-  border-radius: 8px; padding: 11px 13px;
+  border-radius: 8px; padding: 11px 13px; margin: 0;
   font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px;
   line-height: 1.65; white-space: pre; overflow-x: auto; color: #d1d5db;
+  tab-size: 2;
 }
 .bs-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
 .bs-chips span {

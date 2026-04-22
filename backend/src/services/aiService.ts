@@ -55,7 +55,7 @@ function buildSystemPrompt(examPart: ExamPart, scenarioContext?: string): string
   const scenarioLine = scenarioContext
     ? `\nPRÜFUNGSKONTEXT: ${scenarioContext}\nAlle Aufgaben beziehen sich auf dieses Unternehmen. Berücksichtige den Kontext bei der Bewertung.\n`
     : "";
-  return `Du bist ein erfahrener, strenger und fairer IHK-Prüfer für den Ausbildungsberuf Fachinformatiker für Anwendungsentwicklung (FIAE).
+  return `Du bist ein erfahrener, fairer und wohlwollender IHK-Prüfer für den Ausbildungsberuf Fachinformatiker für Anwendungsentwicklung (FIAE).
 Aktueller Prüfungsbereich: ${PART_DESCRIPTIONS[examPart]}
 ${scenarioLine}
 IHK-NOTENSCHEMA (Pflichtanwendung):
@@ -66,12 +66,19 @@ IHK-NOTENSCHEMA (Pflichtanwendung):
 - 30–49 %  → mangelhaft
 - 0–29 %   → ungenuegend
 
-BEWERTUNGSREGELN:
-1. Anteilige Punktvergabe je Kriterium — kein binäres Alles-oder-Nichts ohne explizite Aufgabenanweisung.
-2. Sinngemäß korrekte Antworten werden akzeptiert; Fachbegriffe müssen jedoch richtig verwendet sein.
-3. Pseudocode: Bewertest du Logik und algorithmische Korrektheit, nicht syntaktische Sprachen-Konformität.
-4. Falsche Kernaussagen reduzieren Punkte auch dann, wenn sie mit korrekten Inhalten vermischt sind.
-5. Sei konstruktiv — Feedback soll dem Lernenden konkret helfen, seine Schwächen zu beheben.
+BEWERTUNGSREGELN (verbindlich — bitte befolgen):
+1. PRÜFUNGSFAIRNESS: Ein echter IHK-Prüfer sucht nach Gründen Punkte zu geben, nicht nach Gründen Punkte abzuziehen. Folge diesem Prinzip.
+2. IM ZWEIFEL FÜR DEN PRÜFLING: Wenn eine Aussage plausibel und sinngemäß richtig ist, aber abweichend formuliert — gib die vollen Punkte. Nur bei klaren fachlichen Fehlern Punkte abziehen.
+3. Der Erwartungshorizont zeigt EINE Musterlösung. Abweichende, aber sachlich korrekte Antworten sind gleichwertig und erhalten volle Punkte.
+4. Anteilige Punktvergabe je Kriterium — kein binäres Alles-oder-Nichts. Auch teilweise richtige Antworten erhalten Teilpunkte (mindestens 30% wenn der Ansatz stimmt).
+5. Sinngemäß korrekte Antworten werden akzeptiert. Fachbegriffe sollten richtig verwendet sein, aber Alltagssprache mit korrektem Inhalt wird nicht abgewertet.
+6. Pseudocode: Bewerte Logik und algorithmische Korrektheit, nicht syntaktische Sprachen-Konformität.
+7. Rechtschreibung und Formulierung werden NICHT bewertet — nur der fachliche Inhalt zählt.
+8. Nur bei komplett falschen oder widersprüchlichen Kernaussagen Punkte deutlich reduzieren.
+9. Sei konstruktiv — Feedback soll dem Lernenden konkret helfen.
+10. Wenn die Antwort des Prüflings leer oder extrem kurz ist (<5 Zeichen), vergib 0 Punkte.
+
+WICHTIG ZU KRITERIEN-NAMEN: Wenn du in criterionScores ein Kriterium benennst, nutze einen sprechenden, aussagekräftigen Namen (z.B. "Inhaltliche Korrektheit", "Vollständigkeit", "Fachbegriffe", "Begründung") — NIEMALS generisches wie "Kriterium 1" oder "Kriterium A".
 
 AUSGABE: Antworte AUSSCHLIESSLICH mit einem validen JSON-Objekt. Kein Text davor oder danach, keine Markdown-Backticks.`;
 }
@@ -93,13 +100,19 @@ ${questionText}
 
 MAXIMALPUNKTE: ${params.maxPoints}
 
-ERWARTUNGSHORIZONT (vertraulich — nicht für Prüfling):
+ERWARTUNGSHORIZONT (vertraulich — EINE mögliche Musterlösung, nicht die einzig richtige):
 ${expectedAnswerJson}
 
 ANTWORT DES PRÜFLINGS:
 """
 ${params.studentAnswer}
 """
+
+BEWERTUNGSANSATZ:
+- Gib Teilpunkte großzügig. Wenn der Kern der Antwort stimmt, gib mindestens 60% der Punkte — auch wenn Details fehlen.
+- Der Erwartungshorizont zeigt EINE Musterlösung. Andere sachlich korrekte Antworten sind gleichwertig.
+- Bei Aufzählungen (z.B. "Nennen Sie 3 Punkte"): jeder korrekt genannte Punkt zählt anteilig. 2 von 3 = ⅔ der Punkte.
+- Kriteriennamen MÜSSEN aussagekräftig sein: "Inhaltliche Korrektheit", "Vollständigkeit", "Begründung", "Fachbegriffe" etc. NIEMALS "Kriterium 1/2".
 
 Bewerte die Antwort und gib ausschließlich dieses JSON zurück:
 {
@@ -155,21 +168,23 @@ ANTWORT DES PRÜFLINGS (SQL):
 ${params.studentAnswer}
 \`\`\`
 
-BEWERTUNGSKRITERIEN (Punkte strikt anwenden):
-1. Syntaktische Korrektheit (${syntaxP}P) — gültiges SQL, keine fehlenden Keywords.
-2. Korrekte Tabellen- und Spaltenbezüge (${schemaP}P) — verwendet die richtigen Tabellen aus der Aufgabe, korrekte Spaltennamen.
+BEWERTUNGSKRITERIEN (Teilpunkte großzügig vergeben):
+1. Syntaktische Korrektheit (${syntaxP}P) — gültiges SQL, keine fehlenden Keywords. Kleine Syntaxfehler die das Statement noch ausführbar machen: Teilpunkte geben.
+2. Korrekte Tabellen- und Spaltenbezüge (${schemaP}P) — verwendet die richtigen Tabellen aus der Aufgabe, korrekte Spaltennamen. Typos die offensichtlich den richtigen Bezug meinen: Teilpunkte geben.
 3. Logische Korrektheit (${logicP}P) — richtige JOIN-Bedingungen, WHERE-Prädikate, GROUP BY/HAVING, korrekte Aggregatfunktionen, Subqueries wenn nötig.
-4. Erwartete Ergebnismenge (${resultP}P) — das Statement liefert genau die angeforderten Daten (nicht zu viel, nicht zu wenig).
+4. Erwartete Ergebnismenge (${resultP}P) — das Statement liefert die angeforderten Daten. Abweichende Sortierung oder zusätzliche Spalten: nicht abziehen wenn nicht explizit gefordert.
 
-AKZEPTIERE:
+AKZEPTIERE GROSSZÜGIG:
 - Sinngemäß äquivalente Formulierungen (INNER JOIN vs. impliziter Join, Aliase, case-insensitive Keywords, Zeilenumbrüche).
 - Verschiedene korrekte Lösungswege mit identischem Ergebnis.
+- Kleine Abweichungen in Spaltennamen wenn der Bezug eindeutig ist.
+- Fehlende Semikolons oder Formatierungsunterschiede.
 
-BESTRAFE:
-- Fehlende JOIN-Bedingung (führt zu kartesischem Produkt).
+PUNKTE DEUTLICH ABZIEHEN NUR BEI:
+- Fehlende JOIN-Bedingung (führt zu kartesischem Produkt) — echter Fehler.
 - Fehlende WHERE-Klausel bei UPDATE/DELETE (kritischer Fehler).
+- Völlig falsche Logik die nicht das geforderte Ergebnis liefert.
 - Aggregatfunktion ohne GROUP BY bei gleichzeitiger Auswahl nicht-aggregierter Spalten.
-- Falsche Spaltennamen oder Tabellen die nicht in der Aufgabe stehen.
 
 Gib AUSSCHLIESSLICH dieses JSON zurück:
 {
@@ -624,20 +639,36 @@ async function assessTableAnswer(
   const expectedConfig = params.expectedAnswer as Record<string, unknown>;
   const expectedRows = (expectedConfig.rows as string[][]) ?? [];
   const columns = (expectedConfig.columns as string[]) ?? [];
+  const exampleRow = (expectedConfig.exampleRow as string[]) ?? [];
 
   const header = columns.join(" | ");
   const separator = columns.map(() => "---").join(" | ");
   const formatRows = (rows: string[][]) =>
     rows.map((r) => r.join(" | ")).join("\n");
 
+  // Leere Zeilen im Prüflings-Tabelle herausfiltern (Tail-Whitespace)
+  const filledStudentRows = parsedRows.filter(
+    (r) => Array.isArray(r) && r.some((c) => typeof c === "string" && c.trim().length > 0),
+  );
+
   const studentTable =
-    parsedRows.length > 0
-      ? `${header}\n${separator}\n${formatRows(parsedRows)}`
+    filledStudentRows.length > 0
+      ? `${header}\n${separator}\n${formatRows(filledStudentRows)}`
       : "(keine Angabe)";
   const expectedTable =
     expectedRows.length > 0
       ? `${header}\n${separator}\n${formatRows(expectedRows)}`
-      : "(kein Erwartungshorizont hinterlegt)";
+      : "(kein fester Erwartungshorizont — Bewertung nach Plausibilität)";
+
+  const exampleRowBlock =
+    exampleRow.length > 0
+      ? `\nBEISPIELZEILE (wurde dem Prüfling zur Orientierung vorgegeben — NICHT als fehlend werten wenn nicht wiederholt):\n${header}\n${separator}\n${exampleRow.join(" | ")}\n`
+      : "";
+
+  // Inhalts-Kriterium bekommt den größten Anteil — bei Tabellen zählt vor allem der Inhalt
+  const contentP = Math.max(1, Math.round(params.maxPoints * 0.7));
+  const completeP = Math.max(1, Math.round(params.maxPoints * 0.2));
+  const precisionP = Math.max(0, params.maxPoints - contentP - completeP);
 
   const prompt = `${buildSystemPrompt(params.examPart, params.scenarioContext)}
 
@@ -646,17 +677,23 @@ ${params.questionText}
 
 MAXIMALPUNKTE: ${params.maxPoints}
 
-ERWARTUNGSHORIZONT (vertraulich):
+ERWARTUNGSHORIZONT (vertraulich, EINE mögliche Musterlösung):
 ${expectedTable}
-Hinweis: ${(expectedConfig.gradingHint as string) ?? "Sinngemäß korrekte Antworten akzeptieren. Je vollständiger und präziser, desto mehr Punkte."}
+${exampleRowBlock}
+Hinweis: ${(expectedConfig.gradingHint as string) ?? "Sinngemäß korrekte Antworten akzeptieren. Verschiedene korrekte Ansätze sind gleichwertig."}
 
-ANTWORT DES PRÜFLINGS (Tabelle):
+ANTWORT DES PRÜFLINGS (Tabelle, nur ausgefüllte Zeilen):
 ${studentTable}
 
-Bewerte die ausgefüllte Tabelle. Berücksichtige:
-1. Inhaltliche Korrektheit der Einträge (${Math.round(params.maxPoints * 0.6)}P)
-2. Vollständigkeit — alle Felder ausgefüllt (${Math.round(params.maxPoints * 0.25)}P)
-3. Präzision der Fachbegriffe (${Math.round(params.maxPoints * 0.15)}P)
+BEWERTUNG (fair und wohlwollend, Teilpunkte großzügig):
+- Inhaltliche Korrektheit (${contentP}P): Sind die Einträge sachlich richtig? Abweichende aber plausible Formulierungen sind gleichwertig zur Musterlösung.
+- Vollständigkeit (${completeP}P): Sind die geforderten Zeilen befüllt? (Die Beispielzeile muss NICHT wiederholt werden.)
+- Fachliche Präzision (${precisionP}P): Werden Fachbegriffe korrekt verwendet? Alltagssprache mit korrektem Inhalt zählt voll.
+
+WICHTIG:
+- Nenne Kriterien im Ergebnis aussagekräftig: "Inhaltliche Korrektheit", "Vollständigkeit", "Fachliche Präzision" — NIEMALS "Kriterium 1/2/3".
+- Wenn die Tabelle leer oder fast leer ist (0-1 Einträge): geringe Punktzahl, aber kein automatisches 0.
+- Wenn 80% der Einträge sinngemäß richtig sind: mindestens 80% der Punkte.
 
 Gib ausschließlich dieses JSON zurück:
 {
@@ -664,7 +701,11 @@ Gib ausschließlich dieses JSON zurück:
   "percentageScore": <integer 0-100>,
   "ihkGrade": <"sehr_gut"|"gut"|"befriedigend"|"ausreichend"|"mangelhaft"|"ungenuegend">,
   "feedbackText": "<2-4 konstruktive Sätze auf Deutsch>",
-  "criterionScores": [{ "criterion": "<n>", "awarded": <n>, "max": <n>, "comment": "<1 Satz>" }],
+  "criterionScores": [
+    { "criterion": "Inhaltliche Korrektheit", "awarded": <n>, "max": ${contentP}, "comment": "<1 Satz>" },
+    { "criterion": "Vollständigkeit", "awarded": <n>, "max": ${completeP}, "comment": "<1 Satz>" },
+    { "criterion": "Fachliche Präzision", "awarded": <n>, "max": ${precisionP}, "comment": "<1 Satz>" }
+  ],
   "keyMistakes": ["<Fehler>"],
   "improvementHints": ["<Tipp>"]
 }`;

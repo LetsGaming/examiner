@@ -222,7 +222,9 @@ onMounted(async () => {
 
 <style scoped>
 .home-page {
-  min-height: 100vh;
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   background: #0f1117;
   color: #e8eaf0;
   font-family: 'Inter', system-ui, sans-serif;

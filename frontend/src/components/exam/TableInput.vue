@@ -1,6 +1,6 @@
 <template>
   <div class="table-editor-wrap">
-    <div v-if="!rows.length" class="table-empty">
+    <div v-if="!config?.columns?.length" class="table-empty">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
       Tabellenkonfiguration wird geladen…
     </div>
@@ -12,20 +12,32 @@
           </tr>
         </thead>
         <tbody>
+          <!-- Beispielzeile: nicht editierbar, als Orientierung -->
+          <tr v-if="hasExampleRow" class="example-row">
+            <td
+              v-for="(cell, ci) in config.exampleRow"
+              :key="'ex-' + ci"
+              class="table-td example-td"
+            >
+              <span v-if="ci === 0" class="example-badge">Beispiel</span>
+              <span class="example-text">{{ cell }}</span>
+            </td>
+          </tr>
+          <!-- Editierbare Zeilen -->
           <tr v-for="(row, ri) in rows" :key="ri" class="table-row">
             <td
               v-for="(cell, ci) in row"
               :key="ci"
               class="table-td"
-              :class="{ 'td-fixed': config.fixedFirstColumn && ci === 0 }"
+              :class="{ 'td-fixed': isFirstColumnLocked(ci) }"
             >
-              <span v-if="config.fixedFirstColumn && ci === 0" class="td-fixed-text">{{ cell }}</span>
+              <span v-if="isFirstColumnLocked(ci)" class="td-fixed-text">{{ displayFixedValue(ri, cell) }}</span>
               <textarea
                 v-else
                 :value="cell"
                 class="td-input"
                 rows="2"
-                :placeholder="config.columns?.[ci] ?? ''"
+                :placeholder="placeholderFor(ci)"
                 @input="onCellInput(ri, ci, ($event.target as HTMLTextAreaElement).value)"
               />
             </td>
@@ -41,10 +53,33 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import type { TableConfig } from '../../types/index.js';
 
-defineProps<{ rows: string[][]; config: TableConfig }>();
+const props = defineProps<{ rows: string[][]; config: TableConfig }>();
 const emit = defineEmits<{ 'cell-input': [ri: number, ci: number, value: string]; 'add-row': [] }>();
+
+const hasExampleRow = computed(() => {
+  const ex = props.config?.exampleRow;
+  return Array.isArray(ex) && ex.length > 0 && ex.some(c => typeof c === 'string' && c.trim().length > 0);
+});
+
+function isFirstColumnLocked(ci: number): boolean {
+  return !!props.config?.fixedFirstColumn && ci === 0;
+}
+
+function displayFixedValue(ri: number, cellValue: string): string {
+  // Konkrete Werte aus fixedFirstColumnValues haben Vorrang
+  const fixedVals = props.config?.fixedFirstColumnValues;
+  if (fixedVals && fixedVals[ri]) return fixedVals[ri];
+  return cellValue;
+}
+
+function placeholderFor(ci: number): string {
+  const ex = props.config?.exampleRow;
+  if (ex && ex[ci]) return ex[ci].length > 40 ? ex[ci].slice(0, 37) + "…" : ex[ci];
+  return props.config?.columns?.[ci] ?? '';
+}
 
 function onCellInput(ri: number, ci: number, value: string) {
   emit('cell-input', ri, ci, value);
@@ -63,6 +98,20 @@ function onCellInput(ri: number, ci: number, value: string) {
 .table-td:not(:last-child) { border-right: 1px solid rgba(255,255,255,0.06); }
 .td-fixed { background: rgba(255,255,255,0.04); }
 .td-fixed-text { display: block; padding: 6px 8px; font-size: 13px; font-weight: 600; color: #9ca3af; }
+
+/* Beispielzeile — klar als solche gekennzeichnet */
+.example-row { background: rgba(34, 197, 94, 0.06); }
+.example-row:hover { background: rgba(34, 197, 94, 0.09); }
+.example-td { position: relative; padding: 10px 8px; }
+.example-td:first-child { padding-top: 26px; }
+.example-badge {
+  position: absolute; top: 4px; left: 6px;
+  font-size: 9px; font-weight: 700; letter-spacing: 0.5px;
+  color: #22c55e; text-transform: uppercase;
+  background: rgba(34, 197, 94, 0.12); padding: 2px 5px; border-radius: 3px;
+}
+.example-text { display: block; font-size: 13px; color: #cbd5e1; line-height: 1.5; font-style: italic; }
+
 .td-input {
   width: 100%; min-height: 52px; padding: 6px 8px;
   background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.08);

@@ -81,6 +81,10 @@ export interface TableConfig {
   rows: string[][];
   rowCount: number;
   fixedFirstColumn?: boolean;
+  /** Optional: konkrete Werte für die erste Spalte wenn fixedFirstColumn === true. */
+  fixedFirstColumnValues?: string[];
+  /** Optional: bereits ausgefüllte Beispielzeile zur Veranschaulichung. */
+  exampleRow?: string[];
 }
 
 export interface SubTask {

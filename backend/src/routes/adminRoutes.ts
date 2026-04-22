@@ -16,15 +16,15 @@ import { createBackup, listBackups } from "../services/backup.js";
 
 export const adminRouter = Router();
 
-// ─── Migration: is_admin Spalte in users ─────────────────────────────────────
-try {
-  db.exec("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0");
-} catch { /* bereits vorhanden */ }
-
-// ─── Migration: source Spalte in tasks ───────────────────────────────────────
-try {
-  db.exec("ALTER TABLE tasks ADD COLUMN source TEXT DEFAULT 'user_ai'");
-} catch { /* bereits vorhanden */ }
+// ─── Migrations — müssen NACH initDatabase() aufgerufen werden ───────────────
+export function initAdminMigrations(): void {
+  try {
+    db.exec("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0");
+  } catch { /* bereits vorhanden */ }
+  try {
+    db.exec("ALTER TABLE tasks ADD COLUMN source TEXT DEFAULT 'user_ai'");
+  } catch { /* bereits vorhanden */ }
+}
 
 // ─── requireAdmin Middleware ──────────────────────────────────────────────────
 

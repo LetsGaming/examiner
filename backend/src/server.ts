@@ -3,18 +3,18 @@ import cors from "cors";
 import path from "path";
 import { initDatabase } from "./db/database.js";
 import { poolRouter } from "./routes/poolRoutes.js";
-import { sessionRouter } from "./routes/sessionRoutes.js";
 import { evaluationRouter } from "./routes/evaluationRoutes.js";
 import { settingsRouter, initSettingsTable } from "./routes/settingsRoutes.js";
 import { authRouter, initAuthTable } from "./routes/authRoutes.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { statsRouter } from "./routes/statsRoutes.js";
 import { historyRouter } from "./routes/historyRoutes.js";
-import { practiceRouter } from "./routes/practiceRoutes.js";
-import { reviewRouter } from "./routes/reviewRoutes.js";
+import { practiceRouter, migratePracticeStatus } from "./routes/practiceRoutes.js";
+import { reviewRouter, initReviewQueue } from "./routes/reviewRoutes.js";
 import { secondOpinionRouter } from "./routes/secondOpinionRoutes.js";
 import { exportRouter } from "./routes/exportRoutes.js";
-import { adminRouter } from "./routes/adminRoutes.js";
+import { adminRouter, initAdminMigrations } from "./routes/adminRoutes.js";
+import { sessionRouter, initSessionMigrations } from "./routes/sessionRoutes.js";
 import { initUserSettingsTable } from "./db/userSettings.js";
 import { migrateAiEvaluationsRemoveUnique } from "./db/database.js";
 import { startBackupScheduler } from "./services/backup.js";
@@ -73,12 +73,17 @@ app.use("/api/export",   authMiddleware, exportRouter);
 app.use("/api/admin",    authMiddleware, adminRouter);
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
+// ─── Init (Reihenfolge wichtig: initDatabase zuerst, dann alle Migrations) ────
 initDatabase();
 initSettingsTable();
 initAuthTable();
 initUserSettingsTable();
-migrateAiEvaluationsRemoveUnique();
-startBackupScheduler(24);
+initSessionMigrations();       // Feature 8: answers.flagged
+initReviewQueue();             // Feature 3: review_queue Tabelle
+initAdminMigrations();         // Feature 15: users.is_admin, tasks.source
+migratePracticeStatus();       // Feature 2+3: exam_sessions CHECK-Constraint
+migrateAiEvaluationsRemoveUnique(); // Feature 9: UNIQUE entfernen
+startBackupScheduler(24);     // Feature 16: täglich um 24h
 
 app.listen(PORT, () => {
   console.log(`✅ AP2 Trainer Backend läuft auf http://localhost:${PORT}`);

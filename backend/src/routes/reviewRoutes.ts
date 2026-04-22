@@ -14,22 +14,25 @@ import { defaultReviewEntry } from "../services/spacedRepetition.js";
 export const reviewRouter = Router();
 
 // ─── Migration: review_queue Tabelle ─────────────────────────────────────────
-try {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS review_queue (
-      id             TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-      user_id        TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      subtask_id     TEXT NOT NULL REFERENCES subtasks(id) ON DELETE CASCADE,
-      due_at         TEXT NOT NULL,
-      interval_days  INTEGER NOT NULL DEFAULT 1,
-      ease           REAL NOT NULL DEFAULT 2.5,
-      repetitions    INTEGER NOT NULL DEFAULT 0,
-      last_score     REAL,
-      created_at     TEXT DEFAULT (datetime('now'))
-    );
-    CREATE INDEX IF NOT EXISTS idx_review_user_due ON review_queue(user_id, due_at);
-  `);
-} catch { /* bereits vorhanden */ }
+// Muss NACH initDatabase() aufgerufen werden.
+export function initReviewQueue(): void {
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS review_queue (
+        id             TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        user_id        TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        subtask_id     TEXT NOT NULL REFERENCES subtasks(id) ON DELETE CASCADE,
+        due_at         TEXT NOT NULL,
+        interval_days  INTEGER NOT NULL DEFAULT 1,
+        ease           REAL NOT NULL DEFAULT 2.5,
+        repetitions    INTEGER NOT NULL DEFAULT 0,
+        last_score     REAL,
+        created_at     TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_review_user_due ON review_queue(user_id, due_at);
+    `);
+  } catch { /* bereits vorhanden */ }
+}
 
 // ─── GET /api/review/due ──────────────────────────────────────────────────────
 

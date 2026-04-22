@@ -266,9 +266,12 @@ sessionRouter.post("/:sessionId/submit", (req: Request, res: Response) => {
 });
 
 // ─── Feature 8: Flagged-Spalte Migration ─────────────────────────────────────
-try {
-  db.exec("ALTER TABLE answers ADD COLUMN flagged INTEGER NOT NULL DEFAULT 0");
-} catch { /* bereits vorhanden */ }
+// Muss NACH initDatabase() aufgerufen werden.
+export function initSessionMigrations(): void {
+  try {
+    db.exec("ALTER TABLE answers ADD COLUMN flagged INTEGER NOT NULL DEFAULT 0");
+  } catch { /* bereits vorhanden */ }
+}
 
 // ─── PATCH /api/sessions/:sessionId/answers/:subtaskId (flag toggle) ─────────
 sessionRouter.patch("/:sessionId/answers/:subtaskId", (req: Request, res: Response) => {

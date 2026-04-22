@@ -16,9 +16,9 @@ import type { TaskKind } from "../services/taskKind.js";
 export const practiceRouter = Router();
 
 // ─── Migration: practice + review Status in exam_sessions ────────────────────
-// SQLite kann CHECK-Constraints nicht per ALTER TABLE ändern →
-// Tabelle neu erstellen wenn nötig.
-(function migratePracticeStatus() {
+// WICHTIG: Diese Funktion muss NACH initDatabase() aufgerufen werden,
+// da die Tabelle exam_sessions sonst noch nicht existiert.
+export function migratePracticeStatus(): void {
   try {
     db.pragma("foreign_keys = OFF");
     db.prepare(
@@ -29,7 +29,7 @@ export const practiceRouter = Router();
     db.pragma("foreign_keys = ON");
   } catch {
     db.pragma("foreign_keys = ON");
-    // Rebuild nötig
+    // Rebuild nötig — CHECK-Constraint enthält 'practice' noch nicht
     db.transaction(() => {
       db.exec(`DROP TABLE IF EXISTS exam_sessions_new`);
       db.exec(`
@@ -65,8 +65,9 @@ export const practiceRouter = Router();
       db.exec(`ALTER TABLE exam_sessions_new RENAME TO exam_sessions`);
       db.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_user_status ON exam_sessions(user_id, status)`);
     })();
+    console.log("[migration] exam_sessions CHECK-Constraint auf practice/review erweitert.");
   }
-})();
+}
 
 // ─── POST /api/practice/start ─────────────────────────────────────────────────
 

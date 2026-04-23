@@ -37,7 +37,12 @@ import { callAiProvider } from './aiService.js';
 import type { ProviderMeta } from '../routes/settingsRoutes.js';
 import { getTopics } from './topics.js';
 // Re-Export für Kompatibilität mit bestehenden Routen
-export { SCENARIOS, applyScenario, generateScenarioForTasks, pickRandomFallbackScenario } from './scenarios.js';
+export {
+  SCENARIOS,
+  applyScenario,
+  generateScenarioForTasks,
+  pickRandomFallbackScenario,
+} from './scenarios.js';
 export type { Scenario } from './scenarios.js';
 
 // ─── Typen ────────────────────────────────────────────────────────────────────
@@ -74,7 +79,15 @@ interface SubtaskSpec {
    *  der Generator einen konkreten Wert, um die reale IHK-Varianz abzubilden. */
   points: number | [number, number];
   /** Operator-Dimension: bestimmt mit, wie streng die KI bewertet. */
-  operator?: 'nennen' | 'beschreiben' | 'erklaeren' | 'erlaeutern' | 'berechnen' | 'entwerfen' | 'vergleichen' | 'identifizieren';
+  operator?:
+    | 'nennen'
+    | 'beschreiben'
+    | 'erklaeren'
+    | 'erlaeutern'
+    | 'berechnen'
+    | 'entwerfen'
+    | 'vergleichen'
+    | 'identifizieren';
   /** Bewertungshinweis für den LLM-Prüfer — wird in expectedAnswer.gradingHint kopiert. */
   gradingHint?: string;
   /** Nur für taskType === "table". */
@@ -125,14 +138,17 @@ const RECIPES_TEIL1: TaskRecipe[] = [
         prompt: 'Erläutern Sie das Konzept im Kontext von {{UNTERNEHMEN}} in 3–4 Sätzen.',
         points: [6, 8],
         operator: 'erlaeutern',
-        gradingHint: 'Erläuterung: Kernidee korrekt + mindestens ein Begründungsaspekt im Unternehmenskontext.',
+        gradingHint:
+          'Erläuterung: Kernidee korrekt + mindestens ein Begründungsaspekt im Unternehmenskontext.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Nennen Sie 3 konkrete Beispiele oder Ausprägungen und beschreiben Sie diese jeweils kurz (1–2 Sätze).',
+        prompt:
+          'Nennen Sie 3 konkrete Beispiele oder Ausprägungen und beschreiben Sie diese jeweils kurz (1–2 Sätze).',
         points: [9, 12],
         operator: 'beschreiben',
-        gradingHint: 'Je korrektem Beispiel mit Kurzbeschreibung 1/3 der Punkte. Sinngemäße Bezüge reichen.',
+        gradingHint:
+          'Je korrektem Beispiel mit Kurzbeschreibung 1/3 der Punkte. Sinngemäße Bezüge reichen.',
       },
       {
         taskType: 'freitext',
@@ -152,7 +168,8 @@ const RECIPES_TEIL1: TaskRecipe[] = [
     subtasks: [
       {
         taskType: 'table',
-        prompt: 'Nennen Sie 3 Stakeholder des Projekts und beschreiben Sie je Stakeholder eine Erwartung und eine Befürchtung.',
+        prompt:
+          'Nennen Sie 3 Stakeholder des Projekts und beschreiben Sie je Stakeholder eine Erwartung und eine Befürchtung.',
         points: [9, 12],
         operator: 'beschreiben',
         tableColumns: ['Stakeholder', 'Erwartung', 'Befürchtung'],
@@ -160,21 +177,25 @@ const RECIPES_TEIL1: TaskRecipe[] = [
         tableKind: 'guided',
         tableDescription:
           'Stakeholder-Tabelle: je Zeile 1 konkreter Stakeholder (Rolle oder Person) mit 1 Erwartung und 1 Befürchtung. Alle Einträge beziehen sich auf das konkrete Projekt bei {{UNTERNEHMEN}}.',
-        gradingHint: 'Je Zeile bis zu 4 Punkte: 1P Stakeholder, 2P Erwartung, 2P Befürchtung. Alternative Stakeholder mit plausibler Begründung auch korrekt.',
+        gradingHint:
+          'Je Zeile bis zu 4 Punkte: 1P Stakeholder, 2P Erwartung, 2P Befürchtung. Alternative Stakeholder mit plausibler Begründung auch korrekt.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Beschreiben Sie, wie Sie mit einem Stakeholder mit geringem Einfluss aber hohem Interesse umgehen.',
+        prompt:
+          'Beschreiben Sie, wie Sie mit einem Stakeholder mit geringem Einfluss aber hohem Interesse umgehen.',
         points: [4, 6],
         operator: 'beschreiben',
-        gradingHint: 'Ein plausibler Umgangsansatz (z.B. regelmäßige Information) reicht für volle Punkte.',
+        gradingHint:
+          'Ein plausibler Umgangsansatz (z.B. regelmäßige Information) reicht für volle Punkte.',
       },
       {
         taskType: 'freitext',
         prompt: 'Erläutern Sie, warum eine frühzeitige Stakeholder-Analyse wichtig ist.',
         points: [4, 6],
         operator: 'erlaeutern',
-        gradingHint: 'Zwei plausible Begründungen (Risikominimierung, frühes Feedback, ...) → volle Punkte.',
+        gradingHint:
+          'Zwei plausible Begründungen (Risikominimierung, frühes Feedback, ...) → volle Punkte.',
       },
     ],
   },
@@ -187,24 +208,29 @@ const RECIPES_TEIL1: TaskRecipe[] = [
     subtasks: [
       {
         taskType: 'freitext',
-        prompt: 'Erläutern Sie je einen Aspekt Ihrer Umfeldanalyse aus den Bereichen „technisches Umfeld" und „rechtliches Umfeld" für das Projekt bei {{UNTERNEHMEN}}.',
+        prompt:
+          'Erläutern Sie je einen Aspekt Ihrer Umfeldanalyse aus den Bereichen „technisches Umfeld" und „rechtliches Umfeld" für das Projekt bei {{UNTERNEHMEN}}.',
         points: [6, 8],
         operator: 'erlaeutern',
-        gradingHint: 'Je Bereich 1 passender Aspekt + Erläuterung = halbe Punkte. Beispiele: technisch → bestehende Hardware/Netzwerk; rechtlich → DSGVO, Datenschutz.',
+        gradingHint:
+          'Je Bereich 1 passender Aspekt + Erläuterung = halbe Punkte. Beispiele: technisch → bestehende Hardware/Netzwerk; rechtlich → DSGVO, Datenschutz.',
       },
       {
         taskType: 'freitext',
         prompt: 'Nennen Sie 3 funktionale und 3 nicht-funktionale Anforderungen an das Projekt.',
         points: [10, 14],
         operator: 'nennen',
-        gradingHint: 'Je Anforderung 1/6 der Punkte. Keine scharfe Trennung verlangen, sinngemäß korrekte Zuordnung reicht.',
+        gradingHint:
+          'Je Anforderung 1/6 der Punkte. Keine scharfe Trennung verlangen, sinngemäß korrekte Zuordnung reicht.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Beschreiben Sie kurz, welche Aufgaben zur Vorbereitung des Projektabschluss-Protokolls durchzuführen sind.',
+        prompt:
+          'Beschreiben Sie kurz, welche Aufgaben zur Vorbereitung des Projektabschluss-Protokolls durchzuführen sind.',
         points: [4, 6],
         operator: 'beschreiben',
-        gradingHint: 'Soll-Ist-Vergleich + Folgemaßnahmen identifizieren = volle Punkte. Auch "Lessons Learned" zulässig.',
+        gradingHint:
+          'Soll-Ist-Vergleich + Folgemaßnahmen identifizieren = volle Punkte. Auch "Lessons Learned" zulässig.',
       },
     ],
   },
@@ -229,7 +255,8 @@ const RECIPES_TEIL1: TaskRecipe[] = [
         points: 3,
         operator: 'beschreiben',
         cascade: true,
-        gradingHint: 'Als <Rolle> möchte ich <Ziel>, damit <Nutzen>. Drei Bestandteile = volle Punkte.',
+        gradingHint:
+          'Als <Rolle> möchte ich <Ziel>, damit <Nutzen>. Drei Bestandteile = volle Punkte.',
       },
       {
         taskType: 'freitext',
@@ -237,11 +264,13 @@ const RECIPES_TEIL1: TaskRecipe[] = [
         points: 6,
         operator: 'erlaeutern',
         cascade: true,
-        gradingHint: 'Je Buchstabe 1 Punkt: Independent / Negotiable / Valuable / Estimable / Small / Testable.',
+        gradingHint:
+          'Je Buchstabe 1 Punkt: Independent / Negotiable / Valuable / Estimable / Small / Testable.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Formulieren Sie 2 User Stories für eine zentrale Funktion des Projekts bei {{UNTERNEHMEN}}.',
+        prompt:
+          'Formulieren Sie 2 User Stories für eine zentrale Funktion des Projekts bei {{UNTERNEHMEN}}.',
         points: [6, 8],
         operator: 'entwerfen',
         gradingHint: 'Je Story mit allen 3 Bestandteilen (Rolle, Ziel, Nutzen) = halbe Punkte.',
@@ -249,43 +278,58 @@ const RECIPES_TEIL1: TaskRecipe[] = [
     ],
   },
 
-  // Vergleich (Wasserfall vs. Scrum, NoSQL vs. SQL, etc.) + Entscheidung
+  // Vergleich (Wasserfall vs. Scrum, NoSQL vs. SQL, usw.) + Entscheidung (S22 T1 Muster)
   {
     id: 't1_vergleich',
     weight: 7,
-    topicKeywords: ['Vergleich', 'Vorgehensmodell', 'Scrum', 'Wasserfall', 'NoSQL', 'Datenbank'],
+    topicKeywords: [
+      'Vergleich',
+      'Vorgehensmodell',
+      'Scrum',
+      'Wasserfall',
+      'NoSQL',
+      'Datenbank',
+      'agil',
+      'klassisch',
+    ],
     subtasks: [
       {
         taskType: 'freitext',
-        prompt: 'Erläutern Sie in 3–4 Sätzen, worin sich die beiden Ansätze grundlegend unterscheiden.',
+        prompt:
+          'Im questionText ist ein konkreter Entscheidungskontext bei {{UNTERNEHMEN}} beschrieben. Erläutern Sie die wesentlichen Unterschiede zwischen den beiden verglichenen Konzepten (z.B. klassisch vs. agil, SQL vs. NoSQL). Beziehen Sie sich dabei auf die im questionText genannte Ausgangssituation.',
         points: [4, 6],
         operator: 'erlaeutern',
-        gradingHint: 'Kernunterschied + mindestens ein konkretes Merkmal = volle Punkte.',
+        gradingHint:
+          'Mindestens 2 konkrete Unterschiede + Bezug zur beschriebenen Situation = volle Punkte.',
       },
       {
         taskType: 'table',
-        prompt: 'Füllen Sie die Vergleichstabelle aus. Die Kriterien sind vorgegeben.',
+        prompt:
+          'Füllen Sie die Vergleichstabelle aus. Die konkreten Vergleichsmerkmale in der ersten Spalte müssen im questionText angegeben sein — z.B. „Planbarkeit", „Flexibilität bei Änderungen", „Eignung für verteilte Teams", „Dokumentationsaufwand".',
         points: [10, 14],
         operator: 'vergleichen',
-        tableColumns: ['Vergleichsmerkmal', 'Option A', 'Option B'],
+        tableColumns: ['Vergleichsmerkmal', '[Konzept A]', '[Konzept B]'],
         tableRowCount: 4,
         fixedFirstColumn: true,
         tableKind: 'flexible',
         tableDescription:
-          'Vergleichstabelle: erste Spalte enthält 4 konkrete Vergleichsmerkmale, Spalten 2 und 3 benennen die beiden konkreten Vergleichsobjekte (z.B. "Scrum" vs "Wasserfall", nicht "Option A/B").',
-        gradingHint: 'Je Zeile je Option 1 Punkt wenn inhaltlich korrekt. Sinngemäße Ausprägungen akzeptieren.',
+          'Vergleichstabelle: erste Spalte enthält 4 konkrete projektrelevante Vergleichsmerkmale, Spalten 2 und 3 tragen die echten Konzeptnamen (z.B. "Scrum" / "Wasserfallmodell" statt "Option A/B"). Jede Zeile bewertet ein Merkmal für beide Konzepte.',
+        gradingHint:
+          'Je Zeile je Konzept 1P wenn inhaltlich korrekt und projektbezogen. Synonyme und begründete Alternativen akzeptieren.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Entscheiden Sie sich begründet für eine der beiden Optionen für das Projekt bei {{UNTERNEHMEN}}.',
+        prompt:
+          'Entscheiden Sie sich begründet für eines der beiden Konzepte für das konkrete Projekt bei {{UNTERNEHMEN}}. Nennen Sie mindestens 2 projektspezifische Gründe.',
         points: [4, 6],
         operator: 'entwerfen',
-        gradingHint: '1 Punkt für Entscheidung, Rest für fachliche Begründung. Beide Optionen zulässig, solange Begründung trägt.',
+        gradingHint:
+          '1P für klare Entscheidung + restliche Punkte für mindestens 2 projektspezifische Begründungen. Beide Optionen zulässig bei schlüssiger Argumentation.',
       },
     ],
   },
 
-  // UML-Aktivitätsdiagramm-Aufgabe — W22/23 Aufgabe 4, W23/24 Aufgabe 2c
+  // UML-Aktivitätsdiagramm (S25 T1 Aufg. 3-Muster: Bullet-Prozess + Optimierungstabelle)
   {
     id: 't1_uml_aktivitaet',
     weight: 7,
@@ -293,24 +337,34 @@ const RECIPES_TEIL1: TaskRecipe[] = [
     topicKeywords: ['Aktivität', 'Aktivitätsdiagramm', 'UML', 'Ablauf'],
     subtasks: [
       {
-        taskType: 'freitext',
-        prompt: 'Beschreiben Sie den darzustellenden Ablauf in eigenen Worten und identifizieren Sie die beteiligten Rollen/Swimlanes.',
-        points: [5, 7],
-        operator: 'beschreiben',
-        gradingHint: 'Jede korrekt identifizierte Rolle/Aktivität = Teilpunkte.',
-      },
-      {
         taskType: 'plantuml',
-        prompt: 'Erstellen Sie ein UML-Aktivitätsdiagramm des Ablaufs mit Start-/Endknoten, Aktivitäten, Verzweigungen und ggf. Swimlanes.',
+        // questionText muss: Bullet-Point-Prozessbeschreibung mit Verzweigungen und Swimlanes enthalten
+        prompt:
+          'Im questionText ist ein Geschäftsprozess als Bullet-Point-Liste mit Verzweigungen beschrieben und die beteiligten Rollen für Swimlanes angegeben. Erstellen Sie das UML-Aktivitätsdiagramm mit: Startknoten, allen Aktivitäten, Entscheidungsknoten (Rauten) mit Bedingungen, Synchronisierungsbalken bei parallelen Abläufen, Swimlanes für die beteiligten Rollen, und Endknoten.',
         points: [13, 17],
         operator: 'entwerfen',
         diagramType: 'uml_activity',
-        gradingHint: 'Je Aktivität 1P, je Entscheidung/Verzweigung 2P, Start+Ende vorhanden 2P, Swimlanes (falls gefordert) 2P. Alternative Lösungen akzeptieren.',
+        gradingHint:
+          'Je Aktivität 1P (max. Gesamtzahl), je Entscheidung/Verzweigung mit Bedingung 2P, Synchronisierungsbalken 2P, Start+Ende vorhanden 2P, Swimlanes korrekt zugeordnet 2P. Alternative Darstellungen akzeptieren.',
+      },
+      {
+        taskType: 'table',
+        prompt:
+          'Im questionText sind potenzielle Schwachstellen des Prozesses beschrieben. Tragen Sie für 3 Probleme eine Erläuterung und einen konkreten Lösungsansatz durch Digitalisierung ein.',
+        points: [9, 12],
+        operator: 'erlaeutern',
+        tableColumns: ['Problem', 'Erläuterung', 'Lösungsansatz durch Digitalisierung'],
+        tableRowCount: 3,
+        tableKind: 'guided',
+        tableDescription:
+          'Prozessoptimierungs-Tabelle: je Zeile 1 konkretes Problem aus dem Prozess + Erläuterung warum es ein Problem ist + konkreter digitaler Lösungsansatz.',
+        gradingHint:
+          'Je Zeile: Problem korrekt identifiziert 1P + Erläuterung plausibel 2P + Lösungsansatz konkret und digital 3P. Insgesamt 3×2P+3×3P möglich.',
       },
     ],
   },
 
-  // ER-Modell-Aufgabe (neu entwerfen oder vervollständigen)
+  // ER-Modell-Aufgabe (S25 T1 Aufg. 2-Muster: aufzählende Anforderungsliste + Vervollständigen)
   {
     id: 't1_er_modell',
     weight: 7,
@@ -319,30 +373,37 @@ const RECIPES_TEIL1: TaskRecipe[] = [
     subtasks: [
       {
         taskType: 'plantuml',
-        prompt: 'Erstellen Sie ein ER-Diagramm für das beschriebene Szenario. Geben Sie Entitätstypen, Attribute (inkl. Primärschlüssel) und Beziehungen mit Kardinalitäten an.',
+        // questionText muss: aufzählende Anforderungsliste + Hinweis auf bereits gegebene Entität enthalten
+        prompt:
+          'Im questionText sind die Anforderungen als Bullet-Point-Liste gegeben. Ein Entitätstyp ist bereits vorgegeben. Vervollständigen Sie das ER-Diagramm: Ergänzen Sie alle fehlenden Entitätstypen, Attribute (inkl. Primärschlüssel), Beziehungen und Kardinalitäten. Bei m:n-Beziehungen mit eigenen Attributen: diese Attribute an der Beziehung angeben.',
         points: [14, 18],
         operator: 'entwerfen',
         diagramType: 'er',
-        gradingHint: 'Je Entitätstyp 1P, je Primärschlüssel 0.5P, je Attribut 0.5P, je Beziehung mit Kardinalität 2P, Attribute an m:n-Beziehung 2P.',
+        gradingHint:
+          'Je Entitätstyp 1P, je Primärschlüssel 0,5P, je Attribut 0,5P (max. 3P Attribute), je Beziehung mit korrekter Kardinalität 2P, Beziehungsattribute an m:n 1P je Attribut.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Überführen Sie eine der m:n-Beziehungen in ein relationales Modell (Tabellenstruktur mit PK und FK angeben).',
+        prompt:
+          'Überführen Sie eine der m:n-Beziehungen in ein relationales Modell. Geben Sie die Tabellenstruktur mit Primärschlüsseln (PK) und Fremdschlüsseln (FK) an.',
         points: [5, 8],
         operator: 'entwerfen',
-        gradingHint: 'Zwischentabelle mit korrekten PK/FK = volle Punkte. Tabellennamen frei wählbar.',
+        gradingHint:
+          'Zwischentabelle mit korrektem Namen 1P, PK der Zwischentabelle korrekt 2P, FK zu beiden Ausgangstabellen je 1P, Beziehungsattribute in Zwischentabelle 1P.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Nennen Sie einen geeigneten Datentyp für 3 ausgewählte Attribute (z.B. Datum, Text, Zahl) und begründen Sie kurz.',
+        prompt:
+          'Nennen Sie für 3 Attribute Ihrer Wahl den passenden SQL-Datentyp und begründen Sie die Wahl kurz.',
         points: [3, 4],
         operator: 'nennen',
-        gradingHint: 'Je Attribut 1P bei korrektem Datentyp. VarChar/String/Text als Synonyme akzeptieren.',
+        gradingHint:
+          'Je Attribut mit korrektem Datentyp + Kurzbegründung 1/3 der Punkte. Synonyme (VARCHAR/String) akzeptieren.',
       },
     ],
   },
 
-  // UI-Darstellungsform + Mockup
+  // UI-Darstellungsform + Mockup (S25 T1 Aufg. 2b-Muster + W23/24 Aufg. 4b-Muster)
   {
     id: 't1_ui_darstellung',
     weight: 6,
@@ -350,24 +411,32 @@ const RECIPES_TEIL1: TaskRecipe[] = [
     subtasks: [
       {
         taskType: 'freitext',
-        prompt: 'Nennen Sie 3 mögliche Darstellungsformen für die beschriebene Funktion und beschreiben Sie diese jeweils kurz.',
-        points: [6, 8],
+        prompt:
+          'Im questionText ist ein konkreter Anwendungsfall (z.B. Dateneingabe oder Übersichtsansicht) für {{UNTERNEHMEN}} beschrieben. Benennen Sie zwei geeignete Darstellungsformen für diesen Anwendungsfall.',
+        points: [2, 3],
         operator: 'nennen',
-        gradingHint: 'Liste/Kachel/Karte/Tabelle = Standard. Je Darstellung 1/3 der Punkte.',
+        cascade: true,
+        gradingHint:
+          'Je Darstellungsform 1P: Liste, Tabelle, Kachel/Grid, Karte, Formular — alle sinnvollen Varianten akzeptieren.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Entscheiden Sie sich für eine der Darstellungsformen und begründen Sie Ihre Wahl (mindestens 3 Sätze).',
-        points: [4, 6],
+        prompt:
+          'Entscheiden Sie sich für eine der genannten Darstellungsformen und begründen Sie Ihre Wahl im Kontext des beschriebenen Anwendungsfalls.',
+        points: [2, 3],
         operator: 'entwerfen',
-        gradingHint: '1P Entscheidung + Rest für passende Argumentation im Kontext {{UNTERNEHMEN}}.',
+        cascade: true,
+        gradingHint:
+          '1P Entscheidung klar benannt + 1–2P Begründung projektbezogen. Beide Optionen zulässig, solange Begründung trägt.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Skizzieren Sie das Mockup der gewählten Darstellungsform als ASCII-Skizze oder in beschreibenden Stichworten (Überschrift, Eingabefelder/Anzeigen, Aktionen).',
+        prompt:
+          'Skizzieren Sie ein Mockup Ihrer gewählten Darstellungsform. Das Mockup muss mindestens enthalten: Überschrift, alle geforderten Eingabefelder oder Anzeigeelemente mit Beschriftung, ein Auswahlfeld (Dropdown/Combobox) wo sinnvoll, sowie Aktionsbuttons (z.B. Speichern/Abbrechen).',
         points: [8, 12],
         operator: 'entwerfen',
-        gradingHint: '1P Überschrift, 2P Eingabefelder, 2P Beschriftung, 2P Aktionen (Speichern/Abbrechen). Alternative Darstellungen voll punkten.',
+        gradingHint:
+          '1P Überschrift / 2P Eingabefelder mit Beschriftung / 1P Auswahlfeld (Dropdown o.ä.) / 2P Aktionsbuttons / 1P sinnvolle Anordnung. Alternative Darstellungen vollständig werten.',
       },
     ],
   },
@@ -380,14 +449,17 @@ const RECIPES_TEIL1: TaskRecipe[] = [
     subtasks: [
       {
         taskType: 'freitext',
-        prompt: 'Beschreiben Sie die Notwendigkeit eines Testkonzepts für das Projekt bei {{UNTERNEHMEN}}.',
+        prompt:
+          'Beschreiben Sie die Notwendigkeit eines Testkonzepts für das Projekt bei {{UNTERNEHMEN}}.',
         points: [4, 6],
         operator: 'beschreiben',
-        gradingHint: 'Zwei Begründungen (Fehler früh erkennen, Qualität sichern, ...) = volle Punkte.',
+        gradingHint:
+          'Zwei Begründungen (Fehler früh erkennen, Qualität sichern, ...) = volle Punkte.',
       },
       {
         taskType: 'table',
-        prompt: 'Füllen Sie die Tabelle aus: Nennen Sie 4 Teststufen mit Beschreibung und einem konkreten Beispiel aus dem Projekt.',
+        prompt:
+          'Füllen Sie die Tabelle aus: Nennen Sie 4 Teststufen mit Beschreibung und einem konkreten Beispiel aus dem Projekt.',
         points: [12, 16],
         operator: 'nennen',
         tableColumns: ['Teststufe', 'Beschreibung', 'Beispiel aus dem Projekt'],
@@ -396,11 +468,13 @@ const RECIPES_TEIL1: TaskRecipe[] = [
         fixedFirstColumn: false,
         tableDescription:
           'Teststufen-Tabelle: Unit-Test, Integrationstest, Systemtest, Abnahmetest — je mit Kurzbeschreibung und projektkonkretem Beispiel.',
-        gradingHint: 'Je vollständige Zeile (Stufe + Beschreibung + Beispiel) 1/4 der Punkte. Bei fehlerhafter Zuordnung Teilpunkte.',
+        gradingHint:
+          'Je vollständige Zeile (Stufe + Beschreibung + Beispiel) 1/4 der Punkte. Bei fehlerhafter Zuordnung Teilpunkte.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Beschreiben Sie 3 weitere Inhalte, die in einem Testkonzept enthalten sein sollten.',
+        prompt:
+          'Beschreiben Sie 3 weitere Inhalte, die in einem Testkonzept enthalten sein sollten.',
         points: [4, 6],
         operator: 'beschreiben',
         gradingHint: 'Je Inhalt (Testumfang, Testdaten, Rollen, Zeitplan, ...) 1/3 der Punkte.',
@@ -416,31 +490,39 @@ const RECIPES_TEIL1: TaskRecipe[] = [
     subtasks: [
       {
         taskType: 'freitext',
-        prompt: 'Erläutern Sie den Unterschied zwischen symmetrischer und asymmetrischer Verschlüsselung.',
+        prompt:
+          'Erläutern Sie den Unterschied zwischen symmetrischer und asymmetrischer Verschlüsselung.',
         points: [5, 7],
         operator: 'erlaeutern',
-        gradingHint: 'Symm.: ein Schlüssel für beide Seiten. Asymm.: Public+Private-Key. Beide Aspekte = volle Punkte.',
+        gradingHint:
+          'Symm.: ein Schlüssel für beide Seiten. Asymm.: Public+Private-Key. Beide Aspekte = volle Punkte.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Erläutern Sie das Prinzip der hybriden Verschlüsselung am Beispiel des TLS-Handshakes und nennen Sie den Grund für den hybriden Ansatz.',
+        prompt:
+          'Erläutern Sie das Prinzip der hybriden Verschlüsselung am Beispiel des TLS-Handshakes und nennen Sie den Grund für den hybriden Ansatz.',
         points: [5, 7],
         operator: 'erlaeutern',
-        gradingHint: 'Asymm. zum Schlüsselaustausch + symm. für Nutzdaten + Performance-Grund. Kernidee = volle Punkte.',
+        gradingHint:
+          'Asymm. zum Schlüsselaustausch + symm. für Nutzdaten + Performance-Grund. Kernidee = volle Punkte.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Beschreiben Sie, wie mithilfe einer lokalen Certificate Authority die Authentizität von Diensten sichergestellt werden kann.',
+        prompt:
+          'Beschreiben Sie, wie mithilfe einer lokalen Certificate Authority die Authentizität von Diensten sichergestellt werden kann.',
         points: [3, 4],
         operator: 'beschreiben',
-        gradingHint: 'CA signiert Zertifikate + Clients prüfen Signatur + Widerrufsprüfung = volle Punkte.',
+        gradingHint:
+          'CA signiert Zertifikate + Clients prüfen Signatur + Widerrufsprüfung = volle Punkte.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Nennen Sie je einen Vor- und einen Nachteil einer zentralen Rechteverwaltung (Identity Provider / SSO).',
+        prompt:
+          'Nennen Sie je einen Vor- und einen Nachteil einer zentralen Rechteverwaltung (Identity Provider / SSO).',
         points: [4, 6],
         operator: 'nennen',
-        gradingHint: 'Je Vor-/Nachteil halbe Punkte. Bsp. Vorteil: zentrale Übersicht. Nachteil: Single Point of Failure.',
+        gradingHint:
+          'Je Vor-/Nachteil halbe Punkte. Bsp. Vorteil: zentrale Übersicht. Nachteil: Single Point of Failure.',
       },
     ],
   },
@@ -453,63 +535,85 @@ const RECIPES_TEIL1: TaskRecipe[] = [
     subtasks: [
       {
         taskType: 'freitext',
-        prompt: 'Beschreiben Sie, was eine CI/CD-Pipeline ist und bei welchen Ereignissen sie typischerweise ausgelöst wird.',
+        prompt:
+          'Beschreiben Sie, was eine CI/CD-Pipeline ist und bei welchen Ereignissen sie typischerweise ausgelöst wird.',
         points: [3, 4],
         operator: 'beschreiben',
         gradingHint: 'Automatisierte Abfolge bei Commit/Tag/PR. Kernidee + Trigger = volle Punkte.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Nennen Sie 4 Vorteile einer CI/CD-Pipeline für die Entwicklung bei {{UNTERNEHMEN}}.',
+        prompt:
+          'Nennen Sie 4 Vorteile einer CI/CD-Pipeline für die Entwicklung bei {{UNTERNEHMEN}}.',
         points: [8, 10],
         operator: 'nennen',
-        gradingHint: 'Je Vorteil 1/4 der Punkte. Z.B. automatische Tests, einheitliche Deploys, Rollback, weniger manueller Zugriff.',
+        gradingHint:
+          'Je Vorteil 1/4 der Punkte. Z.B. automatische Tests, einheitliche Deploys, Rollback, weniger manueller Zugriff.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Erläutern Sie, wie ein Rollback bei einer defekten Deployment-Version aussehen kann.',
+        prompt:
+          'Erläutern Sie, wie ein Rollback bei einer defekten Deployment-Version aussehen kann.',
         points: [3, 4],
         operator: 'erlaeutern',
-        gradingHint: 'Alte Pipeline erneut ausführen / vorherigen Container deployen / Git-Tag zurücksetzen = volle Punkte.',
+        gradingHint:
+          'Alte Pipeline erneut ausführen / vorherigen Container deployen / Git-Tag zurücksetzen = volle Punkte.',
       },
     ],
   },
 
-  // OOP / Entwurfsmuster (S25 Aufgabe 4)
+  // OOP / Entwurfsmuster (S25 T1 Aufg. 4-Muster: englischer Beschreibungstext + Klassendiagramm ergänzen)
   {
     id: 't1_oop_entwurf',
     weight: 5,
-    topicKeywords: ['OOP', 'Entwurfsmuster', 'Factory', 'Singleton', 'Observer', 'abstrakt', 'Interface'],
+    topicKeywords: [
+      'OOP',
+      'Entwurfsmuster',
+      'Factory',
+      'Singleton',
+      'Observer',
+      'abstrakt',
+      'Interface',
+    ],
     subtasks: [
       {
         taskType: 'freitext',
-        prompt: 'Beschreiben Sie das Factory-Entwurfsmuster in 3 Stichpunkten.',
+        prompt:
+          'Im questionText ist ein englischer Beschreibungstext eines Entwurfsmusters (aus einer Fachliteraturquelle) gegeben. Erläutern Sie anhand dieses Textes zwei Aspekte des Entwurfsmusters.',
         points: 6,
-        operator: 'beschreiben',
+        operator: 'erlaeutern',
         cascade: true,
-        gradingHint: 'Je Stichpunkt 2P: Erzeugung über Basisklasse / Konstruktor-Aufruf in Methode / Überschreiben in Unterklassen.',
+        gradingHint:
+          'Je Aspekt 3P: muss aus dem Text herleitbar sein und korrekt erläutert werden. Reine Paraphrase ohne Erläuterung: halbe Punkte.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Erläutern Sie, welche Voraussetzung die erzeugten Klassen erfüllen müssen, damit das Factory-Muster funktioniert.',
+        prompt:
+          'Im questionText ist eine Einschränkung des Entwurfsmusters beschrieben. Erläutern Sie diese Einschränkung in eigenen Worten.',
         points: 3,
         operator: 'erlaeutern',
         cascade: true,
-        gradingHint: 'Gemeinsame Basisklasse ODER gemeinsames Interface = volle Punkte.',
+        gradingHint:
+          'Für Factory: gemeinsame Basisklasse/Interface notwendig. Kernaussage korrekt = volle Punkte.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Erläutern Sie die Besonderheiten einer abstrakten Klasse (mindestens 3 Aspekte).',
-        points: [5, 7],
+        prompt:
+          'Erläutern Sie drei Merkmale einer abstrakten Klasse im Vergleich zu gewöhnlichen Klassen und Interfaces.',
+        points: 6,
         operator: 'erlaeutern',
-        gradingHint: 'Mind. 1 abstrakte Methode / nicht instanziierbar / vollständig def. Methoden erlaubt / Attribute erlaubt.',
+        gradingHint:
+          'Mind. 3 Merkmale: abstrakte Methoden zwingend / nicht instanziierbar / vollständig definierte Methoden erlaubt / Attribute erlaubt / mehrfache Vererbung nur bei Interfaces. Je Merkmal 2P.',
       },
       {
-        taskType: 'freitext',
-        prompt: 'Nennen Sie ein weiteres Entwurfsmuster und beschreiben Sie dessen Zweck.',
-        points: [3, 4],
-        operator: 'nennen',
-        gradingHint: 'Singleton/Observer/Strategy/Adapter — je mit Kurzbeschreibung = volle Punkte.',
+        taskType: 'plantuml',
+        prompt:
+          'Im questionText ist ein teilweise ausgefülltes Klassendiagramm mit dem Entwurfsmuster gegeben. Ergänzen Sie das Klassendiagramm um die fehlenden Klassen (Fabrik-Unterklasse und Produkt-Unterklasse) für den beschriebenen neuen Anwendungsfall.',
+        points: 6,
+        operator: 'entwerfen',
+        diagramType: 'uml_class',
+        gradingHint:
+          '3P für korrekte Fabrik-Unterklasse (erbt von abstrakter Fabrik, überschreibt Fabrikmethode) + 3P für korrekte Produkt-Unterklasse (erbt von Produkt-Basisklasse).',
       },
     ],
   },
@@ -522,24 +626,149 @@ const RECIPES_TEIL1: TaskRecipe[] = [
     subtasks: [
       {
         taskType: 'freitext',
-        prompt: 'Berechnen Sie den Gesamtaufwand bzw. die Gesamtkosten für das beschriebene Teilprojekt. Zeigen Sie den Rechenweg und geben Sie das Ergebnis mit Einheit an.',
+        prompt:
+          'Im questionText sind Projektvorgänge mit Dauern (in Tagen) und Vorgängerabhängigkeiten gegeben. Berechnen Sie den frühesten Anfangs- und Endzeitpunkt für alle Vorgänge sowie den Gesamtprojektendtermin. Zeigen Sie den Rechenweg und geben Sie das Ergebnis mit Einheit an.',
         points: [10, 15],
         operator: 'berechnen',
-        gradingHint: 'Rechenweg 50% / korrektes Ergebnis 50%. Bei Folgefehlern nur Ausgangsfehler abziehen.',
+        gradingHint:
+          'Rechenweg (Vorwärtsrechnung) 50% / korrektes Ergebnis je Vorgang 30% / Gesamtendtermin 20%. Bei Folgefehlern nur Ausgangsfehler abziehen.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Erläutern Sie, welchen Einfluss eine Verlängerung eines kritischen Vorgangs um einen Tag auf den Projektendtermin hat.',
+        prompt:
+          'Benennen Sie den kritischen Pfad und erläutern Sie, welchen Einfluss eine Verlängerung eines kritischen Vorgangs um einen Tag auf den Projektendtermin hat.',
         points: [4, 6],
         operator: 'erlaeutern',
-        gradingHint: 'Kritischer Pfad → direkte Verschiebung. Nicht-kritisch → Pufferzeit. Korrekte Antwort je nach Kontext.',
+        gradingHint:
+          'Kritischer Pfad korrekt benannt 2P + Erläuterung: direkte Verschiebung Endtermin um 1 Tag 2–4P.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Nennen Sie 2 Kostenfaktoren, die in der Praxis oft unterschätzt werden.',
+        prompt:
+          'Nennen Sie 2 Kostenfaktoren bei Softwareprojekten, die in der Praxis oft unterschätzt werden, und erläutern Sie jeweils kurz warum.',
         points: [4, 5],
         operator: 'nennen',
-        gradingHint: 'Je Kostenfaktor (Einarbeitung, Meetings, Testaufwand, ...) halbe Punkte.',
+        gradingHint:
+          'Je Kostenfaktor (Einarbeitung, Meetings, Testaufwand, Fehlerbehebung, Dokumentation, ...) 1P + Erläuterung 1P = 2P. Insgesamt 2 × 2P = 4P.',
+      },
+    ],
+  },
+
+  // Use-Case-Diagramm + User Stories (W23/24 T2 Aufg. 2-Muster)
+  {
+    id: 't1_usecases_userstories',
+    weight: 6,
+    topicKeywords: ['Use-Case', 'User Story', 'UseCase', 'Anwendungsfall'],
+    subtasks: [
+      {
+        taskType: 'freitext',
+        prompt:
+          'Im questionText ist ein Use-Case-Diagramm mit mehreren Anwendungsfällen für {{PRODUKT}} bei {{UNTERNEHMEN}} beschrieben. Erstellen Sie für zwei der genannten Anwendungsfälle je eine User Story nach dem Connextra-Template: „Als <Rolle> möchte ich <Ziel>, damit <Nutzen>."',
+        points: [6, 8],
+        operator: 'entwerfen',
+        gradingHint:
+          'Je User Story 3–4P: Rolle korrekt (1P) + Ziel konkret (1–2P) + Nutzen plausibel (1P). Template-Abweichungen mit Sinngehalt akzeptieren.',
+      },
+      {
+        taskType: 'freitext',
+        prompt: 'Erläutern Sie drei der sechs INVEST-Kriterien für gute User Stories.',
+        points: [6, 9],
+        operator: 'erlaeutern',
+        gradingHint:
+          'Je Kriterium 2–3P: korrekter Buchstabe + Bedeutung + Erläuterung. Independent/Negotiable/Valuable/Estimable/Small/Testable — alle Varianten akzeptieren.',
+      },
+      {
+        taskType: 'freitext',
+        prompt:
+          'Beschreiben Sie, in welchem Scrum-Artefakt User Stories typischerweise gesammelt und priorisiert werden, und welche Rolle dafür verantwortlich ist.',
+        points: [4, 5],
+        operator: 'beschreiben',
+        gradingHint:
+          'Product Backlog 2P + Product Owner 2P. Sprint Backlog als Ergänzung akzeptieren.',
+      },
+    ],
+  },
+
+  // Risikomanagement + Befürchtungen-Tabelle (S22 T1 Aufg. 1-Muster)
+  {
+    id: 't1_risiko_befuerchtungen',
+    weight: 5,
+    topicKeywords: ['Risikomanagement', 'Risiko', 'Change Management', 'Konflikt', 'Befürchtung'],
+    subtasks: [
+      {
+        taskType: 'freitext',
+        prompt:
+          'Im questionText ist eine Konfliktsituation bei der Einführung von {{PRODUKT}} bei {{UNTERNEHMEN}} beschrieben (z.B. Widerstand von Mitarbeitern). Beschreiben Sie zwei konkrete Schritte, um diesen Konflikt zu bewältigen.',
+        points: [4, 6],
+        operator: 'beschreiben',
+        gradingHint:
+          'Je konkreter Schritt (Informationsveranstaltung, Schulung, Pilotgruppe, Einbeziehung, ...) halbe bis volle Punkte. Allgemein "kommunizieren" ohne konkreten Schritt: halbe Punkte.',
+      },
+      {
+        taskType: 'table',
+        prompt:
+          'Im questionText sind 3 Projektrisiken genannt. Ergänzen Sie für jedes Risiko eine plausible Ursache und eine mögliche Auswirkung auf das Projekt.',
+        points: [8, 12],
+        operator: 'beschreiben',
+        tableColumns: ['Risiko', 'Ursache', 'Auswirkung'],
+        tableRowCount: 3,
+        fixedFirstColumn: true,
+        tableKind: 'fixed',
+        tableDescription:
+          'Risikotabelle: erste Spalte mit vorgegebenen Risiken (z.B. "Unterschätzung Entwicklungsaufwand", "Inkompatible Schnittstellen", "Widerstand Personalrat") — Spalten 2 und 3 werden ausgefüllt.',
+        gradingHint:
+          'Je Zeile: Ursache plausibel 2P + Auswirkung konkret auf Projekt 2P = 4P je Zeile. Insgesamt 12P möglich.',
+      },
+      {
+        taskType: 'freitext',
+        prompt:
+          'Beschreiben Sie je eine funktionale und eine nicht-funktionale Anforderung an {{PRODUKT}}.',
+        points: [4, 5],
+        operator: 'beschreiben',
+        gradingHint:
+          'Funktional: was das System tun soll (Funktion, Feature) 2P. Nicht-funktional: wie es das tun soll (Leistung, Sicherheit, Verfügbarkeit) 2P. Je korrekte Zuordnung volle Punkte.',
+      },
+    ],
+  },
+
+  // NoSQL + JSON-Transformation (W23/24 T2 Aufg. 3 + S22 T1-Muster)
+  {
+    id: 't1_nosql_json',
+    weight: 5,
+    topicKeywords: ['NoSQL', 'MongoDB', 'JSON', 'Dokumenten', 'dokumentenorientiert'],
+    subtasks: [
+      {
+        taskType: 'freitext',
+        prompt:
+          'Im questionText ist ein Textauszug über NoSQL-Datenbanken (z.B. MongoDB) aus einer Fachliteraturquelle gegeben. Erläutern Sie anhand des Textes drei Vorteile von NoSQL-Datenbanken gegenüber relationalen Datenbanken.',
+        points: [6, 9],
+        operator: 'erlaeutern',
+        gradingHint:
+          'Je Vorteil (Flexible Schema, Performance/keine JOINs, Developer-Friendly, horizontale Skalierung, ...) 2–3P wenn aus dem Text herleitbar und korrekt erläutert.',
+      },
+      {
+        taskType: 'freitext',
+        prompt:
+          'Im questionText sind relationale Tabellendaten (mit Fremdschlüsselbezug) gegeben. Wandeln Sie die Daten in JSON-Objekte um. Verwenden Sie bei der Einbettung zusammengehöriger Daten ein verschachteltes Array.',
+        points: [7, 10],
+        operator: 'entwerfen',
+        gradingHint:
+          'Gültiges JSON-Syntax 2P / alle Felder enthalten 3P / verschachteltes Array korrekt eingebettet 3P / konsistente Feldnamen 2P.',
+      },
+      {
+        taskType: 'table',
+        prompt:
+          'Ordnen Sie die relationale Datenbankterminologie der dokumentenorientierten Entsprechung zu.',
+        points: [3, 4],
+        operator: 'identifizieren',
+        tableColumns: ['Relationaler Begriff', 'Dokumenten-Datenbank-Begriff'],
+        tableRowCount: 4,
+        fixedFirstColumn: true,
+        fixedFirstColumnValues: ['Database', 'Table', 'Record/Row', 'Column'],
+        tableKind: 'fixed',
+        tableDescription:
+          'Begriffszuordnung relational↔dokumentenorientiert: Database→Database, Table→Collection, Record→Document, Column→Field.',
+        gradingHint: 'Je korrekte Zuordnung 1P: Database, Collection, Document, Field.',
       },
     ],
   },
@@ -548,7 +777,7 @@ const RECIPES_TEIL1: TaskRecipe[] = [
 // ─── TEIL 2 REZEPTE ──────────────────────────────────────────────────────────
 
 const RECIPES_TEIL2: TaskRecipe[] = [
-  // SQL SELECT mit JOIN — meistgenutzte Form
+  // SQL SELECT mit JOIN (mit vollständigen Tabellendaten — IHK-Pflicht)
   {
     id: 't2_sql_join',
     weight: 10,
@@ -556,29 +785,36 @@ const RECIPES_TEIL2: TaskRecipe[] = [
     subtasks: [
       {
         taskType: 'freitext',
-        prompt: 'Erläutern Sie den Zweck eines JOIN und nennen Sie mindestens 2 JOIN-Arten.',
+        prompt:
+          'Erläutern Sie den Zweck eines JOIN und nennen Sie mindestens 2 JOIN-Arten mit je einem Satz Beschreibung.',
         points: [4, 6],
         operator: 'erlaeutern',
-        gradingHint: 'Verknüpfung von Tabellen + INNER/LEFT/RIGHT/FULL = volle Punkte.',
+        gradingHint:
+          'Verknüpfung von Tabellen auf Basis von PK/FK + INNER/LEFT/RIGHT/FULL je mit Beschreibung = volle Punkte.',
       },
       {
         taskType: 'sql',
-        prompt: 'Formulieren Sie eine SQL-SELECT-Abfrage mit einem JOIN über mindestens zwei Tabellen für das beschriebene Szenario. Geben Sie nur das SQL-Statement an.',
+        // Die Tabellendaten MÜSSEN im questionText landen — das erzwingt das buildUserPrompt + buildSystemPrompt.
+        prompt:
+          'Im questionText sind die Tabellenstrukturen mit Beispieldaten gegeben. Erstellen Sie eine SQL-SELECT-Abfrage mit einem JOIN über die angegebenen Tabellen. Geben Sie Nachname, Vorname und eine weitere relevante Information aus, gefiltert und sortiert nach einem sinnvollen Kriterium.',
         points: [12, 16],
         operator: 'entwerfen',
-        gradingHint: 'Syntax 20% / korrekte Tabellen+Spalten 30% / JOIN-Bedingung 30% / WHERE/ORDER 20%.',
+        gradingHint:
+          'SELECT-Spalten 20% / JOIN-Bedingung mit richtigen Spalten 30% / WHERE/ORDER BY 30% / Alias-Verwendung 20%. Alternative korrekte Lösungen vollständig werten.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Beschreiben Sie, wie die Abfrage optimiert werden könnte (mindestens 2 Ansätze).',
+        prompt:
+          'Beschreiben Sie zwei konkrete Maßnahmen, mit denen die Performance der erstellten SQL-Abfrage verbessert werden könnte.',
         points: [4, 6],
         operator: 'beschreiben',
-        gradingHint: 'Je Ansatz halbe Punkte: Index, WHERE-Filter, nur benötigte Spalten, LIMIT, ...',
+        gradingHint:
+          'Je Maßnahme halbe Punkte. Z.B.: Index auf JOIN-Spalten, nur benötigte Spalten selektieren, WHERE vor JOIN anwenden, EXPLAIN nutzen.',
       },
     ],
   },
 
-  // SQL GROUP BY / Aggregation
+  // SQL GROUP BY / Aggregation (S25-Stil: komplexe Auswertung mit Ergebnisbeispiel)
   {
     id: 't2_sql_groupby',
     weight: 7,
@@ -586,26 +822,77 @@ const RECIPES_TEIL2: TaskRecipe[] = [
     subtasks: [
       {
         taskType: 'freitext',
-        prompt: 'Nennen Sie 3 Aggregatfunktionen und erläutern Sie jeweils kurz ihren Zweck.',
+        prompt: 'Nennen Sie 3 SQL-Aggregatfunktionen und erläutern Sie jeweils kurz deren Zweck.',
         points: 6,
         operator: 'nennen',
         cascade: true,
-        gradingHint: 'COUNT, SUM, AVG, MIN, MAX — je 2P für Name + korrekte Beschreibung.',
+        gradingHint:
+          'COUNT/SUM/AVG/MIN/MAX — je 2P für korrekten Namen + treffende Kurzbeschreibung.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Erläutern Sie den Unterschied zwischen WHERE und HAVING.',
-        points: 3,
+        prompt:
+          'Erläutern Sie den Unterschied zwischen WHERE und HAVING anhand eines konkreten Beispiels.',
+        points: 4,
         operator: 'erlaeutern',
         cascade: true,
-        gradingHint: 'WHERE: Zeilenfilter vor Aggregation. HAVING: Filter nach Aggregation.',
+        gradingHint:
+          'WHERE filtert Zeilen vor Aggregation. HAVING filtert nach Aggregation. Beispiel muss beide zeigen.',
       },
       {
         taskType: 'sql',
-        prompt: 'Formulieren Sie eine SQL-Abfrage mit GROUP BY und mindestens einer Aggregatfunktion für das Szenario. Ergänzen Sie bei Bedarf HAVING.',
+        prompt:
+          'Im questionText sind Tabellendaten gegeben. Erstellen Sie eine SQL-Abfrage, die für jeden Datensatz-Typ die Anzahl und einen Durchschnittswert ermittelt. Sortieren Sie absteigend nach der Anzahl. Zeigen Sie nur Gruppen mit mindestens 3 Einträgen.',
         points: [12, 16],
         operator: 'entwerfen',
-        gradingHint: 'GROUP BY korrekt 30% / Aggregatfunktion 30% / WHERE+HAVING 20% / Ergebnismenge 20%.',
+        gradingHint:
+          'GROUP BY korrekt 25% / COUNT/AVG korrekt 25% / HAVING COUNT>=3 korrekt 25% / ORDER BY DESC 25%. Subquery-Variante als Alternative akzeptieren.',
+      },
+    ],
+  },
+
+  // SQL DML-Mix: INSERT + GRANT + REVOKE + UPDATE/ALTER (S25 T2 Aufg. 4-Muster)
+  {
+    id: 't2_sql_dml_mix',
+    weight: 8,
+    topicKeywords: ['SQL', 'UPDATE', 'DELETE', 'INSERT', 'GRANT', 'REVOKE', 'ALTER'],
+    subtasks: [
+      {
+        taskType: 'sql',
+        prompt:
+          'Im questionText sind Tabellendaten gegeben. Fügen Sie einen neuen Datensatz mit den angegebenen Werten in die Tabelle ein.',
+        points: 3,
+        operator: 'entwerfen',
+        cascade: true,
+        gradingHint:
+          'INSERT INTO ... (Spalten) VALUES (Werte) — Spaltennamen korrekt, Werte in richtiger Reihenfolge = volle Punkte.',
+      },
+      {
+        taskType: 'sql',
+        prompt:
+          'Gewähren Sie dem angegebenen Datenbankbenutzer Schreibrechte (INSERT, UPDATE) auf die genannte Tabelle.',
+        points: 3,
+        operator: 'entwerfen',
+        cascade: true,
+        gradingHint:
+          'GRANT INSERT, UPDATE ON datenbank.tabelle TO "benutzer" = volle Punkte. Datenbankname vergessen = halbe Punkte.',
+      },
+      {
+        taskType: 'sql',
+        prompt: 'Entziehen Sie einem anderen Benutzer die Schreibrechte auf die genannte Tabelle.',
+        points: 3,
+        operator: 'entwerfen',
+        cascade: true,
+        gradingHint: 'REVOKE INSERT, UPDATE ON datenbank.tabelle FROM "benutzer" = volle Punkte.',
+      },
+      {
+        taskType: 'sql',
+        prompt:
+          'Eine Spalte der Tabelle soll zu einem Pflichtfeld werden. Vorher sollen fehlende Werte mit einem Standardwert befüllt werden. Schreiben Sie beide notwendigen SQL-Anweisungen.',
+        points: 5,
+        operator: 'entwerfen',
+        gradingHint:
+          'UPDATE tabelle SET spalte = "standard" WHERE spalte IS NULL (2P) + ALTER TABLE tabelle MODIFY spalte TYP NOT NULL (3P). Reihenfolge muss korrekt sein.',
       },
     ],
   },
@@ -618,34 +905,40 @@ const RECIPES_TEIL2: TaskRecipe[] = [
     subtasks: [
       {
         taskType: 'freitext',
-        prompt: 'Erläutern Sie den Unterschied zwischen DDL und DML und nennen Sie jeweils ein Beispiel.',
+        prompt:
+          'Erläutern Sie den Unterschied zwischen DDL und DML und nennen Sie jeweils zwei konkrete SQL-Befehle als Beispiele.',
         points: [4, 6],
         operator: 'erlaeutern',
-        gradingHint: 'DDL=Struktur (CREATE/ALTER/DROP), DML=Daten (SELECT/INSERT/UPDATE/DELETE). Beispiele beider Gruppen.',
+        gradingHint:
+          'DDL=Struktur (CREATE/ALTER/DROP), DML=Daten (SELECT/INSERT/UPDATE/DELETE). Je Kategorie mind. 2 Befehle = volle Punkte.',
       },
       {
         taskType: 'sql',
-        prompt: 'Schreiben Sie ein CREATE TABLE-Statement inkl. Primärschlüssel, Fremdschlüssel und passenden Datentypen für das Szenario.',
+        prompt:
+          'Im questionText sind die Anforderungen an eine neue Tabelle beschrieben. Schreiben Sie das vollständige CREATE TABLE-Statement mit Primärschlüssel, Fremdschlüssel und passenden Datentypen.',
         points: [13, 17],
         operator: 'entwerfen',
-        gradingHint: 'Tabellenname+Spalten 30%, Datentypen 20%, PK 20%, FK 20%, NOT NULL/weitere Constraints 10%.',
+        gradingHint:
+          'Tabellenname+Spaltennamen 20% / Datentypen korrekt 20% / PK-Constraint 20% / FK-Constraint mit REFERENCES 25% / NOT NULL/DEFAULT wo sinnvoll 15%.',
       },
       {
         taskType: 'table',
-        prompt: 'Geben Sie für 3 der definierten Attribute den passenden Datentyp an.',
+        prompt:
+          'Tragen Sie für 3 der definierten Attribute den passenden Datentyp und eine kurze Begründung ein.',
         points: [3, 4],
         operator: 'nennen',
-        tableColumns: ['Attribut', 'Datentyp'],
+        tableColumns: ['Attribut', 'Datentyp', 'Begründung'],
         tableRowCount: 3,
         tableKind: 'guided',
         tableDescription:
-          'Datentyp-Tabelle: je Zeile 1 konkretes Attribut aus dem Szenario und der passende SQL-Datentyp (Integer, VarChar, Date, Boolean, ...).',
-        gradingHint: 'Je korrekte Zeile 1/3 der Punkte. VarChar/String/Text als Synonyme akzeptieren.',
+          'Datentyp-Tabelle: je Zeile 1 konkretes Attribut aus dem Szenario, der SQL-Datentyp und eine 1-Satz-Begründung.',
+        gradingHint:
+          'Je vollständige Zeile (Attribut + korrekter Typ + Begründung) 1/3 der Punkte. VarChar/String/Text als Synonyme akzeptieren.',
       },
     ],
   },
 
-  // Pseudocode-Fehler finden + korrigieren (W22/23 Aufgabe 2)
+  // Pseudocode-Fehler finden + korrigieren (W22/23, W23/24-Muster)
   {
     id: 't2_pseudocode_debug',
     weight: 7,
@@ -653,36 +946,46 @@ const RECIPES_TEIL2: TaskRecipe[] = [
     subtasks: [
       {
         taskType: 'freitext',
-        prompt: 'Im questionText ist ein Pseudocode-Fragment (mit Zeilennummern) gegeben. Führen Sie den Code für 2 konkrete Testfälle gedanklich aus und geben Sie das erwartete und das tatsächliche Ergebnis in einer Tabelle an.',
+        prompt:
+          'Im questionText ist ein Pseudocode-Fragment mit Zeilennummern und eine Klassen-/Methodenbeschreibung gegeben. Führen Sie den Algorithmus für zwei konkrete Eingaben gedanklich aus. Geben Sie für jede Eingabe den erwarteten und den tatsächlich berechneten Rückgabewert an.',
         points: [4, 6],
         operator: 'identifizieren',
-        gradingHint: 'Je Testfall (Eingabe+Erwartet+Tatsächlich) halbe Punkte.',
+        gradingHint:
+          'Je Testfall 2–3P: Eingabe korrekt benannt + erwartetes Ergebnis + tatsächliches (fehlerhaftes) Ergebnis. Wenn nur ein Testfall korrekt: halbe Punkte.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Benennen Sie den Fehler im Code (Zeile + Art des Fehlers) und korrigieren Sie ihn.',
+        prompt:
+          'Benennen Sie die fehlerhafte Zeile (Zeilennummer) und beschreiben Sie die Art des Fehlers. Geben Sie die korrigierte Version dieser Zeile an.',
         points: [4, 6],
         operator: 'identifizieren',
-        gradingHint: '50% für korrekte Fehlerbeschreibung (mit Zeilenbezug), 50% für korrekte Korrektur.',
+        gradingHint:
+          '50% für Fehlerbeschreibung mit korrekter Zeilennummer, 50% für die korrekte Korrektur.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Erläutern Sie den Begriff Anweisungsüberdeckung und nennen Sie die Anzahl der für den Code notwendigen Testfälle.',
+        prompt:
+          'Erläutern Sie den Begriff „Anweisungsüberdeckung" (Statement Coverage) und nennen Sie, wie viele Testfälle für den gegebenen Code minimal nötig sind, um sie zu erreichen.',
         points: [3, 4],
         operator: 'erlaeutern',
-        gradingHint: 'Jede Anweisung mind. 1× ausgeführt + konkrete Zahl für den gegebenen Code.',
+        cascade: true,
+        gradingHint:
+          'Definition: jede Anweisung wird mind. 1× ausgeführt (2P) + korrekte Anzahl Testfälle (1–2P).',
       },
       {
         taskType: 'freitext',
-        prompt: 'Nennen Sie je einen Vor- und einen Nachteil rekursiver Lösungen.',
+        prompt:
+          'Nennen Sie je einen Vor- und einen Nachteil rekursiver Algorithmen im Vergleich zu iterativen Lösungen.',
         points: [3, 4],
         operator: 'nennen',
-        gradingHint: 'Vorteil: Eleganz / Lesbarkeit. Nachteil: Speicherbedarf / Stack Overflow.',
+        cascade: true,
+        gradingHint:
+          'Vorteil: Eleganz/Lesbarkeit/Natürlichkeit der Darstellung. Nachteil: Speicherverbrauch (Stack)/Stack Overflow/ggf. langsamer.',
       },
     ],
   },
 
-  // Pseudocode entwerfen
+  // Pseudocode entwerfen mit Klassenkontext (S25 T2 Aufg. 1-Muster)
   {
     id: 't2_pseudocode_entwurf',
     weight: 6,
@@ -690,24 +993,30 @@ const RECIPES_TEIL2: TaskRecipe[] = [
     subtasks: [
       {
         taskType: 'freitext',
-        prompt: 'Beschreiben Sie den Algorithmus in eigenen Worten (Ablauf, Bedingungen, Schleifenstruktur).',
+        prompt:
+          'Im questionText sind die Klassen mit ihren Attributen und get-Methoden sowie der Funktionskopf gegeben. Beschreiben Sie den Algorithmus in eigenen Worten: Welche Schritte führt die Funktion durch? Welche Schleifenstruktur und welche Abbruchbedingung nutzt sie?',
         points: [5, 7],
         operator: 'beschreiben',
-        gradingHint: 'Kernschritte + mindestens eine Abbruchbedingung = volle Punkte.',
+        gradingHint:
+          'Kernschritte vollständig (2P) + Schleifentyp korrekt (2P) + Abbruchbedingung korrekt (1–3P).',
       },
       {
         taskType: 'pseudocode',
-        prompt: 'Implementieren Sie den beschriebenen Algorithmus als Pseudocode mit BEGIN/END, IF/ELSE und Schleife.',
+        prompt:
+          'Implementieren Sie die im questionText beschriebene Funktion als Pseudocode. Verwenden Sie den vorgegebenen Funktionskopf, die Klassenattribute mit get-Methoden und IHK-typische Pseudocode-Konstrukte (solange/ende solange, für/ende für, wenn/sonst/ende wenn, return).',
         points: [12, 16],
         operator: 'entwerfen',
-        gradingHint: 'Struktur 30% / Kontrollfluss 30% / Korrektheit 40%. Syntaktische Variationen zulässig.',
+        gradingHint:
+          'Funktionskopf/Rückgabe 10% / Schleifenstruktur 30% / Zugriff auf Objekte per get-Methode 30% / Korrektheit bei Testfällen 30%. Syntaktische Varianten (while/for) akzeptieren.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Bewerten Sie die Komplexität Ihres Algorithmus in O-Notation und begründen Sie kurz.',
+        prompt:
+          'Geben Sie die Zeitkomplexität Ihrer Lösung in O-Notation an und begründen Sie kurz, wie Sie diese ableiten.',
         points: [3, 5],
         operator: 'berechnen',
-        gradingHint: 'Korrekte O-Notation + kurze Herleitung = volle Punkte.',
+        gradingHint:
+          'Korrekte O-Notation (z.B. O(n), O(n²)) + kurze Herleitung (Anzahl Schleifendurchläufe) = volle Punkte.',
       },
     ],
   },
@@ -720,54 +1029,76 @@ const RECIPES_TEIL2: TaskRecipe[] = [
     subtasks: [
       {
         taskType: 'freitext',
-        prompt: 'Berechnen Sie den Speicherbedarf für das beschriebene Datenvolumen. Zeigen Sie den Rechenweg vollständig. Geben Sie das Ergebnis in einer passenden Einheit (KiB/MiB/GiB) an.',
+        prompt:
+          'Berechnen Sie den Speicherbedarf für das beschriebene Datenvolumen. Zeigen Sie den Rechenweg vollständig. Geben Sie das Ergebnis in einer passenden Einheit (KiB/MiB/GiB) an.',
         points: [10, 14],
         operator: 'berechnen',
         gradingHint: 'Rechenweg 60% / korrektes Ergebnis 40%. Rundungsdifferenzen akzeptieren.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Erläutern Sie den Unterschied zwischen KB/MB/GB (dezimal) und KiB/MiB/GiB (binär).',
+        prompt:
+          'Erläutern Sie den Unterschied zwischen KB/MB/GB (dezimal) und KiB/MiB/GiB (binär).',
         points: [3, 4],
         operator: 'erlaeutern',
-        gradingHint: 'Dezimal: 1000er-Schritte. Binär: 1024er-Schritte. Beide Konzepte = volle Punkte.',
+        gradingHint:
+          'Dezimal: 1000er-Schritte. Binär: 1024er-Schritte. Beide Konzepte = volle Punkte.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Nennen Sie 2 Möglichkeiten, den Speicherbedarf des beschriebenen Datentyps zu reduzieren.',
+        prompt:
+          'Nennen Sie 2 Möglichkeiten, den Speicherbedarf des beschriebenen Datentyps zu reduzieren.',
         points: [3, 4],
         operator: 'nennen',
-        gradingHint: 'Kompression, geringere Auflösung, effizientere Kodierung, Delta-Encoding — je 1 Ansatz halbe Punkte.',
+        gradingHint:
+          'Kompression, geringere Auflösung, effizientere Kodierung, Delta-Encoding — je 1 Ansatz halbe Punkte.',
       },
     ],
   },
 
-  // OOP Codebeispiel (Vererbung/Polymorphismus)
+  // OOP Codebeispiel (S22 T1 Aufg. 3-Muster: Observer-Pattern mit Sequenzdiagramm + Code)
   {
     id: 't2_oop_code',
     weight: 6,
-    topicKeywords: ['OOP', 'Vererbung', 'Polymorphismus', 'Klasse', 'Interface', 'generisch'],
+    topicKeywords: [
+      'OOP',
+      'Vererbung',
+      'Polymorphismus',
+      'Klasse',
+      'Interface',
+      'generisch',
+      'Observer',
+      'Entwurfsmuster',
+    ],
     subtasks: [
       {
-        taskType: 'freitext',
-        prompt: 'Erläutern Sie den Begriff Polymorphismus und geben Sie ein einfaches Codebeispiel (Pseudocode reicht).',
-        points: [5, 7],
-        operator: 'erlaeutern',
-        gradingHint: 'Definition + Beispiel mit Methoden-Überschreibung = volle Punkte.',
+        taskType: 'plantuml',
+        // questionText muss schrittweise Ablaufbeschreibung + Klassenausschnitt enthalten
+        prompt:
+          'Im questionText ist ein Ablauf mit Objekt-Interaktionen und ein teilweise gegebenes Klassendiagramm beschrieben. Ergänzen Sie das Sequenzdiagramm um alle noch fehlenden Methodenaufrufe gemäß der Ablaufbeschreibung.',
+        points: [9, 12],
+        operator: 'entwerfen',
+        diagramType: 'uml_sequence',
+        gradingHint:
+          'Je fehlende Nachricht mit korrektem Namen 1P, Rückgaben 1P, Reihenfolge korrekt 2P, opt/loop-Blöcke korrekt 2P.',
       },
       {
         taskType: 'pseudocode',
-        prompt: 'Schreiben Sie eine Methode, die eine Liste von Objekten einer gegebenen Basisklasse nach einem Attribut sortiert. Pseudocode reicht.',
-        points: [10, 14],
+        prompt:
+          'Im questionText ist eine Methode aus dem Klassendiagramm hervorgehoben. Implementieren Sie diese Methode in Pseudocode. Nutzen Sie die beschriebenen Objekte und deren Methoden aus dem Klassendiagramm.',
+        points: [4, 6],
         operator: 'entwerfen',
-        gradingHint: 'Listenverarbeitung 30% / Vergleichslogik 30% / Sortieralgorithmus 30% / Rückgabe 10%. Typkonflikte beachten.',
+        gradingHint:
+          'Schleife über Listenelemente 2P / korrekter Methoden-Aufruf je Element 2P / Struktur vollständig 2P.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Erläutern Sie, was eine generische Klasse ist und wann ihr Einsatz sinnvoll ist.',
+        prompt:
+          'Erläutern Sie den Begriff Polymorphismus und geben Sie an, wo er im beschriebenen Klassendiagramm zum Einsatz kommt.',
         points: [3, 5],
         operator: 'erlaeutern',
-        gradingHint: 'Typparametrisiert + Wiederverwendbarkeit = volle Punkte.',
+        gradingHint:
+          'Definition: verschiedene Klassen überschreiben dieselbe Methode der Basisklasse 2P + konkreter Bezug zum Diagramm 1–3P.',
       },
     ],
   },
@@ -780,7 +1111,8 @@ const RECIPES_TEIL2: TaskRecipe[] = [
     subtasks: [
       {
         taskType: 'table',
-        prompt: 'Erstellen Sie das relationale Datenmodell in Tabellenform für das beschriebene Szenario (mindestens 3 Tabellen).',
+        prompt:
+          'Erstellen Sie das relationale Datenmodell in Tabellenform für das beschriebene Szenario (mindestens 3 Tabellen).',
         points: [12, 16],
         operator: 'entwerfen',
         tableColumns: ['Tabellenname', 'Attribute (PK, FK, Datentyp)', 'Beziehung'],
@@ -788,7 +1120,8 @@ const RECIPES_TEIL2: TaskRecipe[] = [
         tableKind: 'guided',
         tableDescription:
           'Datenmodell-Tabelle: je Zeile 1 Tabelle mit Name, Attributen (PK/FK markiert, Datentyp) und Beziehungsangaben (z.B. 1:n zu kunde).',
-        gradingHint: 'Je Tabelle mit allen Attributen 1P, je PK 1P, je FK 1P, je Beziehung mit Kardinalität 1P. Alternative Strukturen akzeptieren.',
+        gradingHint:
+          'Je Tabelle mit allen Attributen 1P, je PK 1P, je FK 1P, je Beziehung mit Kardinalität 1P. Alternative Strukturen akzeptieren.',
       },
       {
         taskType: 'sql',
@@ -799,7 +1132,8 @@ const RECIPES_TEIL2: TaskRecipe[] = [
       },
       {
         taskType: 'freitext',
-        prompt: 'Erläutern Sie, welche Normalform Ihr Modell erfüllt (1NF/2NF/3NF) und begründen Sie kurz.',
+        prompt:
+          'Erläutern Sie, welche Normalform Ihr Modell erfüllt (1NF/2NF/3NF) und begründen Sie kurz.',
         points: [3, 4],
         operator: 'erlaeutern',
         gradingHint: 'Nennung der Normalform + passende Begründung = volle Punkte.',
@@ -825,21 +1159,26 @@ const RECIPES_TEIL2: TaskRecipe[] = [
         tableKind: 'fixed',
         tableDescription:
           'ACID-Tabelle: erste Spalte fix (Atomicity/Consistency/Isolation/Durability), Spalten 2 und 3 werden vom Prüfling ausgefüllt.',
-        gradingHint: 'Je Eigenschaft Bedeutung 1P, Beispiel 1P. Sinngemäße Erläuterungen akzeptieren.',
+        gradingHint:
+          'Je Eigenschaft Bedeutung 1P, Beispiel 1P. Sinngemäße Erläuterungen akzeptieren.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Erläutern Sie, welche Probleme entstehen können, wenn die Isolation-Eigenschaft verletzt wird.',
+        prompt:
+          'Erläutern Sie, welche Probleme entstehen können, wenn die Isolation-Eigenschaft verletzt wird.',
         points: [4, 6],
         operator: 'erlaeutern',
-        gradingHint: 'Lost Update / Dirty Read / Non-Repeatable Read / Phantom Read — je Phänomen Teilpunkte.',
+        gradingHint:
+          'Lost Update / Dirty Read / Non-Repeatable Read / Phantom Read — je Phänomen Teilpunkte.',
       },
       {
         taskType: 'freitext',
-        prompt: 'Nennen Sie einen konkreten Mechanismus, mit dem Datenbanksysteme Isolation sicherstellen.',
+        prompt:
+          'Nennen Sie einen konkreten Mechanismus, mit dem Datenbanksysteme Isolation sicherstellen.',
         points: [3, 4],
         operator: 'nennen',
-        gradingHint: 'Sperrverfahren (Locks) / MVCC / Transactional Isolation Levels — jeweils = volle Punkte.',
+        gradingHint:
+          'Sperrverfahren (Locks) / MVCC / Transactional Isolation Levels — jeweils = volle Punkte.',
       },
     ],
   },
@@ -852,14 +1191,17 @@ const RECIPES_TEIL2: TaskRecipe[] = [
     subtasks: [
       {
         taskType: 'freitext',
-        prompt: 'Erläutern Sie den Unterschied zwischen „wohlgeformt" und „gültig" bei XML-Dokumenten.',
+        prompt:
+          'Erläutern Sie den Unterschied zwischen „wohlgeformt" und „gültig" bei XML-Dokumenten.',
         points: [4, 6],
         operator: 'erlaeutern',
-        gradingHint: 'Wohlgeformt = XML-Regeln eingehalten. Gültig = zusätzlich DTD/Schema erfüllt. Beide Konzepte = volle Punkte.',
+        gradingHint:
+          'Wohlgeformt = XML-Regeln eingehalten. Gültig = zusätzlich DTD/Schema erfüllt. Beide Konzepte = volle Punkte.',
       },
       {
         taskType: 'table',
-        prompt: 'Im questionText ist ein fehlerhaftes XML-Dokument mit Zeilennummern gegeben. Tragen Sie die Fehler mit Zeile, Beschreibung und Fehlerart (Wohlgeformtheit/Gültigkeit) in die Tabelle ein.',
+        prompt:
+          'Im questionText ist ein fehlerhaftes XML-Dokument mit Zeilennummern gegeben. Tragen Sie die Fehler mit Zeile, Beschreibung und Fehlerart (Wohlgeformtheit/Gültigkeit) in die Tabelle ein.',
         points: [10, 14],
         operator: 'identifizieren',
         tableColumns: ['Zeile', 'Beschreibung', 'Fehlerart (Wohlgeformt/Gültig)'],
@@ -867,19 +1209,21 @@ const RECIPES_TEIL2: TaskRecipe[] = [
         tableKind: 'guided',
         tableDescription:
           'XML-Fehlertabelle: je Zeile 1 Fehler mit Zeilennummer + kurzer Beschreibung + Fehlerart.',
-        gradingHint: 'Je vollständige Zeile (alle 3 Spalten korrekt) 2P. Teilpunkte bei 2 von 3 Spalten.',
+        gradingHint:
+          'Je vollständige Zeile (alle 3 Spalten korrekt) 2P. Teilpunkte bei 2 von 3 Spalten.',
       },
       {
         taskType: 'freitext',
         prompt: 'Erläutern Sie, wofür eine DTD in XML verwendet wird.',
         points: [3, 4],
         operator: 'erlaeutern',
-        gradingHint: 'Vokabular + Grammatik festlegen + Dokumentinstanz-Validierung = volle Punkte.',
+        gradingHint:
+          'Vokabular + Grammatik festlegen + Dokumentinstanz-Validierung = volle Punkte.',
       },
     ],
   },
 
-  // UML-Sequenz / Klassendiagramm zu Code
+  // UML-Sequenzdiagramm ergänzen (S25 T2 Aufg. 2-Muster, S22 T1 Aufg. 3c-Muster)
   {
     id: 't2_uml_sequenz',
     weight: 4,
@@ -887,19 +1231,33 @@ const RECIPES_TEIL2: TaskRecipe[] = [
     topicKeywords: ['Sequenzdiagramm', 'UML', 'Klassendiagramm'],
     subtasks: [
       {
-        taskType: 'freitext',
-        prompt: 'Beschreiben Sie den Ablauf in eigenen Worten und identifizieren Sie die beteiligten Objekte/Klassen.',
-        points: [5, 7],
-        operator: 'beschreiben',
-        gradingHint: 'Je korrekt identifiziertes Objekt Teilpunkte.',
-      },
-      {
         taskType: 'plantuml',
-        prompt: 'Erstellen Sie ein UML-Sequenzdiagramm des Ablaufs mit Lebenslinien, synchronen/asynchronen Nachrichten und Rückgaben.',
-        points: [13, 17],
+        // questionText muss: Klassenausschnitt + schrittweise Vorgangsbeschreibung liefern
+        prompt:
+          'Im questionText sind die beteiligten Klassen mit ihren Methoden und eine schrittweise Vorgangsbeschreibung (Bullet-Points) gegeben. Ergänzen Sie das UML-Sequenzdiagramm um alle noch nicht dargestellten Methodenaufrufe. Zeichnen Sie Lebenslinien, synchrone Nachrichten, Rückgaben, und — falls laut Beschreibung vorhanden — optionale Blöcke (opt/alt) oder Schleifen (loop).',
+        points: [13, 19],
         operator: 'entwerfen',
         diagramType: 'uml_sequence',
-        gradingHint: 'Je Lifeline 1P, je Nachricht 1P, Rückgaben 2P, korrekte Reihenfolge 3P.',
+        gradingHint:
+          'Je Lifeline 1P, je Nachricht mit korrektem Namen 1P, Rückgaben 2P, opt/alt-Block korrekt 2P, loop-Block korrekt 2P, korrekte Reihenfolge 3P.',
+      },
+      {
+        taskType: 'freitext',
+        prompt:
+          'Beschreiben Sie, welche Art der Testüberdeckung (Coverage) für die Methode im Mittelpunkt des Sequenzdiagramms geeignet ist, und begründen Sie Ihre Wahl.',
+        points: [2, 4],
+        operator: 'beschreiben',
+        gradingHint:
+          'Zweigüberdeckung bevorzugt bei opt/alt-Strukturen. Anweisungsüberdeckung als Minimum. Pfadüberdeckung bei Schleifen oft nicht realistisch.',
+      },
+      {
+        taskType: 'freitext',
+        prompt:
+          'Beschreiben Sie, was einen Whitebox-Test auszeichnet und wie er sich vom Blackbox-Test unterscheidet.',
+        points: [2, 3],
+        operator: 'beschreiben',
+        gradingHint:
+          'Whitebox: Testdaten basieren auf Codestruktur/Quelltext. Blackbox: nur Ein-/Ausgabeverhalten, ohne Kenntnis des Codes. Beide Aspekte = volle Punkte.',
       },
     ],
   },
@@ -915,17 +1273,20 @@ const RECIPES_TEIL3: TaskRecipe[] = [
     subtasks: [
       {
         taskType: 'mc',
-        prompt: 'Formuliere eine IHK-typische Wissensfrage als Single-Choice (genau 4 Optionen A–D, nur EINE korrekt).',
+        prompt:
+          'Formuliere eine IHK-typische Wissensfrage als Single-Choice (genau 4 Optionen A–D, nur EINE korrekt).',
         points: 4,
         operator: 'identifizieren',
-        gradingHint: 'Binäre Bewertung: richtig = volle Punkte, falsch = 0. Teilpunkte gibt es bei MC nicht.',
+        gradingHint:
+          'Binäre Bewertung: richtig = volle Punkte, falsch = 0. Teilpunkte gibt es bei MC nicht.',
       },
       {
         taskType: 'freitext',
         prompt: 'Berechnen oder erläutern Sie den beschriebenen Sachverhalt kurz.',
         points: 6,
         operator: 'erlaeutern',
-        gradingHint: 'Fachlich korrekte Antwort = volle Punkte. Bei Berechnung Rechenweg nicht zwingend.',
+        gradingHint:
+          'Fachlich korrekte Antwort = volle Punkte. Bei Berechnung Rechenweg nicht zwingend.',
       },
     ],
   },
@@ -935,10 +1296,12 @@ const RECIPES_TEIL3: TaskRecipe[] = [
     subtasks: [
       {
         taskType: 'mc_multi',
-        prompt: 'Formuliere eine IHK-typische Mehrfachauswahlfrage (4 Optionen A–D, 2 oder 3 korrekt).',
+        prompt:
+          'Formuliere eine IHK-typische Mehrfachauswahlfrage (4 Optionen A–D, 2 oder 3 korrekt).',
         points: 5,
         operator: 'identifizieren',
-        gradingHint: 'Je korrekt markierter Option Teilpunkte, je falsch markierter Abzug (nie negativ).',
+        gradingHint:
+          'Je korrekt markierter Option Teilpunkte, je falsch markierter Abzug (nie negativ).',
       },
       {
         taskType: 'freitext',
@@ -962,7 +1325,8 @@ const RECIPES_TEIL3: TaskRecipe[] = [
       },
       {
         taskType: 'mc',
-        prompt: 'Formuliere eine thematisch passende Single-Choice-Frage (4 Optionen A–D, 1 korrekt).',
+        prompt:
+          'Formuliere eine thematisch passende Single-Choice-Frage (4 Optionen A–D, 1 korrekt).',
         points: 4,
         operator: 'identifizieren',
         gradingHint: 'Binär: richtig = volle Punkte.',
@@ -975,7 +1339,8 @@ const RECIPES_TEIL3: TaskRecipe[] = [
     subtasks: [
       {
         taskType: 'mc',
-        prompt: 'Formuliere eine IHK-typische Wissensfrage als Single-Choice (4 Optionen A–D, 1 korrekt).',
+        prompt:
+          'Formuliere eine IHK-typische Wissensfrage als Single-Choice (4 Optionen A–D, 1 korrekt).',
         points: 4,
         operator: 'identifizieren',
         gradingHint: 'Binär.',
@@ -1002,7 +1367,8 @@ const RECIPES_TEIL3: TaskRecipe[] = [
       },
       {
         taskType: 'mc',
-        prompt: 'Formuliere eine IHK-typische Wissensfrage als Single-Choice (4 Optionen A–D, 1 korrekt).',
+        prompt:
+          'Formuliere eine IHK-typische Wissensfrage als Single-Choice (4 Optionen A–D, 1 korrekt).',
         points: 4,
         operator: 'identifizieren',
         gradingHint: 'Binär.',
@@ -1027,11 +1393,7 @@ function pickWeightedRecipe(recipes: TaskRecipe[]): TaskRecipe {
  * Wählt ein Rezept, das thematisch zum gegebenen Topic passt und die
  * UML-Beschränkung respektiert.
  */
-function selectRecipe(
-  part: ExamPart,
-  topic: string,
-  avoidDiagram: boolean,
-): TaskRecipe {
+function selectRecipe(part: ExamPart, topic: string, avoidDiagram: boolean): TaskRecipe {
   const all = part === 'teil_1' ? RECIPES_TEIL1 : part === 'teil_2' ? RECIPES_TEIL2 : RECIPES_TEIL3;
 
   // Strenger Filter: Rezepte, deren topicKeywords im Topic stecken
@@ -1132,11 +1494,7 @@ ${descr}  "exampleRow": ${cols.length} Einträge, konkret.`;
 
 // ─── Schema-Fragment je Subtask ──────────────────────────────────────────────
 
-function buildSubtaskSchema(
-  spec: SubtaskSpec,
-  label: string,
-  points: number,
-): string {
+function buildSubtaskSchema(spec: SubtaskSpec, label: string, points: number): string {
   switch (spec.taskType) {
     case 'mc':
       return `{"label":"${label}","taskType":"mc","questionText":"FRAGE?","points":${points},"mcOptions":[{"id":"A","text":"Antwort A"},{"id":"B","text":"Antwort B"},{"id":"C","text":"Antwort C"},{"id":"D","text":"Antwort D"}],"expectedAnswer":{"correctOption":"X","explanation":"Begründung"}}`;
@@ -1145,9 +1503,10 @@ function buildSubtaskSchema(
     case 'sql':
       return `{"label":"${label}","taskType":"sql","questionText":"FRAGE mit Tabellenstruktur(en) im Text","points":${points},"expectedAnswer":{"solutionSql":"SELECT ...;","keyElements":["SELECT","JOIN"],"gradingHint":"${(spec.gradingHint ?? '').replace(/"/g, "'")}"}}`;
     case 'table': {
-      const ffc = spec.fixedFirstColumn && spec.fixedFirstColumnValues
-        ? `,"firstColumnValues":${JSON.stringify(spec.fixedFirstColumnValues)}`
-        : '';
+      const ffc =
+        spec.fixedFirstColumn && spec.fixedFirstColumnValues
+          ? `,"firstColumnValues":${JSON.stringify(spec.fixedFirstColumnValues)}`
+          : '';
       return `{"label":"${label}","taskType":"table","questionText":"FRAGE","points":${points},"tableConfigProposed":{"columns":["Spalte1","Spalte2","Spalte3"],"exampleRow":["Beispiel 1","Beispiel 2","Beispiel 3"]${ffc}},"expectedAnswer":{"keyPoints":["Musterinhalt 1","Musterinhalt 2"]}}`;
     }
     case 'plantuml':
@@ -1167,7 +1526,10 @@ function buildSubtaskSchema(
 function safeParseTask(raw: string): GeneratedTask | null {
   try {
     // Markdown-Fences entfernen
-    const clean = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+    const clean = raw
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```\s*$/i, '')
+      .trim();
     const obj = JSON.parse(clean);
     if (
       typeof obj.topicArea === 'string' &&
@@ -1181,6 +1543,387 @@ function safeParseTask(raw: string): GeneratedTask | null {
     // nope
   }
   return null;
+}
+
+// ─── Prompt-Builder ──────────────────────────────────────────────────────────
+//
+// Die zentralen Erkenntnisse aus der OCR-Analyse von 10+ echten IHK AP2-Prüfungen
+// (Sommer 2020 – Sommer 2025), die den alten Prompt fundamental verbessern:
+//
+// 1. KONTEXTMATERIAL — Jede echte IHK-Aufgabe liefert zuerst Material, dann
+//    die Frage. Pseudocode-Aufgaben zeigen Klassendiagramme + Objekte + Beispieldaten.
+//    SQL-Aufgaben zeigen vollständige Tabellendaten mit Beispielzeilen.
+//    Sequenzdiagramm-Aufgaben zeigen den Ablauf als Prosa + beteiligte Klassen.
+//    Der alte Prompt ließ diesen Kontext weg → die KI produzierte abstrakte,
+//    nicht-prüfungsreife Fragen ohne Verankerung.
+//
+// 2. AUFGABENTEXT-STIL — Echte IHK-Texte beginnen mit einem situativen Satz,
+//    dann kommt der Arbeitsauftrag mit Operator. Nie "Erläutern Sie allgemein X",
+//    sondern immer "Die AMAG Soft GmbH möchte ... Erstellen Sie ...".
+//
+// 3. SQL — Echte Prüfungen (S25 T2 Aufg. 4) liefern IMMER vollständige
+//    Tabellenausschnitte mit Beispieldaten. Ohne Daten ist SQL nicht lösbar.
+//    Außerdem kommen komplexe Aufgaben: INSERT + GRANT + REVOKE + ALTER TABLE
+//    + SELECT mit GROUP BY/HAVING — nicht nur simple JOINs.
+//
+// 4. PSEUDOCODE — Echte Prüfungen (S25 T2 Aufg. 1) liefern Klassen mit
+//    Attributen und get-Methoden, Beispiel-Array mit Daten, und einen
+//    konkreten Funktionskopf. Der Prüfling füllt nur den Körper aus.
+//
+// 5. SEQUENZDIAGRAMM — Echte Prüfungen (S25 T2 Aufg. 2, S22 T1 Aufg. 3)
+//    liefern Klassendiagramm-Ausschnitt + schrittweise Vorgangsbeschreibung
+//    ("Die Methode X ruft Y auf ... wenn leer, dann ...").
+//
+// 6. ER-DIAGRAMM — Echte Prüfungen (S25 T1 Aufg. 2) liefern eine
+//    aufzählende Anforderungsliste ("Patienten werden mit... erfasst.
+//    Ein Patient kann mehrere Medikamente einnehmen.").
+//
+// 7. AKTIVITÄTSDIAGRAMM — Echte Prüfungen (S25 T1 Aufg. 3, W23/24 T2 Aufg. 2)
+//    liefern einen Bullet-Point-Ablauf als Prozessbeschreibung.
+//
+// 8. PUNKTE-ANGABE IM AUFGABENTEXT — Jede Unteraufgabe endet mit
+//    "X Punkte" direkt im Aufgabentext.
+//
+// 9. BEWERTUNGSHINWEISE IN DEN LÖSUNGEN — IHK-Korrektoren bekommen
+//    granulare Hinweise: "je Entität 1P, je Beziehung 2P, je Attribut 0,5P".
+
+/** Erkennt, ob das Rezept mindestens eine SQL/Pseudocode/Sequenz-Subtask enthält. */
+function recipeNeedsContextMaterial(recipe: TaskRecipe): boolean {
+  return recipe.subtasks.some(
+    (s) => s.taskType === 'sql' || s.taskType === 'pseudocode' || s.taskType === 'plantuml',
+  );
+}
+
+function buildSystemPrompt(specialtyLabel: string, recipe: TaskRecipe): string {
+  const hasSql = recipe.subtasks.some((s) => s.taskType === 'sql');
+  const hasPseudocode = recipe.subtasks.some((s) => s.taskType === 'pseudocode');
+  const hasSequenz = recipe.subtasks.some(
+    (s) => s.taskType === 'plantuml' && s.diagramType === 'uml_sequence',
+  );
+  const hasAktivitaet = recipe.subtasks.some(
+    (s) => s.taskType === 'plantuml' && s.diagramType === 'uml_activity',
+  );
+  const hasEr = recipe.subtasks.some((s) => s.taskType === 'plantuml' && s.diagramType === 'er');
+
+  let contextRules = '';
+
+  if (hasSql) {
+    contextRules += `
+SQL-AUFGABEN — PFLICHTREGELN (aus echten IHK-Prüfungen abgeleitet):
+- Der questionText MUSS vollständige Tabellenstrukturen + MINDESTENS 4–7 Beispieldatenzeilen enthalten.
+  Format exakt wie in echten Prüfungen, z.B.:
+  "Tabelle Aerzte:\nAID | Vorname | Nachname | Fachgebiet | Email\n1 | Tomas | Krüger | Allgemeinmedizin | tkrueger@fit.de\n2 | Jürgen | Walter | Kardiologie | jwalter@fit.de\n3 | Birgit | Schneider | Neurologie | NULL"
+- Bei mehreren Tabellen: alle Tabellen mit Daten angeben, nicht nur die Struktur.
+- Aufgabentypen variieren: nicht nur SELECT+JOIN, sondern auch:
+  • INSERT INTO ... VALUES (...)
+  • GRANT/REVOKE Rechte auf Tabellen
+  • UPDATE ... WHERE ... / ALTER TABLE ... MODIFY ...
+  • SELECT mit GROUP BY, HAVING, ORDER BY, COUNT/AVG
+  • Subqueries: SELECT ... FROM (SELECT ... GROUP BY ...) AS sub
+- Bei komplexeren Aufgaben (GROUP BY, Subquery): Ergebnisbeispiel zeigen wie echte Prüfungen:
+  "Ergebnisbeispiel:\nPID | Nachname | Anzahl_Verschreibungen\n1 | Keller | 4"
+- "solutionSql": exakte funktionierende Musterlösung mit den konkreten Tabellen- und Spaltennamen aus dem questionText.
+- "keyElements": z.B. ["JOIN Patienten p ON p.PID = v.PID", "GROUP BY p.PID", "HAVING COUNT >= 3"]`;
+  }
+
+  if (hasPseudocode) {
+    contextRules += `
+PSEUDOCODE-AUFGABEN — PFLICHTREGELN (aus echten IHK-Prüfungen abgeleitet):
+- Der questionText MUSS ein vollständiges Klassendiagramm-Fragment mit konkreten Attributen und get-Methoden enthalten.
+  Format: Klassenname\n- attributName : Datentyp\n+ getAttributName(): Datentyp
+  Beispiel aus S25 T2 Aufg. 1:
+  "Belegung\n- patientId : Integer\n- datumVon : Date  // Aufnahmetag\n- datumBis : Date  // Entlassungstag, zählt nicht als Belegungstag\n- stationId : Integer\nFür jedes Attribut gibt es eine öffentliche get-Methode."
+- Außerdem: konkreten Funktionskopf mit Parametern angeben, den der Prüfling implementieren soll.
+  Beispiel: "ermittleAuslastungsTage(belegung: Belegung[], startDatum: Date, endDatum: Date, stationId: Integer, anzahlBetten: Integer): Integer"
+- Optional: kleines Beispiel-Array mit 2–3 Einträgen zeigen, damit der Prüfling den Kontext versteht.
+- Hinweise zu besonderen Operatoren/Methoden angeben (z.B. "date = date + 1 liefert das Folgedatum").
+- "keyPoints" in expectedAnswer: vollständige Musterlösung als Pseudocode-Schrittliste.`;
+  }
+
+  if (hasSequenz) {
+    contextRules += `
+SEQUENZDIAGRAMM-AUFGABEN — PFLICHTREGELN (aus echten IHK-Prüfungen abgeleitet):
+- Der questionText MUSS einen Klassendiagramm-Ausschnitt mit den beteiligten Klassen und ihren Methoden enthalten.
+  Format wie in echten Prüfungen (S25 T2 Aufg. 2):
+  "Klasse U:\n+ ausgabeMedikationsplan(): void\n+ ausgabeMedikation(medikation: String): void\nKlasse Verordnungen:\n+ getMedikamente(patient: Patient): Medikament[]\nKlasse MedikamentDB:\n+ getEinnahme(medikament: Medikament, patient: Patient): String\n+ getStandardMedikation(medikament: Medikament): String"
+- Dann eine schrittweise Vorgangsbeschreibung mit Bullets:
+  "— Die Methode ausgabeMedikationsplan() der Klasse U wird aufgerufen.\n— Diese Methode ruft getMedikamente(...) auf, um eine Liste der Medikamente zu erhalten.\n— Für alle Elemente dieser Liste ruft ausgabeMedikationsplan() dann getEinnahme(..) auf.\n— Wenn diese Methode einen leeren String zurückgibt, liefert getStandardMedikation(...) die Vorgabe.\n— Die Einnahmevorgaben werden mit ausgabeMedikation(..) ausgegeben."
+- "expectedElements": konkrete Lebenslinien-Namen + Nachrichten, z.B. ["Lifeline U", "Lifeline Verordnungen", "getMedikamente(patient)", "Loop für alle Medikamente", "alt: Einnahme leer → getStandardMedikation"]`;
+  }
+
+  if (hasAktivitaet) {
+    contextRules += `
+AKTIVITÄTSDIAGRAMM-AUFGABEN — PFLICHTREGELN (aus echten IHK-Prüfungen abgeleitet):
+- Der questionText MUSS eine Bullet-Point-Prozessbeschreibung liefern wie in echten Prüfungen (S25 T1 Aufg. 3):
+  "— Die Ärzte versammeln sich zusammen mit dem Pflegepersonal.\n— Es werden die Laborergebnisse abgefragt und die Reihenfolge (Priorisierung nach Behandlungen) und Dringlichkeit geplant.\n— Im Behandlungszimmer wird zuerst die Patientenakte geöffnet.\n— Die Vitalwerte werden vom Pflegepersonal überwacht, der Patient wird nach auftretenden Symptomen gefragt.\n— Eventuell aufgetretene Symptome werden notiert, der Behandlungsplan besprochen.\n— Falls neue Laborergebnisse vorliegen, werden diese eingearbeitet.\n— Nach Notierung der Vitalwerte werden ärztliche Untersuchungen durchgeführt.\n— Die Änderungen der Patientenakte werden nach der Visite übertragen."
+- Swimlanes angeben falls mehrere Akteure: "Stellen Sie den Ablauf mit zwei Swimlanes (Arzt / Pflegepersonal) dar."
+- "expectedElements": konkrete Aktivitäten + Entscheidungen, z.B. ["StartNode", "Aktivität: Laborergebnisse abfragen", "Verzweigung: neue Laborergebnisse vorhanden?", "Aktivität: Symptome notieren", "Synchronisierung nach Visite", "EndNode"]`;
+  }
+
+  if (hasEr) {
+    contextRules += `
+ER-DIAGRAMM-AUFGABEN — PFLICHTREGELN (aus echten IHK-Prüfungen abgeleitet):
+- Der questionText MUSS eine aufzählende Anforderungsliste liefern wie in echten Prüfungen (S25 T1 Aufg. 2):
+  "— Patienten werden mit Nachname, Vorname, Geburtsdatum, Krankenkasse und Versichertennummer erfasst.\n— Medikamente haben einen Hersteller und einen Wirkstoff.\n— Ein Patient kann mehrere Medikamente einnehmen.\n— Für jede Einnahme wird die Dosis und der Einnahmezeitpunkt hinterlegt.\n— Ärzte werden mit Nachname, Vorname und Spezialgebiet erfasst.\n— Ein Patient kann von unterschiedlichen Ärzten behandelt werden.\n— Für jede Behandlung wird ein Zeitstempel und ein Bericht hinterlegt."
+- Wenn eine Entität bereits vorgegeben ist: "Der Entitätstyp Patient ist mit den geforderten Attributen bereits gegeben. Vervollständigen Sie das ER-Modell."
+- "expectedElements": konkrete Entitäten + Beziehungen mit Kardinalitäten, z.B. ["Entität Patient (Vorname, Nachname, GebDat, PK: PatID)", "Entität Medikament (Hersteller, Wirkstoff, PK: MedID)", "Beziehung Patient — nimmt ein — Medikament (m:n mit Dosis, Zeitpunkt)", "Entität Arzt (Nachname, Vorname, Spezialgebiet, PK: ArztID)", "Beziehung Patient — wird behandelt von — Arzt (m:n mit Zeitstempel, Bericht)"]`;
+  }
+
+  return `Du bist IHK-Prüfungsersteller für ${specialtyLabel} AP2. Antworte NUR mit gültigem JSON, kein Markdown.
+
+═══════════════════════════════════════════════════════════════════
+KERNPRINZIP: ECHTE IHK-PRÜFUNGSQUALITÄT
+═══════════════════════════════════════════════════════════════════
+
+Echte IHK-Prüfungen haben IMMER diese Struktur:
+1. SITUATIVER EINSTIEG: "Die {{UNTERNEHMEN}} möchte X entwickeln. Sie sind Mitarbeiter der AMAG Soft GmbH und arbeiten in diesem Projekt mit."
+2. KONTEXTMATERIAL: Klassendiagramm, Tabellen mit Daten, Codeausschnitt, Prozessbeschreibung — was auch immer zur Aufgabe gehört.
+3. ARBEITSAUFTRAG: "Erstellen Sie...", "Nennen Sie...", "Erläutern Sie..." + Punktzahl am Ende: "X Punkte"
+
+AUFGABENTEXT-STIL (PFLICHT):
+- Jeder questionText beginnt mit einem situativen Satz, der den Kontext herstellt.
+- Dann kommt das Kontextmaterial (Klassendefinitionen, Tabellen, Bullet-Listen, Codefragmente).
+- Dann der konkrete Arbeitsauftrag mit IHK-Operator.
+- Der Operator steht IMMER am Satzanfang: "Nennen Sie...", "Erläutern Sie...", "Beschreiben Sie...", "Erstellen Sie...", "Berechnen Sie...", "Skizzieren Sie..."
+- NIE "Erkläre allgemein X" — IMMER kontextgebunden: "Erläutern Sie, welche Vorteile der Einsatz von X für {{UNTERNEHMEN}} bei diesem Projekt hätte."
+
+PLATZHALTER:
+- {{UNTERNEHMEN}}, {{BRANCHE}}, {{PRODUKT}}, {{MITARBEITER}} dürfen im questionText verwendet werden.
+- In "expectedAnswer", "explanation", "solutionSql" KEINE Platzhalter — dort szenario-neutrale Musterlösung.
+
+MULTIPLE-CHOICE (mc):
+- 4 konkrete, plausible Antwortoptionen (A–D). Alle Distraktoren müssen fachlich klingen.
+- "correctOption": genau EIN Buchstabe. Variiere Position (nicht immer A).
+- "explanation": 1–2 Sätze Begründung, warum diese Option richtig ist.
+
+MULTIPLE-CHOICE MEHRFACHAUSWAHL (mc_multi):
+- 4 Aussagen (A–D). Genau 2 oder 3 sind korrekt (nie 0, nie 4).
+- "correctOptions": Array mit 2–3 Buchstaben.
+- "explanation": kurze Begründung.
+
+TABELLEN (table):
+- "columns": konkrete themenspezifische Spaltennamen (bei flexible/guided anpassen, bei fixed Vorgabe halten).
+- "exampleRow": EINE vollständig ausgefüllte Musterzeile.
+- "keyPoints" in expectedAnswer: 2–4 Musterlösungs-Stichpunkte.
+
+PLANTUML / ER (plantuml):
+- "expectedElements": mind. 4 konkrete zu erwartende Elemente mit Namen.
+${contextRules}
+OPERATOREN (IHK-Dimension — STRIKT einhalten):
+- "nennen" → Auflistung, Stichworte reichen, kein Satz nötig
+- "beschreiben" → Sachverhalt in eigenen Worten, 2–3 Sätze
+- "erläutern" → mit Begründung/Ursache-Wirkung, 3–5 Sätze
+- "berechnen" → Rechenweg zwingend + Ergebnis mit Einheit
+- "entwerfen" / "erstellen" / "skizzieren" → konkrete Umsetzung (Code/Diagramm/Tabelle/Mockup)
+- "vergleichen" → strukturierte Gegenüberstellung nach Kriterien
+- "identifizieren" / "benennen" → Fehler/Elemente finden und mit Zeilenbezug benennen
+
+AUSGABE: Antworte AUSSCHLIESSLICH mit einem validen JSON-Objekt ohne umgebenden Text.`;
+}
+
+function buildUserPrompt(
+  topic: string,
+  recipe: TaskRecipe,
+  subtaskInstructions: string,
+  totalPoints: number,
+  schemas: string[],
+  labels: string[],
+): string {
+  // Baue themenspezifische Hinweise, die dem LLM helfen, realistisches
+  // Kontextmaterial zu erzeugen — abgeleitet aus echten Prüfungsmustern.
+  const contextHint = buildTopicContextHint(topic, recipe);
+
+  return `Thema: "${topic}"
+${contextHint}
+Erstelle eine IHK-typische Prüfungsaufgabe mit ${recipe.subtasks.length} Unteraufgaben.
+
+UNTERAUFGABEN:
+${subtaskInstructions}
+
+QUALITÄTSKRITERIEN (aus echten IHK-Prüfungen 2020–2025):
+- Jede Unteraufgabe hat einen KONKRETEN, situativen Aufgabentext — kein abstraktes "Erkläre X".
+- Bei SQL: Tabellen mit Beispieldaten im questionText, exakte Musterlösung in solutionSql.
+- Bei Pseudocode/Sequenzdiagramm: Klassen mit Attributen + Methoden im questionText.
+- Bei ER/Aktivitätsdiagramm: aufzählende Anforderungs- oder Prozessbeschreibung im questionText.
+- Bei Freitext mit Vergleich: echte Namen der Konzepte verwenden (z.B. "Scrum" vs. "Wasserfallmodell"), keine generischen "Option A/B".
+- Die Aufgabe soll sich kohärent auf EINEN Anwendungsfall bei {{UNTERNEHMEN}} beziehen.
+
+Gib das JSON zurück. Ersetze alle FRAGE-Platzhalter durch echten IHK-typischen Aufgabentext und fülle alle mcOptions, expectedAnswer etc. mit konkreten Inhalten:
+{"topicArea":"${topic}","pointsValue":${totalPoints},"difficulty":"medium","subtasks":[${schemas.join(',')}]}`;
+}
+
+/**
+ * Liefert themenspezifische Hinweise für das User-Prompt, damit die KI
+ * realistisches Kontextmaterial erzeugt. Abgeleitet aus den echten Prüfungen.
+ */
+function buildTopicContextHint(topic: string, recipe: TaskRecipe): string {
+  const lower = topic.toLowerCase();
+  const hasSql = recipe.subtasks.some((s) => s.taskType === 'sql');
+  const hasPseudo = recipe.subtasks.some((s) => s.taskType === 'pseudocode');
+  const hasPlantuml = recipe.subtasks.some((s) => s.taskType === 'plantuml');
+
+  const hints: string[] = [];
+
+  // ── SQL-spezifische Kontexthinweise ──────────────────────────────────────
+  if (hasSql) {
+    if (lower.includes('join') || lower.includes('select')) {
+      hints.push(
+        'SQL-Kontext: Erstelle 2–3 thematisch passende Tabellen mit je 5–7 Beispieldatenzeilen. ' +
+          'Die Aufgabe soll einen realitätsnahen Anwendungsfall abbilden (z.B. Patientenverwaltung, ' +
+          'Auftragssystem, Lagerbestand). Baue eine SELECT+JOIN-Abfrage mit WHERE/ORDER-Bedingung.',
+      );
+    } else if (lower.includes('group') || lower.includes('aggregat')) {
+      hints.push(
+        'SQL-Kontext: Erstelle 2 Tabellen mit 7–10 Datenzeilen, die Aggregation sinnvoll machen ' +
+          '(z.B. Verschreibungen pro Patient, Bestellungen pro Kunde). ' +
+          'Zeige ein Ergebnisbeispiel nach der Aufgabe.',
+      );
+    } else if (lower.includes('ddl') || lower.includes('create')) {
+      hints.push(
+        'SQL-Kontext: Liefere eine Anforderungsbeschreibung (3–4 Bullets) aus der die CREATE-Struktur ' +
+          'eindeutig hervorgeht. Die Tabelle soll 5–7 Attribute + PK + FK haben.',
+      );
+    } else if (lower.includes('update') || lower.includes('delete') || lower.includes('insert')) {
+      hints.push(
+        'SQL-Kontext: Erstelle 2 Tabellen mit 5–7 Datenzeilen als Ausgangssituation. ' +
+          'Die Aufgabe soll DML-Operationen (INSERT, UPDATE, GRANT, REVOKE, ALTER TABLE) kombinieren, ' +
+          'wie in echten IHK-Prüfungen: z.B. Eintrag hinzufügen + Rechte vergeben + Pflichtfeld setzen.',
+      );
+    }
+  }
+
+  // ── Pseudocode-spezifische Kontexthinweise ───────────────────────────────
+  if (hasPseudo) {
+    if (lower.includes('rekursion') || lower.includes('such') || lower.includes('sortier')) {
+      hints.push(
+        'Pseudocode-Kontext: Liefere eine oder zwei Klassen mit Attributen und öffentlichen get-Methoden. ' +
+          'Gib einen konkreten Funktionskopf mit Parametern vor, den der Prüfling implementieren soll. ' +
+          'Zeige ein kleines Beispiel-Array mit 3–4 Objekten, damit der Prüfling die Datenstruktur versteht.',
+      );
+    } else {
+      hints.push(
+        'Pseudocode-Kontext: Definiere mindestens eine Klasse mit 3–4 Attributen und ihren get-Methoden. ' +
+          'Gib einen vollständigen Funktionskopf vor (Name, Parameter mit Typen, Rückgabetyp). ' +
+          'Beschreibe eventuelle Besonderheiten der Objekte (z.B. "date + 1 liefert das Folgedatum").',
+      );
+    }
+  }
+
+  // ── Diagramm-spezifische Kontexthinweise ─────────────────────────────────
+  if (hasPlantuml) {
+    const diagType = recipe.subtasks.find((s) => s.taskType === 'plantuml')?.diagramType;
+    if (diagType === 'uml_sequence') {
+      hints.push(
+        'Sequenzdiagramm-Kontext: Liefere 3–4 beteiligte Klassen mit ihren relevanten Methoden ' +
+          '(Signatur + Rückgabetyp). Dann eine schrittweise Vorgangsbeschreibung mit Bullet-Points, ' +
+          'die Verzweigungen ("Wenn ... leer, dann ...") und Schleifen ("Für alle Elemente ...") enthält.',
+      );
+    } else if (diagType === 'uml_activity') {
+      hints.push(
+        'Aktivitätsdiagramm-Kontext: Liefere einen konkreten Geschäftsprozess als Bullet-Point-Liste ' +
+          'mit 7–10 Schritten. Mindestens eine Verzweigung (if/else) und eine Parallelität oder Synchronisierung ' +
+          'einbauen. Wenn mehrere Rollen beteiligt sind, Swimlanes vorgeben.',
+      );
+    } else if (diagType === 'er') {
+      hints.push(
+        'ER-Diagramm-Kontext: Liefere eine aufzählende Anforderungsliste mit 7–10 Bullets. ' +
+          'Mindestens eine m:n-Beziehung mit Attributen an der Beziehung einbauen. ' +
+          'Optional: einen bereits vorgegebenen Entitätstyp nennen, den der Prüfling ergänzen soll.',
+      );
+    }
+  }
+
+  // ── Inhaltliche Kontexthinweise je Thema ─────────────────────────────────
+  if (lower.includes('scrum') || lower.includes('agil') || lower.includes('vorgehensmodell')) {
+    hints.push(
+      'Vergleichs-Kontext: Verwende echte Modellnamen (Scrum, Wasserfall, Kanban, V-Modell). ' +
+        'Bei Tabellen-Vergleich: konkrete Vergleichsmerkmale wie "Planbarkeit", "Flexibilität bei Änderungen", ' +
+        '"Eignung für verteilte Teams", "Dokumentationsaufwand".',
+    );
+  }
+
+  if (lower.includes('stakeholder')) {
+    hints.push(
+      'Stakeholder-Kontext: Die Tabelle soll 3 verschiedene Stakeholder-Typen enthalten: ' +
+        'mind. einen internen (z.B. Entwicklungsteam, Management) und einen externen (z.B. Kunde, Behörde). ' +
+        'Erwartungen und Befürchtungen sollen konkret zum {{PRODUKT}}-Kontext passen.',
+    );
+  }
+
+  if (lower.includes('testkonzept') || lower.includes('teststufen')) {
+    hints.push(
+      'Testkonzept-Kontext: Die 4 Teststufen (Unit, Integration, System, Abnahme) sollen jeweils ' +
+        'mit einem projektkonkreten Beispiel belegt werden. Z.B. "Unit-Test: Test der Validierungsfunktion ' +
+        'für das Eingabefeld Versichertennummer".',
+    );
+  }
+
+  if (lower.includes('verschlüsselung') || lower.includes('tls') || lower.includes('zertifikat')) {
+    hints.push(
+      'Sicherheits-Kontext: Stelle einen konkreten IT-Sicherheitsfall vor ' +
+        '(z.B. "Die Datenbank soll Passwörter sicher speichern" oder ' +
+        '"Der Webserver soll mit SSL/TLS gesichert werden"). ' +
+        'Beziehe die Fragen auf diesen konkreten Fall.',
+    );
+  }
+
+  if (lower.includes('mockup') || lower.includes('ui') || lower.includes('darstellungsform')) {
+    hints.push(
+      'UI-Kontext: Beschreibe eine konkrete Dateneingabe- oder -anzeige-Situation ' +
+        '(z.B. "Eingabe von Patientendaten wenn Chipkarte nicht verfügbar ist"). ' +
+        'Das Mockup soll mindestens: Überschrift, Eingabefelder/Anzeigen, ein Auswahlfeld, ' +
+        'und Aktionsbuttons (Speichern/Abbrechen) enthalten.',
+    );
+  }
+
+  if (lower.includes('factory') || lower.includes('entwurfsmuster') || lower.includes('oop')) {
+    hints.push(
+      'OOP-Kontext: Wenn Factory Method: Liefere einen englischen Kurzbeschreibungstext des Musters ' +
+        '(wie in echten Prüfungen mit Quellenangabe) und ein konkretes Anwendungsszenario ' +
+        '(z.B. "Zur Kennzeichnung von Proben werden unterschiedliche Etiketten gedruckt"). ' +
+        'Ein teilweise ausgefülltes Klassendiagramm vorgeben, das der Prüfling ergänzen soll.',
+    );
+  }
+
+  if (lower.includes('acid') || lower.includes('transaktion')) {
+    hints.push(
+      'ACID-Kontext: Nutze einen konkreten Datenbank-Anwendungsfall als Rahmen ' +
+        '(z.B. Krankenhausinformationssystem, Banküberweisung). ' +
+        'Bei Isolation: konkrete Anomalien nennen (Lost Update, Dirty Read, Phantom Read).',
+    );
+  }
+
+  if (
+    lower.includes('nosql') ||
+    lower.includes('mongodb') ||
+    lower.includes('json') ||
+    lower.includes('dokumenten')
+  ) {
+    hints.push(
+      'NoSQL/JSON-Kontext: Liefere ein konkretes relationales Ausgangsdatenmodell ' +
+        '(2 Tabellen mit Fremdschlüsselbezug und Beispieldaten), das in JSON/Dokumente überführt werden soll. ' +
+        'Verwende realistische Feldnamen aus dem Anwendungskontext.',
+    );
+  }
+
+  if (lower.includes('netzplan') || lower.includes('kritischer pfad')) {
+    hints.push(
+      'Netzplan-Kontext: Definiere 5–7 konkrete Projektvorgänge mit Vorgängern und Dauern (in Tagen). ' +
+        'Mindestens ein paralleler Pfad muss existieren. ' +
+        'Der kritische Pfad muss eindeutig bestimmbar sein.',
+    );
+  }
+
+  if (lower.includes('speicher') || lower.includes('datenmenge')) {
+    hints.push(
+      'Speicher-Kontext: Liefere einen konkreten Anwendungsfall mit messbaren Größen, z.B.: ' +
+        '"Die Klinik speichert täglich X Röntgenbilder mit einer Auflösung von Y×Z Pixeln und Z Bit Farbtiefe." ' +
+        'Gib an, für welchen Zeitraum oder welche Anzahl gespeichert werden soll.',
+    );
+  }
+
+  if (hints.length === 0) return '';
+  return '\nKONTEXTHINWEISE FÜR DIESE AUFGABE:\n' + hints.map((h) => `• ${h}`).join('\n') + '\n';
 }
 
 // ─── Einzelne Aufgabe generieren ─────────────────────────────────────────────
@@ -1218,58 +1961,8 @@ async function generateOneTask(
     .join('\n\n');
 
   const specialtyLabel = specialty === 'fisi' ? 'FISI' : 'FIAE';
-  const system = `Du bist IHK-Prüfungsersteller für ${specialtyLabel} AP2. Antworte NUR mit gültigem JSON, kein Markdown.
-
-WICHTIGE REGELN:
-- Platzhalter {{UNTERNEHMEN}}, {{BRANCHE}}, {{PRODUKT}}, {{MITARBEITER}} dürfen im questionText verwendet werden — sie werden beim Prüfungsstart ersetzt.
-- In "expectedAnswer" und "explanation" dürfen KEINE {{PLATZHALTER}} stehen. Formulieren Sie dort szenario-neutral.
-- Sprache: Deutsch. Stil: knapp, sachlich, IHK-typisch.
-- Die Fragen müssen konkret und prüfungsreif sein — kein "erkläre allgemein X", sondern "Erläutern Sie, wie X im Kontext der Anwendung funktioniert".
-
-MULTIPLE-CHOICE EINZELAUSWAHL (mc):
-- Genau 4 konkrete Antwortoptionen (A, B, C, D). Alle Optionen plausibel formuliert.
-- "correctOption": genau einer der Buchstaben (A/B/C/D), variiere die Position.
-- "explanation": kurze Begründung, warum diese Option richtig ist (ohne {{PLATZHALTER}}).
-
-MULTIPLE-CHOICE MEHRFACHAUSWAHL (mc_multi):
-- Genau 4 konkrete Aussagen (A, B, C, D).
-- "correctOptions": Array mit 2 oder 3 Buchstaben (NIE 0, NIE 4).
-- "explanation": kurz, warum diese Aussagen zutreffen (ohne {{PLATZHALTER}}).
-
-SQL-AUFGABEN (sql):
-- questionText MUSS die benötigten Tabellenstrukturen textuell enthalten, z.B. "Tabelle mitarbeiter(id PK, name, abteilung_id FK)".
-- "solutionSql": beispielhafte Musterlösung (kein Markdown).
-- "keyElements": Liste der Pflicht-Bausteine, z.B. ["SELECT mit JOIN", "WHERE name = ..."].
-- "gradingHint": wird aus dem Rezept übernommen, NICHT verändern.
-
-TABELLEN (table):
-- "columns": konkrete themenspezifische Spaltennamen. Bei flexible/guided: anpassen. Bei fixed: Vorgabe nicht ändern.
-- "exampleRow": EINE vollständig ausgefüllte Musterzeile (Anzahl Einträge = Anzahl Spalten).
-- "firstColumnValues": nur wenn erste Spalte vorbelegt sein soll (Bei "fixed" ist das Pflicht).
-- "keyPoints" in expectedAnswer: 2–4 inhaltliche Musterlösungs-Stichpunkte.
-
-PLANTUML / ER (plantuml):
-- "expectedElements": mind. 3 konkret zu erwartende Elemente (z.B. bei ER "Entität Kunde", "Beziehung 1:n Kunde-Bestellung").
-
-OPERATOREN (Prüfungsdimension):
-- "nennen" → Stichworte reichen, Kürze akzeptiert
-- "beschreiben" → Sachverhalt in eigenen Worten, 2–3 Sätze
-- "erklären"/"erläutern" → mit Begründung, 3–5 Sätze
-- "berechnen" → Rechenweg + Ergebnis mit Einheit
-- "entwerfen" → konkrete Umsetzung (Code/Diagramm/Tabelle)
-- "vergleichen" → Gegenüberstellung mit Kriterien
-- "identifizieren" → Fehler/Elemente finden und benennen
-
-AUSGABE: Antworte AUSSCHLIESSLICH mit einem validen JSON-Objekt ohne umgebenden Text.`;
-
-  const user = `Thema: "${topic}"
-
-Erstelle eine Prüfungsaufgabe aus ${recipe.subtasks.length} Unteraufgaben:
-
-${subtaskInstructions}
-
-Gib folgendes JSON zurück. Ersetze FRAGE durch den konkreten IHK-typischen Aufgabentext und die Platzhalter in mcOptions, expectedAnswer etc. durch echte Inhalte:
-{"topicArea":"${topic}","pointsValue":${totalPoints},"difficulty":"medium","subtasks":[${schemas.join(',')}]}`;
+  const system = buildSystemPrompt(specialtyLabel, recipe);
+  const user = buildUserPrompt(topic, recipe, subtaskInstructions, totalPoints, schemas, labels);
 
   const raw = await callAiProvider(`${system}\n\n${user}`, apiKey, meta);
   const task = safeParseTask(raw);
@@ -1344,7 +2037,10 @@ function validateSubtask(st: GeneratedSubTask, spec: SubtaskSpec, topic: string)
   }
   // {{PLACEHOLDER}} aus explanation/feedback-relevanten Feldern entfernen
   if (typeof st.expectedAnswer?.explanation === 'string') {
-    st.expectedAnswer.explanation = (st.expectedAnswer.explanation as string).replace(/\{\{[A-Z_]+\}\}/g, '');
+    st.expectedAnswer.explanation = (st.expectedAnswer.explanation as string).replace(
+      /\{\{[A-Z_]+\}\}/g,
+      '',
+    );
   }
 }
 
@@ -1428,7 +2124,9 @@ function validateMcSubtask(st: GeneratedSubTask, topic: string): void {
     ];
   }
   const validOptions = new Set(st.mcOptions.map((o) => o.id.toUpperCase()));
-  const raw = String(st.expectedAnswer?.correctOption ?? '').toUpperCase().trim();
+  const raw = String(st.expectedAnswer?.correctOption ?? '')
+    .toUpperCase()
+    .trim();
   if (!validOptions.has(raw)) {
     console.warn(`[generator] correctOption "${raw}" ungültig für "${topic}" — Fallback "A"`);
     st.expectedAnswer = { ...st.expectedAnswer, correctOption: 'A' };
@@ -1450,7 +2148,9 @@ function validateMcMultiSubtask(st: GeneratedSubTask, topic: string): void {
   const rawList = Array.isArray(st.expectedAnswer?.correctOptions)
     ? (st.expectedAnswer.correctOptions as unknown[])
     : [];
-  const normalised = rawList.map((v) => String(v).toUpperCase().trim()).filter((v) => validIds.has(v));
+  const normalised = rawList
+    .map((v) => String(v).toUpperCase().trim())
+    .filter((v) => validIds.has(v));
   const unique = Array.from(new Set(normalised));
   let finalList = unique;
   if (finalList.length === 0 || finalList.length >= st.mcOptions.length) {
@@ -1469,7 +2169,8 @@ function validateSqlSubtask(st: GeneratedSubTask): void {
     st.expectedAnswer.keyElements = [];
   }
   if (typeof st.expectedAnswer.gradingHint !== 'string') {
-    st.expectedAnswer.gradingHint = 'Bewertung nach SQL-Syntax, korrekten Tabellen-/Spaltenbezügen und Ergebnismenge.';
+    st.expectedAnswer.gradingHint =
+      'Bewertung nach SQL-Syntax, korrekten Tabellen-/Spaltenbezügen und Ergebnismenge.';
   }
 }
 
@@ -1490,7 +2191,10 @@ function buildFallbackTask(
           ? `Füllen Sie die Tabelle zum Thema „${topic}" aus.`
           : `Bearbeiten Sie die Aufgabe zum Thema „${topic}" im Kontext von {{UNTERNEHMEN}}.`,
       points: points[i],
-      expectedAnswer: { keyPoints: [], ...(spec.gradingHint ? { gradingHint: spec.gradingHint } : {}) },
+      expectedAnswer: {
+        keyPoints: [],
+        ...(spec.gradingHint ? { gradingHint: spec.gradingHint } : {}),
+      },
     };
     if (spec.taskType === 'table' && spec.tableColumns) {
       const rowCount = spec.tableRowCount ?? 3;
@@ -1612,7 +2316,14 @@ export async function generateTasksForPool(
 
     if (!task && hasDistinctServer) {
       try {
-        task = await generateOneTask(part, topic, serverApiKey!, avoidDiagram, serverMeta!, specialty);
+        task = await generateOneTask(
+          part,
+          topic,
+          serverApiKey!,
+          avoidDiagram,
+          serverMeta!,
+          specialty,
+        );
         warnings.push({
           topic,
           source: 'server_ai',
@@ -1620,7 +2331,9 @@ export async function generateTasksForPool(
         });
       } catch (err) {
         serverError = err instanceof Error ? err.message : String(err);
-        console.warn(`[generator] "${topic}" Server-AI fehlgeschlagen: ${serverError.slice(0, 120)}`);
+        console.warn(
+          `[generator] "${topic}" Server-AI fehlgeschlagen: ${serverError.slice(0, 120)}`,
+        );
       }
     }
 
@@ -1640,7 +2353,9 @@ export async function generateTasksForPool(
       });
     }
 
-    const hasDiagram = task.subtasks.some((st) => st.taskType === 'plantuml' || st.taskType === 'diagram_upload');
+    const hasDiagram = task.subtasks.some(
+      (st) => st.taskType === 'plantuml' || st.taskType === 'diagram_upload',
+    );
     if (hasDiagram) diagramCount++;
     tasks.push(task);
   }

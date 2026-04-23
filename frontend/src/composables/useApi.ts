@@ -87,6 +87,16 @@ export async function deleteAccount(password: string): Promise<void> {
   await api.delete('/auth/account', { data: { password } });
 }
 
+export async function fetchPracticeTopics(
+  part: string,
+  specialty: string,
+): Promise<Array<{ topic: string; inferredKind: string; poolCount: number }>> {
+  const { data } = await api.get<
+    ApiResponse<Array<{ topic: string; inferredKind: string; poolCount: number }>>
+  >(`/practice/topics?part=${part}&specialty=${specialty}`);
+  return data.data ?? [];
+}
+
 export async function fetchPoolStatus(specialty: Specialty): Promise<PoolPartStatus[]> {
   const { data } = await api.get<ApiResponse<{ parts: PoolPartStatus[] }>>(
     `/exams/pool-status?specialty=${specialty}`,

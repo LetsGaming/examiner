@@ -24,6 +24,7 @@ import { db } from '../db/database.js';
 import { getUserId, insertTasksIntoDB } from './routeHelpers.js';
 import { resolveAiConfig, resolveServerAiConfig } from './settingsRoutes.js';
 import { generateTasksForPool } from '../services/examGenerator.js';
+import { getTopics, inferKindForTopic } from '../services/topics.js';
 import type { ExamPart, Specialty } from '../types/index.js';
 import type { TaskKind } from '../services/taskKind.js';
 
@@ -76,7 +77,9 @@ export function migratePracticeStatus(): void {
       `);
       db.exec(`DROP TABLE exam_sessions`);
       db.exec(`ALTER TABLE exam_sessions_new RENAME TO exam_sessions`);
-      db.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_user_status ON exam_sessions(user_id, status)`);
+      db.exec(
+        `CREATE INDEX IF NOT EXISTS idx_sessions_user_status ON exam_sessions(user_id, status)`,
+      );
     })();
     console.log('[migration] exam_sessions CHECK constraint extended to include practice/review.');
   }
@@ -84,7 +87,9 @@ export function migratePracticeStatus(): void {
   // Ensure is_review column exists (idempotent).
   try {
     db.exec('ALTER TABLE exam_sessions ADD COLUMN is_review INTEGER NOT NULL DEFAULT 0');
-  } catch { /* already present */ }
+  } catch {
+    /* already present */
+  }
 }
 
 // ─── Task queries ─────────────────────────────────────────────────────────────
@@ -102,11 +107,7 @@ function buildTaskQuery({ part, specialty, taskKind, topic, excludeIds }: TaskQu
   params: unknown[];
 } {
   const excluded = excludeIds.map((id) => `'${id.replace(/'/g, "''")}'`).join(',') || "''";
-  const clauses: string[] = [
-    `part = ?`,
-    `specialty = ?`,
-    `id NOT IN (${excluded})`,
-  ];
+  const clauses: string[] = [`part = ?`, `specialty = ?`, `id NOT IN (${excluded})`];
   const params: unknown[] = [part, specialty];
 
   if (taskKind) {
@@ -127,12 +128,58 @@ function buildTaskQuery({ part, specialty, taskKind, topic, excludeIds }: TaskQu
 function fetchTasks(options: TaskQueryOptions, count: number): Record<string, unknown>[] {
   const tasks: Record<string, unknown>[] = [];
   for (let i = 0; i < count; i++) {
-    const { sql, params } = buildTaskQuery({ ...options, excludeIds: tasks.map((t) => t.id as string) });
+    const { sql, params } = buildTaskQuery({
+      ...options,
+      excludeIds: tasks.map((t) => t.id as string),
+    });
     const task = db.prepare(sql).get(...params) as Record<string, unknown> | undefined;
     if (task) tasks.push(task);
   }
   return tasks;
 }
+
+// ─── GET /api/practice/topics ────────────────────────────────────────────────
+//
+// Returns all topics for a given part/specialty, each annotated with the
+// task_kind they are expected to produce. The frontend uses this to:
+//   a) Populate the topic dropdown
+//   b) Auto-set or filter the kind dropdown based on the selected topic
+//   c) Show how many pool tasks exist for each topic
+
+practiceRouter.get('/topics', (req: Request, res: Response) => {
+  const part = req.query.part as ExamPart | undefined;
+  const specialty = (req.query.specialty as Specialty) ?? 'fiae';
+
+  if (!part) {
+    return res.status(400).json({ success: false, error: 'part ist erforderlich.' });
+  }
+
+  const topics = getTopics(part, specialty);
+
+  // Count existing pool tasks per topic so the UI can show availability.
+  const counts = db
+    .prepare(
+      `SELECT topic_area, task_kind, COUNT(*) as cnt
+       FROM tasks WHERE part = ? AND specialty = ?
+       GROUP BY topic_area, task_kind`,
+    )
+    .all(part, specialty) as { topic_area: string; task_kind: string; cnt: number }[];
+
+  const poolByTopic: Record<string, { kind: string; count: number }> = {};
+  for (const row of counts) {
+    if (!poolByTopic[row.topic_area] || row.cnt > poolByTopic[row.topic_area].count) {
+      poolByTopic[row.topic_area] = { kind: row.task_kind, count: row.cnt };
+    }
+  }
+
+  const data = topics.map((topic) => ({
+    topic,
+    inferredKind: inferKindForTopic(topic),
+    poolCount: poolByTopic[topic]?.count ?? 0,
+  }));
+
+  res.json({ success: true, data });
+});
 
 // ─── POST /api/practice/start ─────────────────────────────────────────────────
 
@@ -167,12 +214,20 @@ practiceRouter.post('/start', async (req: Request, res: Response) => {
     if (aiConfig) {
       const serverConfig = aiConfig.source === 'user' ? resolveServerAiConfig() : null;
       try {
+        // Generate tasks targeted at the selected topic so the retry has a
+        // real chance of finding a match. Passing [topic] ensures the
+        // generator picks a recipe for that specific topic rather than a
+        // random one from the part.
+        const targetTopics = topic ? [topic] : undefined;
         const generated = await generateTasksForPool(
-          part, 6,
-          aiConfig.apiKey, aiConfig.meta,
+          part,
+          6,
+          aiConfig.apiKey,
+          aiConfig.meta,
           serverConfig?.apiKey ?? null,
           serverConfig?.meta ?? null,
           specialty,
+          targetTopics,
         );
         await insertTasksIntoDB(part, generated.tasks, specialty);
         // Retry with the newly inserted tasks.
@@ -197,16 +252,24 @@ practiceRouter.post('/start', async (req: Request, res: Response) => {
       `INSERT INTO exam_sessions (user_id, part, specialty, title, duration_minutes, max_points, status)
        VALUES (?, ?, ?, ?, 0, ?, 'practice')`,
     )
-    .run(userId, part, specialty, `Übungssession ${new Date().toLocaleDateString('de-DE')}`, totalPoints);
+    .run(
+      userId,
+      part,
+      specialty,
+      `Übungssession ${new Date().toLocaleDateString('de-DE')}`,
+      totalPoints,
+    );
 
   const session = db
     .prepare('SELECT id FROM exam_sessions WHERE rowid = ?')
     .get(ins.lastInsertRowid) as { id: string };
 
   tasks.forEach((task, pos) => {
-    db.prepare(
-      'INSERT INTO session_tasks (session_id, task_id, position) VALUES (?, ?, ?)',
-    ).run(session.id, task.id as string, pos);
+    db.prepare('INSERT INTO session_tasks (session_id, task_id, position) VALUES (?, ?, ?)').run(
+      session.id,
+      task.id as string,
+      pos,
+    );
     db.prepare('UPDATE tasks SET times_used = times_used + 1 WHERE id = ?').run(task.id as string);
   });
 

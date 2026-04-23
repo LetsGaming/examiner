@@ -12,6 +12,7 @@ import rateLimit from 'express-rate-limit';
 import type { Request } from 'express';
 import type { AuthRequest } from '../middleware/auth.js';
 import type { Specialty, ExamPart } from '../types/index.js';
+import type { Statement } from 'better-sqlite3';
 import { db, classifyTaskFromSubtasks, REQUIRED_TASKS, GENERATE_COUNT } from '../db/database.js';
 import type { TaskKind } from '../db/database.js';
 import { generateTasksForPool } from '../services/examGenerator.js';
@@ -50,11 +51,11 @@ export const evaluateLimiter = rateLimit({
 // ─── Per-provider rate limiters (Feature 17) ──────────────────────────────────
 
 const PROVIDER_LIMITS: Record<string, { max: number; windowMs: number }> = {
-  openai:    { max: 100, windowMs: 60_000 },
-  anthropic: { max: 50,  windowMs: 60_000 },
-  google:    { max: 200, windowMs: 60_000 },
-  mistral:   { max: 80,  windowMs: 60_000 },
-  default:   { max: 100, windowMs: 60_000 },
+  openai: { max: 100, windowMs: 60_000 },
+  anthropic: { max: 50, windowMs: 60_000 },
+  google: { max: 200, windowMs: 60_000 },
+  mistral: { max: 80, windowMs: 60_000 },
+  default: { max: 100, windowMs: 60_000 },
 };
 
 const providerLimiters = new Map<string, ReturnType<typeof rateLimit>>();
@@ -103,20 +104,34 @@ export const upload = multer({
 
 type GeneratedTask = Awaited<ReturnType<typeof generateTasksForPool>>['tasks'][0];
 
-// Prepare statements once at module load — avoids re-parsing on every insert.
-const insertTaskStmt = db.prepare(`
-  INSERT INTO tasks
-    (id, part, specialty, topic_area, points_value, difficulty, task_kind,
-     scenario_context, scenario_description)
-  VALUES (?, ?, ?, ?, ?, ?, ?, null, null)
-`);
+// Statements are prepared lazily on first call so that module import does NOT
+// touch the DB before initDatabase() has run in server.ts.
+let _insertTaskStmt: Statement | null = null;
+let _insertSubtaskStmt: Statement | null = null;
 
-const insertSubtaskStmt = db.prepare(`
-  INSERT INTO subtasks
-    (id, task_id, label, task_type, question_text, expected_answer, points,
-     diagram_type, expected_elements, mc_options, table_config, position)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`);
+function getInsertTaskStmt(): Statement {
+  if (!_insertTaskStmt) {
+    _insertTaskStmt = db.prepare(`
+      INSERT INTO tasks
+        (id, part, specialty, topic_area, points_value, difficulty, task_kind,
+         scenario_context, scenario_description)
+      VALUES (?, ?, ?, ?, ?, ?, ?, null, null)
+    `);
+  }
+  return _insertTaskStmt;
+}
+
+function getInsertSubtaskStmt(): Statement {
+  if (!_insertSubtaskStmt) {
+    _insertSubtaskStmt = db.prepare(`
+      INSERT INTO subtasks
+        (id, task_id, label, task_type, question_text, expected_answer, points,
+         diagram_type, expected_elements, mc_options, table_config, position)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+  }
+  return _insertSubtaskStmt;
+}
 
 export async function insertTasksIntoDB(
   part: string,
@@ -134,18 +149,27 @@ export async function insertTasksIntoDB(
         })),
       );
 
-      insertTaskStmt.run(
-        taskId, part, specialty, task.topicArea,
-        task.pointsValue, task.difficulty ?? 'medium', kind,
+      getInsertTaskStmt().run(
+        taskId,
+        part,
+        specialty,
+        task.topicArea,
+        task.pointsValue,
+        task.difficulty ?? 'medium',
+        kind,
       );
 
       for (let i = 0; i < task.subtasks.length; i++) {
         const st = task.subtasks[i];
-        insertSubtaskStmt.run(
+        getInsertSubtaskStmt().run(
           randomUUID().replace(/-/g, ''),
-          taskId, st.label, st.taskType, st.questionText,
+          taskId,
+          st.label,
+          st.taskType,
+          st.questionText,
           JSON.stringify(st.expectedAnswer ?? {}),
-          st.points, st.diagramType ?? null,
+          st.points,
+          st.diagramType ?? null,
           JSON.stringify(st.expectedElements ?? []),
           JSON.stringify(st.mcOptions ?? []),
           st.tableConfig ? JSON.stringify(st.tableConfig) : null,
@@ -165,13 +189,15 @@ export async function insertTasksIntoDB(
 const POOL_KIND_TARGETS: Record<string, Partial<Record<TaskKind, number>>> = {
   teil_1: { diagram: 2, table: 2, calc: 1, text: 2 },
   teil_2: { sql: 2, code: 2, diagram: 1, calc: 1, text: 1 },
-  teil_3: {},  // WiSo — no kind balance needed
+  teil_3: {}, // WiSo — no kind balance needed
 };
 
 export function findUnderrepresentedKinds(part: string, specialty: Specialty): TaskKind[] {
   const targets = POOL_KIND_TARGETS[part] ?? {};
   const rows = db
-    .prepare('SELECT task_kind, COUNT(*) as cnt FROM tasks WHERE part = ? AND specialty = ? GROUP BY task_kind')
+    .prepare(
+      'SELECT task_kind, COUNT(*) as cnt FROM tasks WHERE part = ? AND specialty = ? GROUP BY task_kind',
+    )
     .all(part, specialty) as { task_kind: string; cnt: number }[];
 
   const actual: Record<string, number> = Object.fromEntries(rows.map((r) => [r.task_kind, r.cnt]));
@@ -213,7 +239,14 @@ async function generateAndInsert(
   console.log(`${logPrefix}: generiere ${count} neue Tasks${focus}…`);
 
   const result = await generateTasksForPool(
-    part as ExamPart, count, apiKey, meta, serverApiKey, serverMeta, specialty, topics,
+    part as ExamPart,
+    count,
+    apiKey,
+    meta,
+    serverApiKey,
+    serverMeta,
+    specialty,
+    topics,
   );
   await insertTasksIntoDB(part, result.tasks, specialty);
 
@@ -255,8 +288,13 @@ export async function ensurePoolSize(
   try {
     const count = GENERATE_COUNT[part] ?? 8;
     const added = await generateAndInsert(
-      part, specialty, count,
-      apiKey, meta, serverApiKey ?? null, serverMeta ?? null,
+      part,
+      specialty,
+      count,
+      apiKey,
+      meta,
+      serverApiKey ?? null,
+      serverMeta ?? null,
       `[pool] ${lockKey}: ${current} Tasks`,
     );
     console.log(`[pool] ${lockKey}: ${added} neue Tasks hinzugefügt`);
@@ -285,8 +323,13 @@ export async function refillPoolInBackground(
   try {
     const count = GENERATE_COUNT[part] ?? 8;
     const added = await generateAndInsert(
-      part, specialty, count,
-      apiKey, meta ?? undefined, serverApiKey ?? null, serverMeta ?? null,
+      part,
+      specialty,
+      count,
+      apiKey,
+      meta ?? undefined,
+      serverApiKey ?? null,
+      serverMeta ?? null,
       `[pool-refill] ${lockKey}: ${current}/${target}`,
     );
     console.log(`[pool-refill] ${lockKey}: +${added} Tasks, Pool jetzt ${current + added}`);

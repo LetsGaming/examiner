@@ -37,9 +37,7 @@ export const evaluationRouter = Router();
 
 /** Replace known {{PLACEHOLDER}} tokens; strip any that remain unresolved. */
 function applyScenarioToText(text: string, scenarioName: string): string {
-  return text
-    .replace(/\{\{UNTERNEHMEN\}\}/g, scenarioName)
-    .replace(/\{\{[A-Z_]+\}\}/g, '');
+  return text.replace(/\{\{UNTERNEHMEN\}\}/g, scenarioName).replace(/\{\{[A-Z_]+\}\}/g, '');
 }
 
 /** Recursively apply scenario replacement to all string values in an object. */
@@ -166,7 +164,8 @@ evaluationRouter.post(
       });
     }
 
-    const { answerId, sessionId } = req.params;
+    const answerId = req.params.answerId as string;
+    const sessionId = req.params.sessionId as string;
     const mutexKey = `${sessionId}:${answerId}`;
 
     // Per-answer mutex: prevents two concurrent re-evaluation requests from
@@ -186,7 +185,9 @@ evaluationRouter.post(
         return res.status(404).json({ success: false, error: 'Antwort nicht gefunden.' });
       }
 
-      const { apiKey, meta } = aiConfig;
+      // aiConfig is guaranteed non-null here — the guard above returns early if null.
+      // We cast explicitly because TypeScript loses the narrowing through the mutex block.
+      const { apiKey, meta } = aiConfig as NonNullable<ReturnType<typeof resolveAiConfig>>;
       const scenarioName = answer.scenario_name ?? '';
       const scenarioDescription = answer.scenario_description ?? '';
       const scenarioContext = scenarioName
@@ -282,7 +283,9 @@ evaluationRouter.post(
       // Auto-enqueue for spaced repetition — non-critical, must not throw.
       try {
         enqueueForReview(userId, answer.subtask_id, evaluation.percentageScore);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     } catch (err) {
       console.error('[evaluate]', err);
       res.status(500).json({

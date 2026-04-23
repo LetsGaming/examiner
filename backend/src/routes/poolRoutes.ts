@@ -81,9 +81,10 @@ function countPool(part: string, specialty: Specialty): number {
 function resolveExpectedAnswer(raw: string, scenario: Scenario): string | undefined {
   try {
     const parsed = JSON.parse(raw || '{}') as Record<string, unknown>;
-    const replaced = JSON.parse(
-      applyScenario(JSON.stringify(parsed), scenario),
-    ) as Record<string, unknown>;
+    const replaced = JSON.parse(applyScenario(JSON.stringify(parsed), scenario)) as Record<
+      string,
+      unknown
+    >;
     return JSON.stringify(replaced) !== JSON.stringify(parsed)
       ? JSON.stringify(replaced)
       : undefined;
@@ -145,9 +146,14 @@ poolRouter.post('/generate', generateLimiter, async (req: Request, res: Response
         : undefined;
 
     const genResult = await generateTasksForPool(
-      part as ExamPart, genCount, apiKey, aiMeta,
-      serverConfig?.apiKey ?? null, serverConfig?.meta ?? null,
-      specialty, topics,
+      part as ExamPart,
+      genCount,
+      apiKey,
+      aiMeta,
+      serverConfig?.apiKey ?? null,
+      serverConfig?.meta ?? null,
+      specialty,
+      topics,
     );
     await insertTasksIntoDB(part, genResult.tasks, specialty);
 
@@ -206,8 +212,12 @@ poolRouter.post('/start', async (req: Request, res: Response) => {
       }
       try {
         await ensurePoolSize(
-          part, aiConfig.apiKey, aiConfig.meta,
-          serverConfig?.apiKey ?? null, serverConfig?.meta ?? null, specialty,
+          part,
+          aiConfig.apiKey,
+          aiConfig.meta,
+          serverConfig?.apiKey ?? null,
+          serverConfig?.meta ?? null,
+          specialty,
         );
       } catch (err) {
         return res.status(500).json({
@@ -241,9 +251,10 @@ poolRouter.post('/start', async (req: Request, res: Response) => {
       try {
         scenario = await generateScenarioForTasks(
           part as ExamPart,
-          assembled.topics,       // ← real topics, not []
+          assembled.topics,
           aiConfig.apiKey,
           aiConfig.meta,
+          assembled.taskSummaries, // ← echte Aufgaben-Summaries
         );
       } catch (err) {
         console.warn(
@@ -266,15 +277,23 @@ poolRouter.post('/start', async (req: Request, res: Response) => {
     const title = `AP2 ${PART_LABELS[part]} — ${new Date().toLocaleDateString('de-DE')}`;
 
     db.transaction(() => {
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO exam_sessions
           (id, user_id, part, specialty, title, scenario_name, scenario_description,
            duration_minutes, max_points)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        sessionId, userId, part, specialty, title,
-        scenario.name, scenario.description,
-        DURATIONS[part], assembled.totalPoints,
+      `,
+      ).run(
+        sessionId,
+        userId,
+        part,
+        specialty,
+        title,
+        scenario.name,
+        scenario.description,
+        DURATIONS[part],
+        assembled.totalPoints,
       );
 
       for (let i = 0; i < assembled.tasks.length; i++) {
@@ -285,9 +304,7 @@ poolRouter.post('/start', async (req: Request, res: Response) => {
         db.prepare('UPDATE tasks SET times_used = times_used + 1 WHERE id = ?').run(task.id);
 
         const subtasks = db
-          .prepare(
-            'SELECT id, question_text, expected_answer FROM subtasks WHERE task_id = ?',
-          )
+          .prepare('SELECT id, question_text, expected_answer FROM subtasks WHERE task_id = ?')
           .all(task.id as string) as {
           id: string;
           question_text: string;
@@ -313,8 +330,12 @@ poolRouter.post('/start', async (req: Request, res: Response) => {
     // Refill pool asynchronously — fire-and-forget, never blocks the response.
     if (aiConfig) {
       refillPoolInBackground(
-        part, aiConfig.apiKey ?? '', aiConfig.meta,
-        serverConfig?.apiKey ?? null, serverConfig?.meta ?? null, specialty,
+        part,
+        aiConfig.apiKey ?? '',
+        aiConfig.meta,
+        serverConfig?.apiKey ?? null,
+        serverConfig?.meta ?? null,
+        specialty,
       ).catch(() => {});
     }
 

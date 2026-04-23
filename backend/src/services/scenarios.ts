@@ -26,9 +26,10 @@
  * passen zumindest grob zu allen Themen.
  */
 
-import { callAiProvider } from "./aiService.js";
-import type { ProviderMeta } from "../routes/settingsRoutes.js";
-import type { ExamPart } from "../types/index.js";
+import { callAiProvider } from './aiService.js';
+import type { ProviderMeta } from '../routes/settingsRoutes.js';
+import type { ExamPart } from '../types/index.js';
+import type { AssembledTask } from '../db/database.js';
 
 export interface Scenario {
   name: string;
@@ -44,36 +45,36 @@ export interface Scenario {
 
 export const FALLBACK_SCENARIOS: Scenario[] = [
   {
-    name: "SmartLogistik GmbH",
-    branche: "Logistik",
-    produkt: "Sendungsverfolgungsapp",
-    mitarbeiter: "280",
+    name: 'SmartLogistik GmbH',
+    branche: 'Logistik',
+    produkt: 'Sendungsverfolgungsapp',
+    mitarbeiter: '280',
     description:
-      "Die SmartLogistik GmbH ist ein Logistikunternehmen mit 280 Mitarbeitern und Sitz in Hannover. Täglich werden etwa 5.000 Pakete deutschlandweit transportiert. Aktuell entwickelt das Unternehmen eine mobile App für die Fahrer und ein Webportal für Kunden, über das der Stand einer Sendung eingesehen werden kann. Das IT-Team besteht aus 12 Personen und arbeitet agil nach Scrum. Datenschutz und hohe Verfügbarkeit sind wichtig, weil der Fahrbetrieb auf die Systeme angewiesen ist.",
+      'Die SmartLogistik GmbH ist ein Logistikunternehmen mit 280 Mitarbeitern und Sitz in Hannover. Täglich werden etwa 5.000 Pakete deutschlandweit transportiert. Aktuell entwickelt das Unternehmen eine mobile App für die Fahrer und ein Webportal für Kunden, über das der Stand einer Sendung eingesehen werden kann. Das IT-Team besteht aus 12 Personen und arbeitet agil nach Scrum. Datenschutz und hohe Verfügbarkeit sind wichtig, weil der Fahrbetrieb auf die Systeme angewiesen ist.',
   },
   {
-    name: "MediCare Systems AG",
-    branche: "Gesundheitswesen",
-    produkt: "Patientenverwaltungssoftware",
-    mitarbeiter: "150",
+    name: 'MediCare Systems AG',
+    branche: 'Gesundheitswesen',
+    produkt: 'Patientenverwaltungssoftware',
+    mitarbeiter: '150',
     description:
-      "Die MediCare Systems AG entwickelt mit 150 Mitarbeitern eine Software für eine Krankenhausgruppe mit 8 Standorten. Die Software verwaltet Patientendaten, Termine, Behandlungshistorien und Abrechnungen. Die Anwendung läuft in einer Cloud-Umgebung und wird über einen Webbrowser genutzt. Wichtige Anforderungen sind Datenschutz nach DSGVO, eine zuverlässige Verfügbarkeit rund um die Uhr, und ein Rechtekonzept, damit z.B. Pflegepersonal andere Daten sieht als Verwaltungsmitarbeiter.",
+      'Die MediCare Systems AG entwickelt mit 150 Mitarbeitern eine Software für eine Krankenhausgruppe mit 8 Standorten. Die Software verwaltet Patientendaten, Termine, Behandlungshistorien und Abrechnungen. Die Anwendung läuft in einer Cloud-Umgebung und wird über einen Webbrowser genutzt. Wichtige Anforderungen sind Datenschutz nach DSGVO, eine zuverlässige Verfügbarkeit rund um die Uhr, und ein Rechtekonzept, damit z.B. Pflegepersonal andere Daten sieht als Verwaltungsmitarbeiter.',
   },
   {
-    name: "RetailPro GmbH",
-    branche: "Einzelhandel",
-    produkt: "Warenwirtschaftssystem",
-    mitarbeiter: "320",
+    name: 'RetailPro GmbH',
+    branche: 'Einzelhandel',
+    produkt: 'Warenwirtschaftssystem',
+    mitarbeiter: '320',
     description:
-      "Die RetailPro GmbH betreibt mit 320 Mitarbeitern 35 Filialen in Deutschland und zusätzlich einen Onlineshop mit etwa 80.000 Artikeln. Das bisherige Warenwirtschaftssystem ist veraltet und soll durch eine Neuentwicklung ersetzt werden. Die neue Lösung soll Lagerbestände über alle Filialen und den Onlineshop synchronisieren, bei niedrigen Beständen automatisch Nachbestellungen auslösen, und Kassensysteme in den Filialen anbinden.",
+      'Die RetailPro GmbH betreibt mit 320 Mitarbeitern 35 Filialen in Deutschland und zusätzlich einen Onlineshop mit etwa 80.000 Artikeln. Das bisherige Warenwirtschaftssystem ist veraltet und soll durch eine Neuentwicklung ersetzt werden. Die neue Lösung soll Lagerbestände über alle Filialen und den Onlineshop synchronisieren, bei niedrigen Beständen automatisch Nachbestellungen auslösen, und Kassensysteme in den Filialen anbinden.',
   },
   {
-    name: "FinTech Solutions AG",
-    branche: "Finanzdienstleistungen",
-    produkt: "Mobile-Banking-App",
-    mitarbeiter: "90",
+    name: 'FinTech Solutions AG',
+    branche: 'Finanzdienstleistungen',
+    produkt: 'Mobile-Banking-App',
+    mitarbeiter: '90',
     description:
-      "Die FinTech Solutions AG entwickelt mit 90 Mitarbeitern eine mobile App für Privatkunden. Die App bietet Kontostand, Überweisungen, Daueraufträge und einfache Auswertungen der eigenen Ausgaben. Weil es um Finanzdaten geht, sind IT-Sicherheit und Datenschutz besonders wichtig: beim Login ist eine Zwei-Faktor-Authentifizierung vorgeschrieben. Neben der App betreibt das Unternehmen eine REST-API für Partnerfirmen.",
+      'Die FinTech Solutions AG entwickelt mit 90 Mitarbeitern eine mobile App für Privatkunden. Die App bietet Kontostand, Überweisungen, Daueraufträge und einfache Auswertungen der eigenen Ausgaben. Weil es um Finanzdaten geht, sind IT-Sicherheit und Datenschutz besonders wichtig: beim Login ist eine Zwei-Faktor-Authentifizierung vorgeschrieben. Neben der App betreibt das Unternehmen eine REST-API für Partnerfirmen.',
   },
 ];
 
@@ -96,53 +97,55 @@ export function applyScenario(text: string, s: Scenario): string {
 
 // ─── KI-gestützte Szenario-Generierung ──────────────────────────────────────
 
-const PART_CONTEXT: Record<ExamPart, string> = {
-  teil_1:
-    "Teil 1 der AP2 (Planen eines Softwareproduktes) — typisch sind Themen wie Anforderungsanalyse, Stakeholder, Projektplanung, Vorgehensmodelle, UML, UI-Entwurf, Qualitätssicherung, Datenmodellierung.",
-  teil_2:
-    "Teil 2 der AP2 (Entwicklung und Umsetzung von Algorithmen) — typisch sind Themen wie SQL, Pseudocode, Datenstrukturen, OOP, Rekursion, Speicherberechnung, Schnittstellen.",
-  teil_3:
-    "Teil 3 der AP2 (Wirtschafts- und Sozialkunde) — typisch sind Themen wie Arbeitsrecht, Ausbildungsrecht, Sozialversicherung, Gesellschaftsformen, Wirtschaftlichkeit.",
-};
-
 /**
- * Generiert eine Ausgangssituation, die zu den gezogenen Aufgaben-Themen passt.
- * Die KI kennt die Themen und wählt ein plausibles Unternehmen, dessen
- * Projektkontext natürlich zu allen 4 Aufgaben führt.
+ * Generiert eine Ausgangssituation, die inhaltlich zu den assemblierten
+ * Aufgaben passt. Bekommt jetzt `taskSummaries` mit Topic, Kind und dem
+ * ersten Fragetext jeder Aufgabe — so kann die KI ein Szenario bauen, das
+ * wirklich zu dem passt, was der Prüfling lösen muss.
  *
- * Fällt bei jedem Fehler auf einen statischen Fallback zurück — der Start
- * einer Prüfung darf nie an einer Szenario-Generierung scheitern.
+ * Fällt bei jedem Fehler auf einen statischen Fallback zurück.
  */
 export async function generateScenarioForTasks(
   part: ExamPart,
   topics: string[],
   apiKey: string,
   meta: ProviderMeta,
+  taskSummaries?: AssembledTask[],
 ): Promise<Scenario> {
-  const topicList = topics.map((t) => `- ${t}`).join("\n");
-  const prompt = `Du bist IHK-Prüfungsersteller für Fachinformatiker Anwendungsentwicklung.
+  // Baue einen kompakten Aufgaben-Kontext aus den Summaries
+  const taskContext =
+    taskSummaries && taskSummaries.length > 0
+      ? taskSummaries
+          .map(
+            (t, i) =>
+              `A${i + 1} [${t.topic_area}, ${t.task_kind}]${t.firstQuestion ? `: ${t.firstQuestion}` : ''}`,
+          )
+          .join('\n')
+      : topics.map((t) => `- ${t}`).join('\n');
 
-Erstelle eine Ausgangssituation für folgende Prüfung:
-${PART_CONTEXT[part]}
+  const partLabel =
+    part === 'teil_1'
+      ? 'Planen eines Softwareproduktes'
+      : part === 'teil_2'
+        ? 'Entwicklung und Umsetzung von Algorithmen'
+        : 'Wirtschafts- und Sozialkunde';
 
-Die Prüfung enthält Aufgaben zu diesen Themen:
-${topicList}
+  // Token-optimierter Prompt: kompakt, kein Boilerplate, direkt auf JSON.
+  const prompt = `IHK AP2 ${partLabel} — erstelle eine Ausgangssituation.
 
-ANFORDERUNGEN AN DIE AUSGANGSSITUATION:
-- Ein mittelständisches Unternehmen (40–400 Mitarbeiter) aus einer realistischen Branche.
-- Das Unternehmen arbeitet an einem konkreten Softwareprojekt, aus dem sich ALLE genannten Aufgaben-Themen sinnvoll ableiten lassen.
-- Die Beschreibung ist 3–5 Sätze lang, sachlich formuliert, ohne Buzzword-Overload.
-- Nur Vokabular, das ein FIAE im 3. Lehrjahr kennt (DSGVO, REST-API, Cloud, agil/Scrum, Datenbank, Backup, 2FA erlaubt — vermeide Spezialbegriffe wie HL7/FHIR, PSD2, BaFin, CAN-Bus, Strangler-Fig, ATOL, WCAG).
-- Firmenname wirkt realistisch (keine ulkigen Namen wie "MegaTech9000"). Erlaubt: "Name + Rechtsform" wie "Kranich Logistik GmbH" oder "Mertens & Söhne AG".
+Aufgaben dieser Prüfung:
+${taskContext}
 
-Gib AUSSCHLIESSLICH valides JSON zurück (kein Markdown, keine Backticks):
-{
-  "name": "Name GmbH",
-  "branche": "Branchenbezeichnung",
-  "produkt": "Projektname oder Produktbezeichnung",
-  "mitarbeiter": "120",
-  "description": "3-5 Sätze Ausgangssituation."
-}`;
+Regeln:
+- Mittelständisches Unternehmen (40–400 MA), realistische Branche
+- Das Softwareprojekt muss alle 4 Aufgaben-Themen natürlich abdecken
+- 3–5 Sätze, sachlich, kein Buzzword-Overload
+- Nur FIAE-bekanntes Vokabular (DSGVO, REST-API, Cloud, Scrum, 2FA OK — kein HL7, BaFin, CAN-Bus)
+- Realistischer Firmenname ("Kranich Logistik GmbH" ja, "MegaTech9000" nein)
+- name/branche/produkt/mitarbeiter NICHT im description-Text wiederholen — description beschreibt nur das Projekt und den Kontext
+
+JSON (kein Markdown):
+{"name":"...","branche":"...","produkt":"...","mitarbeiter":"...","description":"..."}`;
 
   try {
     const raw = await callAiProvider(prompt, apiKey, meta);
@@ -153,31 +156,30 @@ Gib AUSSCHLIESSLICH valides JSON zurück (kein Markdown, keine Backticks):
       `[scenario] KI-Generierung fehlgeschlagen (${meta.label}): ${err instanceof Error ? err.message : err}`,
     );
   }
-  // Fallback: statisches Szenario
   return pickRandomFallbackScenario();
 }
 
 function parseScenarioJson(raw: string): Scenario | null {
   // KI-Output von Markdown-Fences befreien
   const clean = raw
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```\s*$/i, "")
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```\s*$/i, '')
     .trim();
   try {
     const obj = JSON.parse(clean);
     if (
-      typeof obj === "object" &&
+      typeof obj === 'object' &&
       obj &&
-      typeof obj.name === "string" &&
-      typeof obj.branche === "string" &&
-      typeof obj.produkt === "string" &&
-      typeof obj.description === "string"
+      typeof obj.name === 'string' &&
+      typeof obj.branche === 'string' &&
+      typeof obj.produkt === 'string' &&
+      typeof obj.description === 'string'
     ) {
       return {
         name: obj.name,
         branche: obj.branche,
         produkt: obj.produkt,
-        mitarbeiter: String(obj.mitarbeiter ?? "100"),
+        mitarbeiter: String(obj.mitarbeiter ?? '100'),
         description: obj.description,
       };
     }

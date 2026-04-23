@@ -1,18 +1,18 @@
-import DatabaseConstructor from "better-sqlite3"; // Import the default constructor
-import type { Database as DatabaseType } from "better-sqlite3"; // Import the Type
-import path from "path";
-import fs from "fs";
-import type { TaskKind } from "../services/taskKind.js";
+import DatabaseConstructor from 'better-sqlite3'; // Import the default constructor
+import type { Database as DatabaseType } from 'better-sqlite3'; // Import the Type
+import path from 'path';
+import fs from 'fs';
+import type { TaskKind } from '../services/taskKind.js';
 
-const DB_DIR = path.resolve(process.cwd(), "data");
-const DB_PATH = path.join(DB_DIR, process.env.DB_FILENAME ?? "ap2_trainer.db");
+const DB_DIR = path.resolve(process.cwd(), 'data');
+const DB_PATH = path.join(DB_DIR, process.env.DB_FILENAME ?? 'ap2_trainer.db');
 if (!fs.existsSync(DB_DIR)) fs.mkdirSync(DB_DIR, { recursive: true });
 
 // Explicitly type the exported variable
 export const db: DatabaseType = new DatabaseConstructor(DB_PATH);
 
-db.pragma("journal_mode = WAL");
-db.pragma("foreign_keys = ON");
+db.pragma('journal_mode = WAL');
+db.pragma('foreign_keys = ON');
 export function initDatabase(): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -150,27 +150,27 @@ export function initDatabase(): void {
 
   const needsRebuild = (() => {
     try {
-      const testId = "migration-probe-" + Date.now();
+      const testId = 'migration-probe-' + Date.now();
       // FOREIGN KEY ist ON — task_id 'nonexistent' würde scheitern, daher kurz deaktivieren
-      db.pragma("foreign_keys = OFF");
+      db.pragma('foreign_keys = OFF');
       db.prepare(
         `INSERT INTO subtasks (id, task_id, label, task_type, question_text, points, position)
          VALUES (?, 'nonexistent', 'x', 'sql', 'x', 0, 0)`,
       ).run(testId);
-      db.prepare("DELETE FROM subtasks WHERE id = ?").run(testId);
-      db.pragma("foreign_keys = ON");
+      db.prepare('DELETE FROM subtasks WHERE id = ?').run(testId);
+      db.pragma('foreign_keys = ON');
       return false; // 'sql' ist bereits erlaubt → CHECK ist aktuell
     } catch {
-      db.pragma("foreign_keys = ON");
+      db.pragma('foreign_keys = ON');
       return true; // CHECK schlägt fehl → Rebuild nötig (alte Installation ohne 'sql'/'mc_multi')
     }
   })();
 
   if (needsRebuild) {
-    console.log("[migration] Starte subtasks-Tabellen-Migration...");
+    console.log('[migration] Starte subtasks-Tabellen-Migration...');
     db.transaction(() => {
       // Hinterlassenschaften vorheriger fehlgeschlagener Versuche bereinigen
-      db.exec("DROP TABLE IF EXISTS subtasks_new");
+      db.exec('DROP TABLE IF EXISTS subtasks_new');
 
       db.exec(`
         CREATE TABLE subtasks_new (
@@ -199,17 +199,15 @@ export function initDatabase(): void {
         FROM subtasks
       `);
 
-      db.exec("DROP TABLE subtasks");
-      db.exec("ALTER TABLE subtasks_new RENAME TO subtasks");
-      db.exec(
-        "CREATE INDEX IF NOT EXISTS idx_subtasks_task ON subtasks(task_id)",
-      );
+      db.exec('DROP TABLE subtasks');
+      db.exec('ALTER TABLE subtasks_new RENAME TO subtasks');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_subtasks_task ON subtasks(task_id)');
     })();
-    console.log("[migration] subtasks-Migration abgeschlossen.");
+    console.log('[migration] subtasks-Migration abgeschlossen.');
   } else {
     // Tabelle hat korrekten CHECK — nur table_config Spalte ergänzen falls fehlend
     try {
-      db.exec("ALTER TABLE subtasks ADD COLUMN table_config TEXT DEFAULT NULL");
+      db.exec('ALTER TABLE subtasks ADD COLUMN table_config TEXT DEFAULT NULL');
     } catch {
       /* bereits vorhanden — ignorieren */
     }
@@ -217,7 +215,7 @@ export function initDatabase(): void {
 
   // ─── Migration: ai_agent Spalte in ai_evaluations ────────────────────────
   try {
-    db.exec("ALTER TABLE ai_evaluations ADD COLUMN ai_agent TEXT");
+    db.exec('ALTER TABLE ai_evaluations ADD COLUMN ai_agent TEXT');
   } catch {
     /* bereits vorhanden — ignorieren */
   }
@@ -225,7 +223,7 @@ export function initDatabase(): void {
   // ─── Migration: specialty Spalte in tasks + exam_sessions ────────────────
   try {
     db.exec("ALTER TABLE tasks ADD COLUMN specialty TEXT NOT NULL DEFAULT 'fiae'");
-    db.exec("CREATE INDEX IF NOT EXISTS idx_tasks_specialty ON tasks(part, specialty)");
+    db.exec('CREATE INDEX IF NOT EXISTS idx_tasks_specialty ON tasks(part, specialty)');
   } catch {
     /* bereits vorhanden — ignorieren */
   }
@@ -238,7 +236,7 @@ export function initDatabase(): void {
   // ─── Migration: task_kind Spalte für typ-balancierte Zusammenstellung ─────
   try {
     db.exec("ALTER TABLE tasks ADD COLUMN task_kind TEXT NOT NULL DEFAULT 'text'");
-    db.exec("CREATE INDEX IF NOT EXISTS idx_tasks_kind ON tasks(part, specialty, task_kind)");
+    db.exec('CREATE INDEX IF NOT EXISTS idx_tasks_kind ON tasks(part, specialty, task_kind)');
   } catch {
     /* bereits vorhanden — ignorieren */
   }
@@ -248,7 +246,7 @@ export function initDatabase(): void {
   try {
     reclassifyExistingTasks();
   } catch (err) {
-    console.warn("[db] Reklassifizierung alter Tasks fehlgeschlagen:", err);
+    console.warn('[db] Reklassifizierung alter Tasks fehlgeschlagen:', err);
   }
 
   db.prepare(
@@ -285,7 +283,7 @@ export const GENERATE_COUNT: Record<string, number> = {
 // Ergebnis trifft wie ein echter Assembly-Versuch. So vermeiden wir Drift:
 // wenn canAssembleExam grün zeigt, gelingt assembleExam garantiert.
 
-export function canAssembleExam(part: string, specialty = "fiae"): boolean {
+export function canAssembleExam(part: string, specialty = 'fiae'): boolean {
   const profile = SLOT_PROFILES[part];
   if (!profile) return false;
 
@@ -299,12 +297,12 @@ export function canAssembleExam(part: string, specialty = "fiae"): boolean {
     maxP: number,
     kindFilter: TaskKind | null,
   ): { id: string; topic_area: string; task_kind: string } | undefined {
-    const usedIdStr = usedIds.map((id) => `'${id}'`).join(",") || "''";
+    const usedIdStr = usedIds.map((id) => `'${id}'`).join(',') || "''";
     const topicEx =
       usedTopics.size > 0
-        ? `AND topic_area NOT IN (${[...usedTopics].map((t) => `'${t.replace(/'/g, "''")}'`).join(",")})`
-        : "";
-    const kindEx = kindFilter ? `AND task_kind = '${kindFilter}'` : "";
+        ? `AND topic_area NOT IN (${[...usedTopics].map((t) => `'${t.replace(/'/g, "''")}'`).join(',')})`
+        : '';
+    const kindEx = kindFilter ? `AND task_kind = '${kindFilter}'` : '';
 
     const primary = db
       .prepare(
@@ -409,14 +407,14 @@ const SLOT_PROFILES: Record<string, SlotSpec[]> = {
   teil_3: [
     // WiSo: 8 Slots, keine Typbalance — nur Punkte-Range.
     // Leere preferredKinds → alle Kinds gleichwertig
-    { minPoints: 8,  maxPoints: 15, preferredKinds: [] },
-    { minPoints: 8,  maxPoints: 15, preferredKinds: [] },
-    { minPoints: 8,  maxPoints: 15, preferredKinds: [] },
-    { minPoints: 8,  maxPoints: 15, preferredKinds: [] },
-    { minPoints: 8,  maxPoints: 15, preferredKinds: [] },
+    { minPoints: 8, maxPoints: 15, preferredKinds: [] },
+    { minPoints: 8, maxPoints: 15, preferredKinds: [] },
+    { minPoints: 8, maxPoints: 15, preferredKinds: [] },
+    { minPoints: 8, maxPoints: 15, preferredKinds: [] },
+    { minPoints: 8, maxPoints: 15, preferredKinds: [] },
     { minPoints: 10, maxPoints: 20, preferredKinds: [] },
     { minPoints: 10, maxPoints: 20, preferredKinds: [] },
-    { minPoints: 8,  maxPoints: 15, preferredKinds: [] },
+    { minPoints: 8, maxPoints: 15, preferredKinds: [] },
   ],
 };
 
@@ -439,10 +437,24 @@ const MAX_TEXT_PER_EXAM: Record<string, number> = {
 //   4. Text-Kappe enforce'n: wenn bereits MAX_TEXT_PER_EXAM 'text'-Tasks
 //      gewählt sind, 'text' aus der preferredKinds-Liste filtern.
 
-export function assembleExam(part: string, specialty = "fiae"): {
+export interface AssembledTask {
+  id: string;
+  topic_area: string;
+  task_kind: string;
+  points_value: number;
+  /** Erster nicht-leerer Fragetext aus subtasks — für die Szenario-Generierung. */
+  firstQuestion?: string;
+}
+
+export function assembleExam(
+  part: string,
+  specialty = 'fiae',
+): {
   tasks: Record<string, unknown>[];
   totalPoints: number;
   topics: string[];
+  /** Kompakte Zusammenfassung jeder Aufgabe — wird an generateScenarioForTasks übergeben. */
+  taskSummaries: AssembledTask[];
 } | null {
   const profile = SLOT_PROFILES[part];
   if (!profile) return null;
@@ -458,12 +470,12 @@ export function assembleExam(part: string, specialty = "fiae"): {
     maxP: number,
     kindFilter: TaskKind | null,
   ): Record<string, unknown> | undefined {
-    const usedIdStr = usedIds.map((id) => `'${id}'`).join(",") || "''";
+    const usedIdStr = usedIds.map((id) => `'${id}'`).join(',') || "''";
     const topicEx =
       usedTopics.size > 0
-        ? `AND topic_area NOT IN (${[...usedTopics].map((t) => `'${t.replace(/'/g, "''")}'`).join(",")})`
-        : "";
-    const kindEx = kindFilter ? `AND task_kind = '${kindFilter}'` : "";
+        ? `AND topic_area NOT IN (${[...usedTopics].map((t) => `'${t.replace(/'/g, "''")}'`).join(',')})`
+        : '';
+    const kindEx = kindFilter ? `AND task_kind = '${kindFilter}'` : '';
 
     // Primär: Topic noch ungenutzt (verhindert doppelte Themen in einer Prüfung)
     const primary = db
@@ -515,15 +527,35 @@ export function assembleExam(part: string, specialty = "fiae"): {
     kindCounts[kind] = (kindCounts[kind] ?? 0) + 1;
   }
 
-  const totalPoints = selectedTasks.reduce(
-    (s, t) => s + (t.points_value as number),
-    0,
-  );
+  const totalPoints = selectedTasks.reduce((s, t) => s + (t.points_value as number), 0);
+
+  // Hole ersten Fragetext je Task für den Szenario-Prompt (max. 120 Zeichen)
+  const taskSummaries: AssembledTask[] = selectedTasks.map((t) => {
+    const row = db
+      .prepare(
+        `SELECT question_text FROM subtasks WHERE task_id = ?
+         ORDER BY position ASC LIMIT 1`,
+      )
+      .get(t.id as string) as { question_text: string } | undefined;
+    const q = row?.question_text ?? '';
+    return {
+      id: t.id as string,
+      topic_area: t.topic_area as string,
+      task_kind: (t.task_kind as string) ?? 'text',
+      points_value: t.points_value as number,
+      firstQuestion:
+        q
+          .replace(/\{\{[A-Z_]+\}\}/g, '')
+          .slice(0, 120)
+          .trim() || undefined,
+    };
+  });
 
   return {
     tasks: selectedTasks,
     totalPoints,
     topics: [...usedTopics],
+    taskSummaries,
   };
 }
 
@@ -581,8 +613,10 @@ export function reclassifyExistingTasks(): void {
 export function migrateAiEvaluationsRemoveUnique(): void {
   try {
     // Probe: Wenn INSERT mit doppelter answer_id durchgeht, ist UNIQUE schon weg
-    db.pragma("foreign_keys = OFF");
-    const probe = db.prepare(`SELECT id FROM ai_evaluations LIMIT 1`).get() as { id: string } | undefined;
+    db.pragma('foreign_keys = OFF');
+    const probe = db.prepare(`SELECT id FROM ai_evaluations LIMIT 1`).get() as
+      | { id: string }
+      | undefined;
     if (probe) {
       // Versuche zweiten Eintrag mit gleicher answer_id
       db.prepare(
@@ -591,10 +625,10 @@ export function migrateAiEvaluationsRemoveUnique(): void {
       ).run(probe.id);
       db.prepare(`DELETE FROM ai_evaluations WHERE model_used = '_probe'`).run();
     }
-    db.pragma("foreign_keys = ON");
+    db.pragma('foreign_keys = ON');
     // Kein Fehler → UNIQUE ist schon weg oder Tabelle leer
   } catch {
-    db.pragma("foreign_keys = ON");
+    db.pragma('foreign_keys = ON');
     // UNIQUE existiert noch → Rebuild
     db.transaction(() => {
       db.exec(`DROP TABLE IF EXISTS ai_evaluations_new`);
@@ -623,6 +657,6 @@ export function migrateAiEvaluationsRemoveUnique(): void {
       db.exec(`ALTER TABLE ai_evaluations_new RENAME TO ai_evaluations`);
       db.exec(`CREATE INDEX IF NOT EXISTS idx_eval_answer ON ai_evaluations(answer_id)`);
     })();
-    console.log("[db] ai_evaluations UNIQUE-Constraint entfernt.");
+    console.log('[db] ai_evaluations UNIQUE-Constraint entfernt.');
   }
 }

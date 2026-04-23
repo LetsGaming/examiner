@@ -1547,45 +1547,14 @@ function safeParseTask(raw: string): GeneratedTask | null {
 
 // ─── Prompt-Builder ──────────────────────────────────────────────────────────
 //
-// Die zentralen Erkenntnisse aus der OCR-Analyse von 10+ echten IHK AP2-Prüfungen
-// (Sommer 2020 – Sommer 2025), die den alten Prompt fundamental verbessern:
-//
-// 1. KONTEXTMATERIAL — Jede echte IHK-Aufgabe liefert zuerst Material, dann
-//    die Frage. Pseudocode-Aufgaben zeigen Klassendiagramme + Objekte + Beispieldaten.
-//    SQL-Aufgaben zeigen vollständige Tabellendaten mit Beispielzeilen.
-//    Sequenzdiagramm-Aufgaben zeigen den Ablauf als Prosa + beteiligte Klassen.
-//    Der alte Prompt ließ diesen Kontext weg → die KI produzierte abstrakte,
-//    nicht-prüfungsreife Fragen ohne Verankerung.
-//
-// 2. AUFGABENTEXT-STIL — Echte IHK-Texte beginnen mit einem situativen Satz,
-//    dann kommt der Arbeitsauftrag mit Operator. Nie "Erläutern Sie allgemein X",
-//    sondern immer "Die AMAG Soft GmbH möchte ... Erstellen Sie ...".
-//
-// 3. SQL — Echte Prüfungen (S25 T2 Aufg. 4) liefern IMMER vollständige
-//    Tabellenausschnitte mit Beispieldaten. Ohne Daten ist SQL nicht lösbar.
-//    Außerdem kommen komplexe Aufgaben: INSERT + GRANT + REVOKE + ALTER TABLE
-//    + SELECT mit GROUP BY/HAVING — nicht nur simple JOINs.
-//
-// 4. PSEUDOCODE — Echte Prüfungen (S25 T2 Aufg. 1) liefern Klassen mit
-//    Attributen und get-Methoden, Beispiel-Array mit Daten, und einen
-//    konkreten Funktionskopf. Der Prüfling füllt nur den Körper aus.
-//
-// 5. SEQUENZDIAGRAMM — Echte Prüfungen (S25 T2 Aufg. 2, S22 T1 Aufg. 3)
-//    liefern Klassendiagramm-Ausschnitt + schrittweise Vorgangsbeschreibung
-//    ("Die Methode X ruft Y auf ... wenn leer, dann ...").
-//
-// 6. ER-DIAGRAMM — Echte Prüfungen (S25 T1 Aufg. 2) liefern eine
-//    aufzählende Anforderungsliste ("Patienten werden mit... erfasst.
-//    Ein Patient kann mehrere Medikamente einnehmen.").
-//
-// 7. AKTIVITÄTSDIAGRAMM — Echte Prüfungen (S25 T1 Aufg. 3, W23/24 T2 Aufg. 2)
-//    liefern einen Bullet-Point-Ablauf als Prozessbeschreibung.
-//
-// 8. PUNKTE-ANGABE IM AUFGABENTEXT — Jede Unteraufgabe endet mit
-//    "X Punkte" direkt im Aufgabentext.
-//
-// 9. BEWERTUNGSHINWEISE IN DEN LÖSUNGEN — IHK-Korrektoren bekommen
-//    granulare Hinweise: "je Entität 1P, je Beziehung 2P, je Attribut 0,5P".
+// Kernerkenntnisse aus OCR-Analyse von 10+ echten IHK AP2-Prüfungen (2020–2025):
+// 1. Kontextmaterial ZUERST: Klassen+Methoden, Tabellen+Daten, Bullet-Prozesse, ER-Anforderungen
+// 2. Aufgabentexte: situativer Einstieg → Kontextmaterial → Arbeitsauftrag mit Operator
+// 3. SQL: immer vollständige Tabellen mit Beispieldaten, DML-Mix (INSERT/GRANT/REVOKE/ALTER)
+// 4. Pseudocode: Klassen mit get-Methoden + fertiger Funktionskopf vorgegeben
+// 5. Sequenz: Klassenausschnitt + schrittweise Vorgangsbeschreibung mit Verzweigungen
+// 6. buildSystemPrompt ist aufgabentypabhängig — nur relevante Regeln werden eingebaut
+//    → spart Token bei einfachen Freitext-Aufgaben
 
 /** Erkennt, ob das Rezept mindestens eine SQL/Pseudocode/Sequenz-Subtask enthält. */
 function recipeNeedsContextMaterial(recipe: TaskRecipe): boolean {
@@ -1596,129 +1565,64 @@ function recipeNeedsContextMaterial(recipe: TaskRecipe): boolean {
 
 function buildSystemPrompt(specialtyLabel: string, recipe: TaskRecipe): string {
   const hasSql = recipe.subtasks.some((s) => s.taskType === 'sql');
-  const hasPseudocode = recipe.subtasks.some((s) => s.taskType === 'pseudocode');
+  const hasPseudo = recipe.subtasks.some((s) => s.taskType === 'pseudocode');
   const hasSequenz = recipe.subtasks.some(
     (s) => s.taskType === 'plantuml' && s.diagramType === 'uml_sequence',
   );
-  const hasAktivitaet = recipe.subtasks.some(
+  const hasAkt = recipe.subtasks.some(
     (s) => s.taskType === 'plantuml' && s.diagramType === 'uml_activity',
   );
   const hasEr = recipe.subtasks.some((s) => s.taskType === 'plantuml' && s.diagramType === 'er');
 
-  let contextRules = '';
+  // Nur die für dieses Rezept relevanten Typ-Regeln — spart Token bei einfachen Aufgaben
+  const typeRules: string[] = [];
 
-  if (hasSql) {
-    contextRules += `
-SQL-AUFGABEN — PFLICHTREGELN (aus echten IHK-Prüfungen abgeleitet):
-- Der questionText MUSS vollständige Tabellenstrukturen + MINDESTENS 4–7 Beispieldatenzeilen enthalten.
-  Format exakt wie in echten Prüfungen, z.B.:
-  "Tabelle Aerzte:\nAID | Vorname | Nachname | Fachgebiet | Email\n1 | Tomas | Krüger | Allgemeinmedizin | tkrueger@fit.de\n2 | Jürgen | Walter | Kardiologie | jwalter@fit.de\n3 | Birgit | Schneider | Neurologie | NULL"
-- Bei mehreren Tabellen: alle Tabellen mit Daten angeben, nicht nur die Struktur.
-- Aufgabentypen variieren: nicht nur SELECT+JOIN, sondern auch:
-  • INSERT INTO ... VALUES (...)
-  • GRANT/REVOKE Rechte auf Tabellen
-  • UPDATE ... WHERE ... / ALTER TABLE ... MODIFY ...
-  • SELECT mit GROUP BY, HAVING, ORDER BY, COUNT/AVG
-  • Subqueries: SELECT ... FROM (SELECT ... GROUP BY ...) AS sub
-- Bei komplexeren Aufgaben (GROUP BY, Subquery): Ergebnisbeispiel zeigen wie echte Prüfungen:
-  "Ergebnisbeispiel:\nPID | Nachname | Anzahl_Verschreibungen\n1 | Keller | 4"
-- "solutionSql": exakte funktionierende Musterlösung mit den konkreten Tabellen- und Spaltennamen aus dem questionText.
-- "keyElements": z.B. ["JOIN Patienten p ON p.PID = v.PID", "GROUP BY p.PID", "HAVING COUNT >= 3"]`;
-  }
+  if (hasSql)
+    typeRules.push(
+      `SQL: questionText MUSS vollständige Tabellen + mind. 5 Beispieldatenzeilen enthalten (Format: "Spalte1 | Spalte2 | ...\\nWert1 | Wert2"). Bei GROUP BY/Subquery: Ergebnisbeispiel zeigen. DML-Varianten erlaubt: INSERT, GRANT/REVOKE, UPDATE+ALTER. solutionSql: exakte Musterlösung mit echten Tabellen-/Spaltennamen. keyElements: Pflichtbausteine.`,
+    );
 
-  if (hasPseudocode) {
-    contextRules += `
-PSEUDOCODE-AUFGABEN — PFLICHTREGELN (aus echten IHK-Prüfungen abgeleitet):
-- Der questionText MUSS ein vollständiges Klassendiagramm-Fragment mit konkreten Attributen und get-Methoden enthalten.
-  Format: Klassenname\n- attributName : Datentyp\n+ getAttributName(): Datentyp
-  Beispiel aus S25 T2 Aufg. 1:
-  "Belegung\n- patientId : Integer\n- datumVon : Date  // Aufnahmetag\n- datumBis : Date  // Entlassungstag, zählt nicht als Belegungstag\n- stationId : Integer\nFür jedes Attribut gibt es eine öffentliche get-Methode."
-- Außerdem: konkreten Funktionskopf mit Parametern angeben, den der Prüfling implementieren soll.
-  Beispiel: "ermittleAuslastungsTage(belegung: Belegung[], startDatum: Date, endDatum: Date, stationId: Integer, anzahlBetten: Integer): Integer"
-- Optional: kleines Beispiel-Array mit 2–3 Einträgen zeigen, damit der Prüfling den Kontext versteht.
-- Hinweise zu besonderen Operatoren/Methoden angeben (z.B. "date = date + 1 liefert das Folgedatum").
-- "keyPoints" in expectedAnswer: vollständige Musterlösung als Pseudocode-Schrittliste.`;
-  }
+  if (hasPseudo)
+    typeRules.push(
+      `PSEUDOCODE: questionText MUSS enthalten: (1) Klassen mit Attributen + get-Methoden im Format "Klasse\\n- attr : Typ\\n+ getAttr(): Typ", (2) konkreten Funktionskopf "name(param: Typ, ...): Rückgabe", (3) optional Beispiel-Array 2–3 Objekte, (4) Hinweise zu besonderen Operationen. keyPoints: vollständige Pseudocode-Musterlösung.`,
+    );
 
-  if (hasSequenz) {
-    contextRules += `
-SEQUENZDIAGRAMM-AUFGABEN — PFLICHTREGELN (aus echten IHK-Prüfungen abgeleitet):
-- Der questionText MUSS einen Klassendiagramm-Ausschnitt mit den beteiligten Klassen und ihren Methoden enthalten.
-  Format wie in echten Prüfungen (S25 T2 Aufg. 2):
-  "Klasse U:\n+ ausgabeMedikationsplan(): void\n+ ausgabeMedikation(medikation: String): void\nKlasse Verordnungen:\n+ getMedikamente(patient: Patient): Medikament[]\nKlasse MedikamentDB:\n+ getEinnahme(medikament: Medikament, patient: Patient): String\n+ getStandardMedikation(medikament: Medikament): String"
-- Dann eine schrittweise Vorgangsbeschreibung mit Bullets:
-  "— Die Methode ausgabeMedikationsplan() der Klasse U wird aufgerufen.\n— Diese Methode ruft getMedikamente(...) auf, um eine Liste der Medikamente zu erhalten.\n— Für alle Elemente dieser Liste ruft ausgabeMedikationsplan() dann getEinnahme(..) auf.\n— Wenn diese Methode einen leeren String zurückgibt, liefert getStandardMedikation(...) die Vorgabe.\n— Die Einnahmevorgaben werden mit ausgabeMedikation(..) ausgegeben."
-- "expectedElements": konkrete Lebenslinien-Namen + Nachrichten, z.B. ["Lifeline U", "Lifeline Verordnungen", "getMedikamente(patient)", "Loop für alle Medikamente", "alt: Einnahme leer → getStandardMedikation"]`;
-  }
+  if (hasSequenz)
+    typeRules.push(
+      `SEQUENZDIAGRAMM: questionText MUSS enthalten: (1) 3–4 Klassen mit Methodensignaturen, (2) schrittweise Vorgangsbeschreibung als Bullets mit Verzweigungen ("— Wenn X leer → Y"). expectedElements: Lebenslinien + Nachrichten + opt/loop-Blöcke.`,
+    );
 
-  if (hasAktivitaet) {
-    contextRules += `
-AKTIVITÄTSDIAGRAMM-AUFGABEN — PFLICHTREGELN (aus echten IHK-Prüfungen abgeleitet):
-- Der questionText MUSS eine Bullet-Point-Prozessbeschreibung liefern wie in echten Prüfungen (S25 T1 Aufg. 3):
-  "— Die Ärzte versammeln sich zusammen mit dem Pflegepersonal.\n— Es werden die Laborergebnisse abgefragt und die Reihenfolge (Priorisierung nach Behandlungen) und Dringlichkeit geplant.\n— Im Behandlungszimmer wird zuerst die Patientenakte geöffnet.\n— Die Vitalwerte werden vom Pflegepersonal überwacht, der Patient wird nach auftretenden Symptomen gefragt.\n— Eventuell aufgetretene Symptome werden notiert, der Behandlungsplan besprochen.\n— Falls neue Laborergebnisse vorliegen, werden diese eingearbeitet.\n— Nach Notierung der Vitalwerte werden ärztliche Untersuchungen durchgeführt.\n— Die Änderungen der Patientenakte werden nach der Visite übertragen."
-- Swimlanes angeben falls mehrere Akteure: "Stellen Sie den Ablauf mit zwei Swimlanes (Arzt / Pflegepersonal) dar."
-- "expectedElements": konkrete Aktivitäten + Entscheidungen, z.B. ["StartNode", "Aktivität: Laborergebnisse abfragen", "Verzweigung: neue Laborergebnisse vorhanden?", "Aktivität: Symptome notieren", "Synchronisierung nach Visite", "EndNode"]`;
-  }
+  if (hasAkt)
+    typeRules.push(
+      `AKTIVITÄTSDIAGRAMM: questionText MUSS enthalten: Prozess als Bullet-Liste (7–10 Schritte, mind. 1 Verzweigung, mind. 1 Parallelität/Synchronisierung) + beteiligte Rollen für Swimlanes. expectedElements: Aktivitäten + Entscheidungsknoten + Synchronisierungsbalken.`,
+    );
 
-  if (hasEr) {
-    contextRules += `
-ER-DIAGRAMM-AUFGABEN — PFLICHTREGELN (aus echten IHK-Prüfungen abgeleitet):
-- Der questionText MUSS eine aufzählende Anforderungsliste liefern wie in echten Prüfungen (S25 T1 Aufg. 2):
-  "— Patienten werden mit Nachname, Vorname, Geburtsdatum, Krankenkasse und Versichertennummer erfasst.\n— Medikamente haben einen Hersteller und einen Wirkstoff.\n— Ein Patient kann mehrere Medikamente einnehmen.\n— Für jede Einnahme wird die Dosis und der Einnahmezeitpunkt hinterlegt.\n— Ärzte werden mit Nachname, Vorname und Spezialgebiet erfasst.\n— Ein Patient kann von unterschiedlichen Ärzten behandelt werden.\n— Für jede Behandlung wird ein Zeitstempel und ein Bericht hinterlegt."
-- Wenn eine Entität bereits vorgegeben ist: "Der Entitätstyp Patient ist mit den geforderten Attributen bereits gegeben. Vervollständigen Sie das ER-Modell."
-- "expectedElements": konkrete Entitäten + Beziehungen mit Kardinalitäten, z.B. ["Entität Patient (Vorname, Nachname, GebDat, PK: PatID)", "Entität Medikament (Hersteller, Wirkstoff, PK: MedID)", "Beziehung Patient — nimmt ein — Medikament (m:n mit Dosis, Zeitpunkt)", "Entität Arzt (Nachname, Vorname, Spezialgebiet, PK: ArztID)", "Beziehung Patient — wird behandelt von — Arzt (m:n mit Zeitstempel, Bericht)"]`;
-  }
+  if (hasEr)
+    typeRules.push(
+      `ER-DIAGRAMM: questionText MUSS enthalten: Anforderungen als Bullet-Liste (7–10 Punkte, mind. 1 m:n-Beziehung mit Beziehungsattributen). Optional: "Entität X ist bereits gegeben, vervollständigen Sie das Modell." expectedElements: Entitäten + Beziehungen mit Kardinalitäten.`,
+    );
 
-  return `Du bist IHK-Prüfungsersteller für ${specialtyLabel} AP2. Antworte NUR mit gültigem JSON, kein Markdown.
+  const typeSection = typeRules.length > 0 ? `\n${typeRules.join('\n\n')}\n` : '';
 
-═══════════════════════════════════════════════════════════════════
-KERNPRINZIP: ECHTE IHK-PRÜFUNGSQUALITÄT
-═══════════════════════════════════════════════════════════════════
+  return `IHK ${specialtyLabel} AP2 Prüfungsersteller. Antworte NUR mit JSON (kein Markdown).
 
-Echte IHK-Prüfungen haben IMMER diese Struktur:
-1. SITUATIVER EINSTIEG: "Die {{UNTERNEHMEN}} möchte X entwickeln. Sie sind Mitarbeiter der AMAG Soft GmbH und arbeiten in diesem Projekt mit."
-2. KONTEXTMATERIAL: Klassendiagramm, Tabellen mit Daten, Codeausschnitt, Prozessbeschreibung — was auch immer zur Aufgabe gehört.
-3. ARBEITSAUFTRAG: "Erstellen Sie...", "Nennen Sie...", "Erläutern Sie..." + Punktzahl am Ende: "X Punkte"
+AUFGABENTEXT-STRUKTUR (Pflicht):
+1. Situativer Einstieg: "{{UNTERNEHMEN}} möchte X entwickeln. Sie arbeiten in diesem Projekt mit."
+2. Kontextmaterial (Klassen, Tabellen, Bullets, Code) — je nach Aufgabentyp
+3. Arbeitsauftrag mit IHK-Operator, z.B. "Nennen Sie...", "Erläutern Sie...", "Erstellen Sie..."
+Nie abstrakt "Erkläre allgemein X" — immer projektbezogen auf {{UNTERNEHMEN}}/{{PRODUKT}}.
 
-AUFGABENTEXT-STIL (PFLICHT):
-- Jeder questionText beginnt mit einem situativen Satz, der den Kontext herstellt.
-- Dann kommt das Kontextmaterial (Klassendefinitionen, Tabellen, Bullet-Listen, Codefragmente).
-- Dann der konkrete Arbeitsauftrag mit IHK-Operator.
-- Der Operator steht IMMER am Satzanfang: "Nennen Sie...", "Erläutern Sie...", "Beschreiben Sie...", "Erstellen Sie...", "Berechnen Sie...", "Skizzieren Sie..."
-- NIE "Erkläre allgemein X" — IMMER kontextgebunden: "Erläutern Sie, welche Vorteile der Einsatz von X für {{UNTERNEHMEN}} bei diesem Projekt hätte."
+PLATZHALTER: {{UNTERNEHMEN}} {{BRANCHE}} {{PRODUKT}} {{MITARBEITER}} nur im questionText.
+In expectedAnswer/explanation/solutionSql: keine Platzhalter — szenario-neutrale Musterlösung.
+${typeSection}
+MC: 4 Optionen A–D, correctOption variiert (nicht immer A), explanation 1–2 Sätze.
+MC-Multi: correctOptions=[2–3 Buchstaben], nie 0 oder 4 korrekte.
+Tabellen: columns themenspezifisch, exampleRow vollständig, keyPoints 2–4 Stichpunkte.
+Plantuml/ER: expectedElements mind. 4 konkrete Elemente mit Namen.
 
-PLATZHALTER:
-- {{UNTERNEHMEN}}, {{BRANCHE}}, {{PRODUKT}}, {{MITARBEITER}} dürfen im questionText verwendet werden.
-- In "expectedAnswer", "explanation", "solutionSql" KEINE Platzhalter — dort szenario-neutrale Musterlösung.
+Operatoren: nennen=Stichworte | beschreiben=2–3 Sätze | erläutern=Begründung 3–5 Sätze | berechnen=Rechenweg+Einheit | entwerfen/erstellen/skizzieren=konkrete Umsetzung | vergleichen=Kriterien-Gegenüberstellung | identifizieren=Fehler benennen
 
-MULTIPLE-CHOICE (mc):
-- 4 konkrete, plausible Antwortoptionen (A–D). Alle Distraktoren müssen fachlich klingen.
-- "correctOption": genau EIN Buchstabe. Variiere Position (nicht immer A).
-- "explanation": 1–2 Sätze Begründung, warum diese Option richtig ist.
-
-MULTIPLE-CHOICE MEHRFACHAUSWAHL (mc_multi):
-- 4 Aussagen (A–D). Genau 2 oder 3 sind korrekt (nie 0, nie 4).
-- "correctOptions": Array mit 2–3 Buchstaben.
-- "explanation": kurze Begründung.
-
-TABELLEN (table):
-- "columns": konkrete themenspezifische Spaltennamen (bei flexible/guided anpassen, bei fixed Vorgabe halten).
-- "exampleRow": EINE vollständig ausgefüllte Musterzeile.
-- "keyPoints" in expectedAnswer: 2–4 Musterlösungs-Stichpunkte.
-
-PLANTUML / ER (plantuml):
-- "expectedElements": mind. 4 konkrete zu erwartende Elemente mit Namen.
-${contextRules}
-OPERATOREN (IHK-Dimension — STRIKT einhalten):
-- "nennen" → Auflistung, Stichworte reichen, kein Satz nötig
-- "beschreiben" → Sachverhalt in eigenen Worten, 2–3 Sätze
-- "erläutern" → mit Begründung/Ursache-Wirkung, 3–5 Sätze
-- "berechnen" → Rechenweg zwingend + Ergebnis mit Einheit
-- "entwerfen" / "erstellen" / "skizzieren" → konkrete Umsetzung (Code/Diagramm/Tabelle/Mockup)
-- "vergleichen" → strukturierte Gegenüberstellung nach Kriterien
-- "identifizieren" / "benennen" → Fehler/Elemente finden und mit Zeilenbezug benennen
-
-AUSGABE: Antworte AUSSCHLIESSLICH mit einem validen JSON-Objekt ohne umgebenden Text.`;
+Antworte AUSSCHLIESSLICH mit einem validen JSON-Objekt.`;
 }
 
 function buildUserPrompt(
@@ -1729,201 +1633,80 @@ function buildUserPrompt(
   schemas: string[],
   labels: string[],
 ): string {
-  // Baue themenspezifische Hinweise, die dem LLM helfen, realistisches
-  // Kontextmaterial zu erzeugen — abgeleitet aus echten Prüfungsmustern.
-  const contextHint = buildTopicContextHint(topic, recipe);
-
-  return `Thema: "${topic}"
-${contextHint}
-Erstelle eine IHK-typische Prüfungsaufgabe mit ${recipe.subtasks.length} Unteraufgaben.
-
-UNTERAUFGABEN:
+  const hint = buildTopicContextHint(topic, recipe);
+  return `Thema: "${topic}"${hint}
+Unteraufgaben:
 ${subtaskInstructions}
 
-QUALITÄTSKRITERIEN (aus echten IHK-Prüfungen 2020–2025):
-- Jede Unteraufgabe hat einen KONKRETEN, situativen Aufgabentext — kein abstraktes "Erkläre X".
-- Bei SQL: Tabellen mit Beispieldaten im questionText, exakte Musterlösung in solutionSql.
-- Bei Pseudocode/Sequenzdiagramm: Klassen mit Attributen + Methoden im questionText.
-- Bei ER/Aktivitätsdiagramm: aufzählende Anforderungs- oder Prozessbeschreibung im questionText.
-- Bei Freitext mit Vergleich: echte Namen der Konzepte verwenden (z.B. "Scrum" vs. "Wasserfallmodell"), keine generischen "Option A/B".
-- Die Aufgabe soll sich kohärent auf EINEN Anwendungsfall bei {{UNTERNEHMEN}} beziehen.
+Aufgabe bezieht sich kohärent auf EINEN Anwendungsfall bei {{UNTERNEHMEN}}. Vergleiche nutzen echte Namen (Scrum/Wasserfall, nicht "Option A/B").
 
-Gib das JSON zurück. Ersetze alle FRAGE-Platzhalter durch echten IHK-typischen Aufgabentext und fülle alle mcOptions, expectedAnswer etc. mit konkreten Inhalten:
+JSON zurückgeben — FRAGE-Platzhalter durch konkreten IHK-Text ersetzen, mcOptions/expectedAnswer mit echten Inhalten füllen:
 {"topicArea":"${topic}","pointsValue":${totalPoints},"difficulty":"medium","subtasks":[${schemas.join(',')}]}`;
 }
 
-/**
- * Liefert themenspezifische Hinweise für das User-Prompt, damit die KI
- * realistisches Kontextmaterial erzeugt. Abgeleitet aus den echten Prüfungen.
- */
+/** Kompakte themenspezifische Kontexthinweise — nur wenn relevant, sonst leer. */
 function buildTopicContextHint(topic: string, recipe: TaskRecipe): string {
-  const lower = topic.toLowerCase();
+  const t = topic.toLowerCase();
   const hasSql = recipe.subtasks.some((s) => s.taskType === 'sql');
   const hasPseudo = recipe.subtasks.some((s) => s.taskType === 'pseudocode');
-  const hasPlantuml = recipe.subtasks.some((s) => s.taskType === 'plantuml');
+  const diagType = recipe.subtasks.find((s) => s.taskType === 'plantuml')?.diagramType;
 
-  const hints: string[] = [];
+  const h: string[] = [];
 
-  // ── SQL-spezifische Kontexthinweise ──────────────────────────────────────
   if (hasSql) {
-    if (lower.includes('join') || lower.includes('select')) {
-      hints.push(
-        'SQL-Kontext: Erstelle 2–3 thematisch passende Tabellen mit je 5–7 Beispieldatenzeilen. ' +
-          'Die Aufgabe soll einen realitätsnahen Anwendungsfall abbilden (z.B. Patientenverwaltung, ' +
-          'Auftragssystem, Lagerbestand). Baue eine SELECT+JOIN-Abfrage mit WHERE/ORDER-Bedingung.',
-      );
-    } else if (lower.includes('group') || lower.includes('aggregat')) {
-      hints.push(
-        'SQL-Kontext: Erstelle 2 Tabellen mit 7–10 Datenzeilen, die Aggregation sinnvoll machen ' +
-          '(z.B. Verschreibungen pro Patient, Bestellungen pro Kunde). ' +
-          'Zeige ein Ergebnisbeispiel nach der Aufgabe.',
-      );
-    } else if (lower.includes('ddl') || lower.includes('create')) {
-      hints.push(
-        'SQL-Kontext: Liefere eine Anforderungsbeschreibung (3–4 Bullets) aus der die CREATE-Struktur ' +
-          'eindeutig hervorgeht. Die Tabelle soll 5–7 Attribute + PK + FK haben.',
-      );
-    } else if (lower.includes('update') || lower.includes('delete') || lower.includes('insert')) {
-      hints.push(
-        'SQL-Kontext: Erstelle 2 Tabellen mit 5–7 Datenzeilen als Ausgangssituation. ' +
-          'Die Aufgabe soll DML-Operationen (INSERT, UPDATE, GRANT, REVOKE, ALTER TABLE) kombinieren, ' +
-          'wie in echten IHK-Prüfungen: z.B. Eintrag hinzufügen + Rechte vergeben + Pflichtfeld setzen.',
-      );
-    }
+    if (t.includes('join') || t.includes('select'))
+      h.push('SQL: 2–3 Tabellen mit 5–7 Datenzeilen, SELECT+JOIN mit WHERE/ORDER.');
+    else if (t.includes('group') || t.includes('aggregat'))
+      h.push('SQL: 2 Tabellen mit 7–10 Zeilen, GROUP BY+HAVING, Ergebnisbeispiel zeigen.');
+    else if (t.includes('ddl') || t.includes('create'))
+      h.push('SQL: Anforderung als 3–4 Bullets → CREATE TABLE mit 5–7 Attributen + PK + FK.');
+    else h.push('SQL: 2 Tabellen mit 5–7 Zeilen, DML-Mix: INSERT + GRANT/REVOKE + UPDATE/ALTER.');
   }
 
-  // ── Pseudocode-spezifische Kontexthinweise ───────────────────────────────
-  if (hasPseudo) {
-    if (lower.includes('rekursion') || lower.includes('such') || lower.includes('sortier')) {
-      hints.push(
-        'Pseudocode-Kontext: Liefere eine oder zwei Klassen mit Attributen und öffentlichen get-Methoden. ' +
-          'Gib einen konkreten Funktionskopf mit Parametern vor, den der Prüfling implementieren soll. ' +
-          'Zeige ein kleines Beispiel-Array mit 3–4 Objekten, damit der Prüfling die Datenstruktur versteht.',
-      );
-    } else {
-      hints.push(
-        'Pseudocode-Kontext: Definiere mindestens eine Klasse mit 3–4 Attributen und ihren get-Methoden. ' +
-          'Gib einen vollständigen Funktionskopf vor (Name, Parameter mit Typen, Rückgabetyp). ' +
-          'Beschreibe eventuelle Besonderheiten der Objekte (z.B. "date + 1 liefert das Folgedatum").',
-      );
-    }
-  }
-
-  // ── Diagramm-spezifische Kontexthinweise ─────────────────────────────────
-  if (hasPlantuml) {
-    const diagType = recipe.subtasks.find((s) => s.taskType === 'plantuml')?.diagramType;
-    if (diagType === 'uml_sequence') {
-      hints.push(
-        'Sequenzdiagramm-Kontext: Liefere 3–4 beteiligte Klassen mit ihren relevanten Methoden ' +
-          '(Signatur + Rückgabetyp). Dann eine schrittweise Vorgangsbeschreibung mit Bullet-Points, ' +
-          'die Verzweigungen ("Wenn ... leer, dann ...") und Schleifen ("Für alle Elemente ...") enthält.',
-      );
-    } else if (diagType === 'uml_activity') {
-      hints.push(
-        'Aktivitätsdiagramm-Kontext: Liefere einen konkreten Geschäftsprozess als Bullet-Point-Liste ' +
-          'mit 7–10 Schritten. Mindestens eine Verzweigung (if/else) und eine Parallelität oder Synchronisierung ' +
-          'einbauen. Wenn mehrere Rollen beteiligt sind, Swimlanes vorgeben.',
-      );
-    } else if (diagType === 'er') {
-      hints.push(
-        'ER-Diagramm-Kontext: Liefere eine aufzählende Anforderungsliste mit 7–10 Bullets. ' +
-          'Mindestens eine m:n-Beziehung mit Attributen an der Beziehung einbauen. ' +
-          'Optional: einen bereits vorgegebenen Entitätstyp nennen, den der Prüfling ergänzen soll.',
-      );
-    }
-  }
-
-  // ── Inhaltliche Kontexthinweise je Thema ─────────────────────────────────
-  if (lower.includes('scrum') || lower.includes('agil') || lower.includes('vorgehensmodell')) {
-    hints.push(
-      'Vergleichs-Kontext: Verwende echte Modellnamen (Scrum, Wasserfall, Kanban, V-Modell). ' +
-        'Bei Tabellen-Vergleich: konkrete Vergleichsmerkmale wie "Planbarkeit", "Flexibilität bei Änderungen", ' +
-        '"Eignung für verteilte Teams", "Dokumentationsaufwand".',
+  if (hasPseudo)
+    h.push(
+      'Pseudocode: Klasse(n) mit Attributen + get-Methoden + fertigen Funktionskopf vorgeben; optional Beispiel-Array 2–3 Objekte.',
     );
-  }
 
-  if (lower.includes('stakeholder')) {
-    hints.push(
-      'Stakeholder-Kontext: Die Tabelle soll 3 verschiedene Stakeholder-Typen enthalten: ' +
-        'mind. einen internen (z.B. Entwicklungsteam, Management) und einen externen (z.B. Kunde, Behörde). ' +
-        'Erwartungen und Befürchtungen sollen konkret zum {{PRODUKT}}-Kontext passen.',
+  if (diagType === 'uml_sequence')
+    h.push(
+      'Sequenz: 3–4 Klassen mit Methoden-Signaturen + Bullet-Ablauf mit Verzweigungen/Schleifen.',
     );
-  }
-
-  if (lower.includes('testkonzept') || lower.includes('teststufen')) {
-    hints.push(
-      'Testkonzept-Kontext: Die 4 Teststufen (Unit, Integration, System, Abnahme) sollen jeweils ' +
-        'mit einem projektkonkreten Beispiel belegt werden. Z.B. "Unit-Test: Test der Validierungsfunktion ' +
-        'für das Eingabefeld Versichertennummer".',
+  else if (diagType === 'uml_activity')
+    h.push(
+      'Aktivität: Prozess als Bullet-Liste 7–10 Schritte, mind. 1 Verzweigung + 1 Parallelität, Swimlanes benennen.',
     );
-  }
-
-  if (lower.includes('verschlüsselung') || lower.includes('tls') || lower.includes('zertifikat')) {
-    hints.push(
-      'Sicherheits-Kontext: Stelle einen konkreten IT-Sicherheitsfall vor ' +
-        '(z.B. "Die Datenbank soll Passwörter sicher speichern" oder ' +
-        '"Der Webserver soll mit SSL/TLS gesichert werden"). ' +
-        'Beziehe die Fragen auf diesen konkreten Fall.',
+  else if (diagType === 'er')
+    h.push(
+      'ER: Anforderungen als Bullet-Liste 7–10 Punkte, mind. 1 m:n mit Beziehungsattributen; optional eine Entität vorgeben.',
     );
-  }
 
-  if (lower.includes('mockup') || lower.includes('ui') || lower.includes('darstellungsform')) {
-    hints.push(
-      'UI-Kontext: Beschreibe eine konkrete Dateneingabe- oder -anzeige-Situation ' +
-        '(z.B. "Eingabe von Patientendaten wenn Chipkarte nicht verfügbar ist"). ' +
-        'Das Mockup soll mindestens: Überschrift, Eingabefelder/Anzeigen, ein Auswahlfeld, ' +
-        'und Aktionsbuttons (Speichern/Abbrechen) enthalten.',
+  if (t.includes('stakeholder'))
+    h.push('Stakeholder: mind. 1 intern + 1 extern, Erwartungen/Befürchtungen projektbezogen.');
+  if (t.includes('testkonzept') || t.includes('teststufen'))
+    h.push('Test: alle 4 Teststufen mit projektkonkretem Beispiel belegen.');
+  if (t.includes('verschlüsselung') || t.includes('tls') || t.includes('zertifikat'))
+    h.push('Sicherheit: konkreten Fall rahmen (Passwort-Hashing ODER TLS-Absicherung).');
+  if (t.includes('mockup') || (t.includes('ui') && !t.includes('guid')))
+    h.push('Mockup: Überschrift + Eingabefelder + Dropdown + Speichern/Abbrechen-Buttons.');
+  if (t.includes('factory') || t.includes('entwurfsmuster'))
+    h.push(
+      'OOP: englischen Muster-Beschreibungstext + teilweises Klassendiagramm vorgeben, das ergänzt werden soll.',
     );
-  }
-
-  if (lower.includes('factory') || lower.includes('entwurfsmuster') || lower.includes('oop')) {
-    hints.push(
-      'OOP-Kontext: Wenn Factory Method: Liefere einen englischen Kurzbeschreibungstext des Musters ' +
-        '(wie in echten Prüfungen mit Quellenangabe) und ein konkretes Anwendungsszenario ' +
-        '(z.B. "Zur Kennzeichnung von Proben werden unterschiedliche Etiketten gedruckt"). ' +
-        'Ein teilweise ausgefülltes Klassendiagramm vorgeben, das der Prüfling ergänzen soll.',
+  if (t.includes('acid') || t.includes('transaktion'))
+    h.push(
+      'ACID: konkreten DB-Anwendungsfall als Rahmen (z.B. Banküberweisung); Isolation: Anomalien nennen.',
     );
-  }
-
-  if (lower.includes('acid') || lower.includes('transaktion')) {
-    hints.push(
-      'ACID-Kontext: Nutze einen konkreten Datenbank-Anwendungsfall als Rahmen ' +
-        '(z.B. Krankenhausinformationssystem, Banküberweisung). ' +
-        'Bei Isolation: konkrete Anomalien nennen (Lost Update, Dirty Read, Phantom Read).',
+  if (t.includes('nosql') || t.includes('json') || t.includes('dokumenten'))
+    h.push(
+      'NoSQL/JSON: relationale Ausgangstabellen mit FK + Daten vorgeben, die in JSON überführt werden sollen.',
     );
-  }
+  if (t.includes('netzplan') || t.includes('kritischer pfad'))
+    h.push('Netzplan: 5–7 Vorgänge mit Dauern + Vorgängern, mind. 1 paralleler Pfad.');
+  if (t.includes('speicher') || t.includes('datenmenge'))
+    h.push('Speicher: messbaren Anwendungsfall vorgeben (Auflösung, Bit-Tiefe, Anzahl, Zeitraum).');
 
-  if (
-    lower.includes('nosql') ||
-    lower.includes('mongodb') ||
-    lower.includes('json') ||
-    lower.includes('dokumenten')
-  ) {
-    hints.push(
-      'NoSQL/JSON-Kontext: Liefere ein konkretes relationales Ausgangsdatenmodell ' +
-        '(2 Tabellen mit Fremdschlüsselbezug und Beispieldaten), das in JSON/Dokumente überführt werden soll. ' +
-        'Verwende realistische Feldnamen aus dem Anwendungskontext.',
-    );
-  }
-
-  if (lower.includes('netzplan') || lower.includes('kritischer pfad')) {
-    hints.push(
-      'Netzplan-Kontext: Definiere 5–7 konkrete Projektvorgänge mit Vorgängern und Dauern (in Tagen). ' +
-        'Mindestens ein paralleler Pfad muss existieren. ' +
-        'Der kritische Pfad muss eindeutig bestimmbar sein.',
-    );
-  }
-
-  if (lower.includes('speicher') || lower.includes('datenmenge')) {
-    hints.push(
-      'Speicher-Kontext: Liefere einen konkreten Anwendungsfall mit messbaren Größen, z.B.: ' +
-        '"Die Klinik speichert täglich X Röntgenbilder mit einer Auflösung von Y×Z Pixeln und Z Bit Farbtiefe." ' +
-        'Gib an, für welchen Zeitraum oder welche Anzahl gespeichert werden soll.',
-    );
-  }
-
-  if (hints.length === 0) return '';
-  return '\nKONTEXTHINWEISE FÜR DIESE AUFGABE:\n' + hints.map((h) => `• ${h}`).join('\n') + '\n';
+  return h.length > 0 ? `\nHinweise: ${h.join(' | ')}\n` : '\n';
 }
 
 // ─── Einzelne Aufgabe generieren ─────────────────────────────────────────────

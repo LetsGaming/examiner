@@ -22,6 +22,7 @@
  */
 import path from 'path';
 import fs from 'fs';
+import type { Statement } from 'better-sqlite3';
 import { Router, Request, Response } from 'express';
 import { db } from '../db/database.js';
 import { assessFreitext, analyzeDiagram } from '../services/aiService.js';
@@ -60,35 +61,44 @@ function sanitiseExpectedAnswer(
 
 // ─── DB write ─────────────────────────────────────────────────────────────────
 
-const upsertEvaluation = db.prepare(`
-  INSERT INTO ai_evaluations (
-    answer_id, awarded_points, max_points, percentage_score, ihk_grade,
-    feedback_text, criterion_scores, key_mistakes, improvement_hints,
-    detected_elements, missing_elements, notation_errors, model_used, ai_agent
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  ON CONFLICT(answer_id) DO UPDATE SET
-    awarded_points    = excluded.awarded_points,
-    max_points        = excluded.max_points,
-    percentage_score  = excluded.percentage_score,
-    ihk_grade         = excluded.ihk_grade,
-    feedback_text     = excluded.feedback_text,
-    criterion_scores  = excluded.criterion_scores,
-    key_mistakes      = excluded.key_mistakes,
-    improvement_hints = excluded.improvement_hints,
-    detected_elements = excluded.detected_elements,
-    missing_elements  = excluded.missing_elements,
-    notation_errors   = excluded.notation_errors,
-    model_used        = excluded.model_used,
-    ai_agent          = excluded.ai_agent,
-    created_at        = datetime('now')
-`);
+// Lazy-initialized — db.prepare() must not run at module load time because
+// initDatabase() hasn't created the tables yet when this module is first imported.
+let _upsertEvaluation: Statement | null = null;
+
+function getUpsertEvaluation(): Statement {
+  if (!_upsertEvaluation) {
+    _upsertEvaluation = db.prepare(`
+      INSERT INTO ai_evaluations (
+        answer_id, awarded_points, max_points, percentage_score, ihk_grade,
+        feedback_text, criterion_scores, key_mistakes, improvement_hints,
+        detected_elements, missing_elements, notation_errors, model_used, ai_agent
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(answer_id) DO UPDATE SET
+        awarded_points    = excluded.awarded_points,
+        max_points        = excluded.max_points,
+        percentage_score  = excluded.percentage_score,
+        ihk_grade         = excluded.ihk_grade,
+        feedback_text     = excluded.feedback_text,
+        criterion_scores  = excluded.criterion_scores,
+        key_mistakes      = excluded.key_mistakes,
+        improvement_hints = excluded.improvement_hints,
+        detected_elements = excluded.detected_elements,
+        missing_elements  = excluded.missing_elements,
+        notation_errors   = excluded.notation_errors,
+        model_used        = excluded.model_used,
+        ai_agent          = excluded.ai_agent,
+        created_at        = datetime('now')
+    `);
+  }
+  return _upsertEvaluation;
+}
 
 function persistEvaluation(
   answerId: string,
   evaluation: Omit<AiEvaluation, 'id' | 'answerId' | 'createdAt'>,
   agentLabel: string,
 ): void {
-  upsertEvaluation.run(
+  getUpsertEvaluation().run(
     answerId,
     evaluation.awardedPoints,
     evaluation.maxPoints,
@@ -127,27 +137,34 @@ interface AnswerRow {
   scenario_description: string;
 }
 
-const loadAnswerStmt = db.prepare(`
-  SELECT a.*,
-         st.task_type,
-         COALESCE(sso.question_text, st.question_text) AS question_text,
-         st.expected_answer,
-         st.points AS max_points,
-         st.diagram_type,
-         st.expected_elements,
-         st.mc_options,
-         s.part AS exam_part,
-         t.topic_area,
-         s.scenario_name,
-         s.scenario_description
-  FROM answers a
-  JOIN subtasks st ON st.id = a.subtask_id
-  JOIN tasks t    ON t.id = st.task_id
-  JOIN exam_sessions s ON s.id = a.session_id
-  LEFT JOIN session_subtask_overrides sso
-    ON sso.session_id = a.session_id AND sso.subtask_id = a.subtask_id
-  WHERE a.id = ? AND a.session_id = ?
-`);
+let _loadAnswerStmt: Statement | null = null;
+
+function getLoadAnswerStmt(): Statement {
+  if (!_loadAnswerStmt) {
+    _loadAnswerStmt = db.prepare(`
+      SELECT a.*,
+             st.task_type,
+             COALESCE(sso.question_text, st.question_text) AS question_text,
+             st.expected_answer,
+             st.points AS max_points,
+             st.diagram_type,
+             st.expected_elements,
+             st.mc_options,
+             s.part AS exam_part,
+             t.topic_area,
+             s.scenario_name,
+             s.scenario_description
+      FROM answers a
+      JOIN subtasks st ON st.id = a.subtask_id
+      JOIN tasks t    ON t.id = st.task_id
+      JOIN exam_sessions s ON s.id = a.session_id
+      LEFT JOIN session_subtask_overrides sso
+        ON sso.session_id = a.session_id AND sso.subtask_id = a.subtask_id
+      WHERE a.id = ? AND a.session_id = ?
+    `);
+  }
+  return _loadAnswerStmt;
+}
 
 // ─── POST /:sessionId/answers/:answerId/evaluate ──────────────────────────────
 
@@ -180,7 +197,7 @@ evaluationRouter.post(
     }
 
     try {
-      const answer = loadAnswerStmt.get(answerId, sessionId) as AnswerRow | undefined;
+      const answer = getLoadAnswerStmt().get(answerId, sessionId) as AnswerRow | undefined;
       if (!answer) {
         return res.status(404).json({ success: false, error: 'Antwort nicht gefunden.' });
       }

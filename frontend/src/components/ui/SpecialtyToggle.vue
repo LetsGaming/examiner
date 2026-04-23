@@ -31,24 +31,24 @@ defineEmits<{ 'update:modelValue': [value: Specialty] }>();
   gap: 4px;
   padding: 4px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--control-bg);
+  border: 1px solid var(--border);
 }
 .specialty-btn {
   padding: 7px 20px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: none;
   background: transparent;
-  color: #6b7280;
+  color: var(--text-subtle);
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   letter-spacing: 0.05em;
-  transition: background 0.15s, color 0.15s;
+  transition: background var(--transition), color var(--transition);
 }
 .specialty-btn:hover:not(.active) {
-  color: #9ca3af;
-  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+  background: var(--control-bg-hover);
 }
 .specialty-btn.active {
   background: linear-gradient(135deg, #4f46e5, #7c3aed);

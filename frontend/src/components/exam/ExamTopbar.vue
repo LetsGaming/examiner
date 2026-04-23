@@ -47,34 +47,34 @@ const partLabel = PART_LABELS[props.examPart];
 .topbar {
   display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
   padding: 0 12px; height: 48px; flex-shrink: 0;
-  background: #131620; border-bottom: 1px solid rgba(255, 255, 255, 0.07); gap: 8px;
+  background: var(--bg-surface); border-bottom: 1px solid var(--border-light); gap: 8px;
 }
 .topbar-left, .topbar-right { display: flex; align-items: center; gap: 8px; }
 .topbar-right { justify-content: flex-end; }
 .topbar-center { display: flex; justify-content: center; }
 .topbar-btn {
   display: flex; align-items: center; justify-content: center;
-  width: 32px; height: 32px; border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #9ca3af; cursor: pointer; transition: all 0.15s; flex-shrink: 0;
+  width: 32px; height: 32px; border-radius: var(--radius-sm);
+  background: var(--control-bg); border: 1px solid var(--control-border);
+  color: var(--text-muted); cursor: pointer; transition: all var(--transition); flex-shrink: 0;
 }
-.topbar-btn:hover { background: rgba(255, 255, 255, 0.1); color: #e8eaf0; }
+.topbar-btn:hover { background: var(--control-bg-hover); color: var(--text-primary); }
 .topbar-btn-ref { width: auto; padding: 0 10px; font-size: 12px; font-weight: 500; gap: 6px; }
-.topbar-part { font-size: 13px; font-weight: 600; color: #9ca3af; }
+.topbar-part { font-size: 13px; font-weight: 600; color: var(--text-muted); }
 .topbar-scenario {
-  display: flex; align-items: center; gap: 5px; font-size: 12px; color: #818cf8;
+  display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--brand-text);
   cursor: pointer; padding: 4px 10px; border-radius: 20px;
-  background: rgba(79, 70, 229, 0.12); border: 1px solid rgba(79, 70, 229, 0.25);
-  transition: all 0.15s; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  background: var(--brand-bg); border: 1px solid var(--brand-border);
+  transition: all var(--transition); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.topbar-scenario:hover { background: rgba(79, 70, 229, 0.2); }
+.topbar-scenario:hover { filter: brightness(1.15); }
 .timer {
   display: flex; align-items: center; gap: 5px;
-  font-size: 13px; font-weight: 700; font-family: 'SF Mono', monospace;
-  color: #d1d5db; padding: 5px 10px; border-radius: 8px; background: rgba(255, 255, 255, 0.05);
+  font-size: 13px; font-weight: 700; font-family: var(--font-mono);
+  color: var(--text-secondary); padding: 5px 10px; border-radius: var(--radius-sm); background: var(--control-bg);
 }
-.timer-warning { color: #fbbf24; background: rgba(251, 191, 36, 0.1); }
-.timer-critical { color: #f87171; background: rgba(248, 113, 113, 0.1); animation: blink 1s ease-in-out infinite; }
+.timer-warning { color: var(--warning-text); background: var(--warning-bg); }
+.timer-critical { color: var(--danger-text); background: var(--danger-bg); animation: blink 1s ease-in-out infinite; }
 @keyframes blink { 50% { opacity: 0.5; } }
 @media (max-width: 768px) { .topbar-part { display: none; } }
 </style>

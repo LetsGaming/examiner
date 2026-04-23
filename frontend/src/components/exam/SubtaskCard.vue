@@ -128,38 +128,38 @@ function onTableCellInput(ri: number, ci: number, value: string) { emit('table-c
 </script>
 
 <style scoped>
-.subtask-card { background: #131620; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; overflow: hidden; margin-bottom: 16px; }
-.sc-header { display: flex; align-items: center; gap: 10px; padding: 13px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02); }
+.subtask-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 16px; }
+.sc-header { display: flex; align-items: center; gap: 10px; padding: 13px 16px; border-bottom: 1px solid var(--border-light); background: var(--control-bg); }
 .sc-badge {
   min-width: 30px; height: 30px; padding: 0 8px;
-  border-radius: 8px; background: rgba(79,70,229,0.3); color: #a5b4fc;
+  border-radius: var(--radius-sm); background: var(--brand-bg); color: var(--brand-text);
   display: flex; align-items: center; justify-content: center;
   font-size: 14px; font-weight: 800; flex-shrink: 0;
 }
 .sc-type-chip { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; }
-.chip-freitext       { background: rgba(79,70,229,0.2);   color: #a5b4fc; }
-.chip-pseudocode     { background: rgba(34,197,94,0.15);  color: #86efac; }
-.chip-sql            { background: rgba(20,184,166,0.15); color: #5eead4; }
-.chip-mc             { background: rgba(245,158,11,0.15); color: #fcd34d; }
-.chip-mc_multi       { background: rgba(249,115,22,0.15); color: #fdba74; }
-.chip-plantuml       { background: rgba(168,85,247,0.2);  color: #d8b4fe; }
-.chip-diagram_upload { background: rgba(249,115,22,0.15); color: #fdba74; }
-.chip-table          { background: rgba(20,184,166,0.15); color: #5eead4; }
-.sc-pts { margin-left: auto; font-size: 13px; font-weight: 600; color: #6b7280; }
-.sc-question { padding: 16px; font-size: 14px; line-height: 1.75; color: #d1d5db; white-space: pre-wrap; border-bottom: 1px solid rgba(255,255,255,0.05); border-left: 3px solid #4f46e5; }
+.chip-freitext       { background: var(--brand-bg);              color: var(--brand-text); }
+.chip-pseudocode     { background: var(--success-bg);            color: var(--success-text); }
+.chip-sql            { background: rgba(20,184,166,0.15);        color: #5eead4; } /* teal: SQL */
+.chip-mc             { background: var(--warning-bg);            color: var(--warning-text); }
+.chip-mc_multi       { background: rgba(249,115,22,0.15);        color: #fdba74; } /* orange: MC+ */
+.chip-plantuml       { background: rgba(168,85,247,0.2);         color: #d8b4fe; } /* purple: UML */
+.chip-diagram_upload { background: rgba(249,115,22,0.15);        color: #fdba74; } /* orange: upload */
+.chip-table          { background: rgba(20,184,166,0.15);        color: #5eead4; } /* teal: table */
+.sc-pts { margin-left: auto; font-size: 13px; font-weight: 600; color: var(--text-subtle); }
+.sc-question { padding: 16px; font-size: 14px; line-height: 1.75; color: var(--text-secondary); white-space: pre-wrap; border-bottom: 1px solid var(--border-light); border-left: 3px solid var(--brand); }
 .sc-body { padding: 16px; }
-.sc-footer { display: flex; align-items: center; gap: 6px; padding: 9px 16px; font-size: 11px; color: #374151; font-style: italic; border-top: 1px solid rgba(255,255,255,0.05); background: rgba(255,255,255,0.01); }
+.sc-footer { display: flex; align-items: center; gap: 6px; padding: 9px 16px; font-size: 11px; color: var(--text-ghost); font-style: italic; border-top: 1px solid var(--border-light); background: var(--control-bg); }
 .text-input {
-  width: 100%; min-height: 160px; padding: 12px; border-radius: 10px; resize: vertical; outline: none;
-  background: rgba(255,255,255,0.04); border: 1.5px solid rgba(255,255,255,0.1); color: #e8eaf0;
-  font-size: 14px; line-height: 1.7; font-family: inherit; transition: border-color 0.15s; box-sizing: border-box;
+  width: 100%; min-height: 160px; padding: 12px; border-radius: var(--radius-md); resize: vertical; outline: none;
+  background: var(--control-bg); border: 1.5px solid var(--control-border); color: var(--text-secondary);
+  font-size: 14px; line-height: 1.7; font-family: inherit; transition: border-color var(--transition); box-sizing: border-box;
 }
-.text-input:focus { border-color: #4f46e5; }
+.text-input:focus { border-color: var(--brand); }
 .code-input {
-  width: 100%; min-height: 200px; padding: 12px; border-radius: 10px; resize: vertical; outline: none;
-  background: #0a0c12; border: 1.5px solid rgba(255,255,255,0.1); color: #d1d5db;
-  font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px; line-height: 1.65;
-  transition: border-color 0.15s; box-sizing: border-box;
+  width: 100%; min-height: 200px; padding: 12px; border-radius: var(--radius-md); resize: vertical; outline: none;
+  background: #0a0c12; /* code editor: always dark regardless of theme */ border: 1.5px solid var(--control-border); color: var(--text-secondary);
+  font-family: var(--font-mono); font-size: 13px; line-height: 1.65;
+  transition: border-color var(--transition); box-sizing: border-box;
 }
-.code-input:focus { border-color: #4f46e5; }
+.code-input:focus { border-color: var(--brand); }
 </style>

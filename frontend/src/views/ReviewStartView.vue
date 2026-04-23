@@ -35,9 +35,9 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.review-start { min-height: 100vh; background: #0f1117; display: flex; align-items: center; justify-content: center; }
-.review-loading, .review-error { display: flex; flex-direction: column; align-items: center; gap: 16px; color: #9ca3af; font-size: 15px; }
-.spinner { width: 28px; height: 28px; border: 3px solid rgba(255,255,255,0.1); border-top-color: #818cf8; border-radius: 50%; animation: spin 0.8s linear infinite; }
+.review-start { min-height: 100vh; background: var(--bg-base); display: flex; align-items: center; justify-content: center; }
+.review-loading, .review-error { display: flex; flex-direction: column; align-items: center; gap: 16px; color: var(--text-muted); font-size: 15px; }
+.spinner { width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--brand-text); border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.review-error button { padding: 8px 20px; background: rgba(79,70,229,0.2); border: 1px solid rgba(79,70,229,0.4); border-radius: 8px; color: #a5b4fc; cursor: pointer; }
+.review-error button { padding: 8px 20px; background: var(--brand-bg); border: 1px solid var(--brand-border); border-radius: var(--radius-sm); color: var(--brand-text); cursor: pointer; }
 </style>

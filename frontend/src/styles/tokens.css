@@ -1,23 +1,26 @@
 /* ─── Design Tokens ────────────────────────────────────────────────────────────
-   Single source of truth for colors, radii, spacing, and animation.
-   Import in components via: @import '../styles/tokens.css'
-   or reference CSS custom properties directly.
+   Single source of truth for all design values.
+   Dark mode is the default (defined on :root).
+   Light mode overrides are scoped to [data-theme="light"].
+
+   Components must ONLY use these variables — never hardcode hex values.
+   This is what makes the theme toggle actually work.
 ────────────────────────────────────────────────────────────────────────────── */
 
 :root {
-  /* Background layers */
+  /* ── Backgrounds ── */
   --bg-base:    #0f1117;
   --bg-surface: #131620;
   --bg-raised:  #16181f;
   --bg-overlay: #1a1d2e;
 
-  /* Brand */
-  --brand:      #4f46e5;
-  --brand-dark: #4338ca;
-  --brand-2:    #7c3aed;
+  /* ── Brand ── */
+  --brand:          #4f46e5;
+  --brand-dark:     #4338ca;
+  --brand-2:        #7c3aed;
   --brand-gradient: linear-gradient(135deg, var(--brand), var(--brand-2));
 
-  /* Text */
+  /* ── Text ── */
   --text-primary:   #f0f1f8;
   --text-secondary: #e8eaf0;
   --text-muted:     #9ca3af;
@@ -25,49 +28,64 @@
   --text-faint:     #4b5563;
   --text-ghost:     #374151;
 
-  /* Borders */
-  --border:       rgba(255, 255, 255, 0.08);
-  --border-light: rgba(255, 255, 255, 0.06);
-  --border-hover: rgba(255, 255, 255, 0.18);
+  /* ── Borders ── */
+  --border:         rgba(255, 255, 255, 0.08);
+  --border-light:   rgba(255, 255, 255, 0.06);
+  --border-hover:   rgba(255, 255, 255, 0.18);
+  --border-brand:   rgba(79, 70, 229, 0.35);
 
-  /* Semantic */
-  --success:  #22c55e;
-  --success-bg: rgba(34, 197, 94, 0.1);
+  /* ── Semantic: success ── */
+  --success:        #22c55e;
+  --success-bg:     rgba(34, 197, 94, 0.10);
   --success-border: rgba(34, 197, 94, 0.25);
-  --success-text: #86efac;
+  --success-text:   #86efac;
 
-  --warning:  #f59e0b;
-  --warning-bg: rgba(245, 158, 11, 0.1);
-  --warning-border: rgba(245, 158, 11, 0.2);
-  --warning-text: #fcd34d;
+  /* ── Semantic: warning ── */
+  --warning:        #f59e0b;
+  --warning-bg:     rgba(245, 158, 11, 0.10);
+  --warning-border: rgba(245, 158, 11, 0.20);
+  --warning-text:   #fcd34d;
 
-  --danger:   #ef4444;
-  --danger-bg: rgba(239, 68, 68, 0.1);
-  --danger-border: rgba(239, 68, 68, 0.2);
-  --danger-text: #fca5a5;
+  /* ── Semantic: danger ── */
+  --danger:         #ef4444;
+  --danger-bg:      rgba(239, 68, 68, 0.10);
+  --danger-border:  rgba(239, 68, 68, 0.20);
+  --danger-text:    #fca5a5;
 
-  /* Radius */
+  /* ── Semantic: info / brand tints ── */
+  --brand-bg:       rgba(79, 70, 229, 0.12);
+  --brand-border:   rgba(79, 70, 229, 0.30);
+  --brand-text:     #a5b4fc;
+
+  /* ── Interactive element backgrounds ── */
+  --control-bg:       rgba(255, 255, 255, 0.04);
+  --control-bg-hover: rgba(255, 255, 255, 0.08);
+  --control-border:   rgba(255, 255, 255, 0.10);
+
+  /* ── Radius ── */
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
   --radius-xl: 18px;
 
-  /* Font families */
+  /* ── Typography ── */
   --font-sans: 'Inter', system-ui, sans-serif;
   --font-mono: 'SF Mono', 'Fira Code', monospace;
 
-  /* Transitions */
+  /* ── Motion ── */
   --transition: 0.15s ease;
 }
 
-/* ─── Feature 11: Dark / Light Theme ────────────────────────────────────────── */
-/* Default is dark (already defined above). Light-mode overrides: */
+/* ─── Light mode overrides ───────────────────────────────────────────────────── */
+
 [data-theme="light"] {
+  /* ── Backgrounds ── */
   --bg-base:    #f5f5f7;
   --bg-surface: #ffffff;
   --bg-raised:  #f0f0f4;
   --bg-overlay: #e8e8ef;
 
+  /* ── Text ── */
   --text-primary:   #1a1a2e;
   --text-secondary: #1f2937;
   --text-muted:     #4b5563;
@@ -75,7 +93,31 @@
   --text-faint:     #9ca3af;
   --text-ghost:     #d1d5db;
 
-  --border:       rgba(0, 0, 0, 0.1);
-  --border-light: rgba(0, 0, 0, 0.07);
-  --border-hover: rgba(0, 0, 0, 0.2);
+  /* ── Borders ── */
+  --border:         rgba(0, 0, 0, 0.10);
+  --border-light:   rgba(0, 0, 0, 0.07);
+  --border-hover:   rgba(0, 0, 0, 0.20);
+  --border-brand:   rgba(79, 70, 229, 0.40);
+
+  /* ── Semantic overrides (keep hue, adjust opacity for light bg) ── */
+  --success-bg:     rgba(34, 197, 94, 0.12);
+  --success-border: rgba(34, 197, 94, 0.35);
+  --success-text:   #15803d;
+
+  --warning-bg:     rgba(245, 158, 11, 0.12);
+  --warning-border: rgba(245, 158, 11, 0.35);
+  --warning-text:   #b45309;
+
+  --danger-bg:      rgba(239, 68, 68, 0.10);
+  --danger-border:  rgba(239, 68, 68, 0.30);
+  --danger-text:    #b91c1c;
+
+  --brand-bg:       rgba(79, 70, 229, 0.10);
+  --brand-border:   rgba(79, 70, 229, 0.35);
+  --brand-text:     #4338ca;
+
+  /* ── Interactive elements ── */
+  --control-bg:       rgba(0, 0, 0, 0.04);
+  --control-bg-hover: rgba(0, 0, 0, 0.07);
+  --control-border:   rgba(0, 0, 0, 0.12);
 }

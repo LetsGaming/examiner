@@ -53,9 +53,9 @@ defineEmits<{
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 
 .confirm-dialog {
-  background: #1a1d2e;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 16px;
+  background: var(--bg-overlay);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-lg);
   padding: 24px;
   width: 100%;
   max-width: 400px;
@@ -63,13 +63,13 @@ defineEmits<{
 .dialog-title {
   font-size: 16px;
   font-weight: 700;
-  color: #f0f1f8;
+  color: var(--text-primary);
   margin-bottom: 10px;
 }
 .dialog-body {
   font-size: 13px;
   line-height: 1.6;
-  color: #9ca3af;
+  color: var(--text-muted);
   margin-bottom: 20px;
 }
 .dialog-actions {
@@ -84,21 +84,21 @@ defineEmits<{
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background var(--transition);
 }
 .btn-cancel {
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.06);
-  color: #9ca3af;
+  border: 1px solid var(--control-border);
+  background: var(--control-bg);
+  color: var(--text-muted);
 }
-.btn-cancel:hover { background: rgba(255, 255, 255, 0.1); }
+.btn-cancel:hover { background: var(--control-bg-hover); }
 
 .btn-confirm {
   border: none;
-  background: #4f46e5;
+  background: var(--brand);
   color: white;
 }
-.btn-confirm:hover { background: #4338ca; }
-.btn-confirm.btn-danger { background: #dc2626; }
-.btn-confirm.btn-danger:hover { background: #b91c1c; }
+.btn-confirm:hover { background: var(--brand-dark); }
+.btn-confirm.btn-danger { background: var(--danger); }
+.btn-confirm.btn-danger:hover { filter: brightness(0.9); }
 </style>

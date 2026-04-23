@@ -142,9 +142,9 @@ async function submit() {
   height: 100%;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  background: #0f1117;
+  background: var(--bg-base);
   padding: 24px;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--font-sans);
   display: flex;
   flex-direction: column;
 }
@@ -155,11 +155,11 @@ async function submit() {
 .login-card {
   width: 100%;
   max-width: 400px;
-  background: #16181f;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
+  background: var(--bg-raised);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-xl);
   padding: 32px;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -168,8 +168,8 @@ async function submit() {
   display: flex;
   gap: 4px;
   padding: 4px;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 10px;
+  background: var(--control-bg);
+  border-radius: var(--radius-md);
 }
 .tab {
   flex: 1;
@@ -177,15 +177,15 @@ async function submit() {
   border-radius: 7px;
   border: none;
   background: transparent;
-  color: #6b7280;
+  color: var(--text-subtle);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--transition);
 }
 .tab-active {
-  background: rgba(99, 102, 241, 0.2);
-  color: #a5b4fc;
+  background: var(--brand-bg);
+  color: var(--brand-text);
 }
 .fields {
   display: flex;
@@ -200,26 +200,26 @@ async function submit() {
 .field-label {
   font-size: 12px;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--text-subtle);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 .field-input {
   padding: 10px 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
-  color: #e8eaf0;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--control-border);
+  background: var(--control-bg);
+  color: var(--text-secondary);
   font-size: 14px;
   outline: none;
   width: 100%;
-  transition: border-color 0.15s;
+  transition: border-color var(--transition);
 }
 .field-input:focus {
-  border-color: rgba(99, 102, 241, 0.6);
+  border-color: var(--brand);
 }
 .field-input::placeholder {
-  color: #374151;
+  color: var(--text-ghost);
 }
 .pw-row {
   display: flex;
@@ -231,35 +231,35 @@ async function submit() {
 .pw-toggle {
   width: 40px;
   height: 40px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
-  color: #6b7280;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--control-border);
+  background: var(--control-bg);
+  color: var(--text-subtle);
   cursor: pointer;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s;
+  transition: background var(--transition), color var(--transition);
 }
 .pw-toggle:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #e8eaf0;
+  background: var(--control-bg-hover);
+  color: var(--text-primary);
 }
 .login-error {
   font-size: 12px;
-  color: #f87171;
+  color: var(--danger-text);
   padding: 8px 12px;
-  border-radius: 8px;
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-sm);
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
 }
 .submit-btn {
   width: 100%;
   padding: 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   border: none;
-  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  background: var(--brand-gradient);
   color: white;
   font-size: 14px;
   font-weight: 600;
@@ -268,7 +268,7 @@ async function submit() {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: opacity 0.15s;
+  transition: opacity var(--transition);
 }
 .submit-btn:hover:not(:disabled) {
   opacity: 0.9;
@@ -286,8 +286,6 @@ async function submit() {
   animation: spin 0.8s linear infinite;
 }
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
 }
 </style>

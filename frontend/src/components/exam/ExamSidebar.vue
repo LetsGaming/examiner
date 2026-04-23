@@ -47,34 +47,34 @@ defineEmits<{ close: []; navigate: [ti: number, si: number] }>();
 <style scoped>
 .sidebar {
   width: 220px; flex-shrink: 0; overflow-y: auto;
-  background: #131620; border-right: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--bg-surface); border-right: 1px solid var(--border-light);
   padding: 12px 8px; display: flex; flex-direction: column; gap: 1px;
 }
 .sidebar-top { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px 10px; }
-.sidebar-heading { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; color: #4b5563; }
-.sidebar-close { background: none; border: none; color: #4b5563; cursor: pointer; font-size: 14px; display: none; }
+.sidebar-heading { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; color: var(--text-faint); }
+.sidebar-close { background: none; border: none; color: var(--text-faint); cursor: pointer; font-size: 14px; display: none; }
 .task-group { margin-bottom: 4px; }
 .task-title { display: flex; align-items: center; gap: 7px; padding: 6px 8px; border-radius: 7px; }
 .tt-num {
-  width: 20px; height: 20px; border-radius: 5px; background: rgba(255, 255, 255, 0.08);
-  font-size: 11px; font-weight: 700; color: #6b7280;
+  width: 20px; height: 20px; border-radius: 5px; background: var(--control-bg);
+  font-size: 11px; font-weight: 700; color: var(--text-subtle);
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
-.tt-name { flex: 1; font-size: 11px; font-weight: 600; color: #9ca3af; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tt-pts { font-size: 10px; color: #4b5563; }
+.tt-name { flex: 1; font-size: 11px; font-weight: 600; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tt-pts { font-size: 10px; color: var(--text-faint); }
 .sub-btn {
   display: flex; align-items: center; gap: 7px; width: 100%; padding: 5px 8px 5px 14px;
-  border-radius: 6px; background: none; border: none; cursor: pointer; text-align: left; transition: background 0.12s;
+  border-radius: 6px; background: none; border: none; cursor: pointer; text-align: left; transition: background var(--transition);
 }
-.sub-btn:hover { background: rgba(255, 255, 255, 0.04); }
-.sub-btn.sub-active { background: rgba(79, 70, 229, 0.18); }
-.sub-btn.sub-answered .sub-label { color: #22c55e; }
-.sub-label { font-size: 12px; font-weight: 700; color: #6b7280; min-width: 22px; flex-shrink: 0; }
-.sub-btn.sub-active .sub-label { color: #818cf8; }
-.sub-type { flex: 1; font-size: 11px; color: #4b5563; }
-.sub-pts { font-size: 10px; color: #374151; }
-.sub-btn.sub-flagged { border-left: 2px solid #f59e0b; }
-.sub-flag { font-size: 10px; color: #f59e0b; margin-left: auto; }
+.sub-btn:hover { background: var(--control-bg); }
+.sub-btn.sub-active { background: var(--brand-bg); }
+.sub-btn.sub-answered .sub-label { color: var(--success); }
+.sub-label { font-size: 12px; font-weight: 700; color: var(--text-subtle); min-width: 22px; flex-shrink: 0; }
+.sub-btn.sub-active .sub-label { color: var(--brand-text); }
+.sub-type { flex: 1; font-size: 11px; color: var(--text-faint); }
+.sub-pts { font-size: 10px; color: var(--text-ghost); }
+.sub-btn.sub-flagged { border-left: 2px solid var(--warning); }
+.sub-flag { font-size: 10px; color: var(--warning); margin-left: auto; }
 .sidebar-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 49; display: none; }
 
 @media (max-width: 768px) {

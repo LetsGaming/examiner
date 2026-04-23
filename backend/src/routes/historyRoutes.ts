@@ -23,6 +23,7 @@ historyRouter.get("/", (req: Request, res: Response) => {
               COALESCE(is_review, 0) as is_review
        FROM exam_sessions
        WHERE user_id = ?
+         AND status != 'in_progress'
        ORDER BY COALESCE(submitted_at, started_at) DESC`,
     )
     .all(userId) as {

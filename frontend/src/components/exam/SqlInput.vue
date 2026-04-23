@@ -115,7 +115,7 @@ function onTab(e: KeyboardEvent) {
   padding: 8px 10px;
   border-radius: 10px;
   background: rgba(20, 184, 166, 0.06);
-  border: 1px solid rgba(20, 184, 166, 0.15);
+  border: 1px solid rgba(20, 184, 166, 0.15); /* teal accent intentional — SQL brand color */
 }
 .sql-chips {
   display: flex;
@@ -127,7 +127,7 @@ function onTab(e: KeyboardEvent) {
   border-radius: 6px;
   border: 1px solid rgba(20, 184, 166, 0.25);
   background: rgba(20, 184, 166, 0.1);
-  color: #5eead4;
+  color: #5eead4; /* teal: SQL accent */
   font-family: 'SF Mono', 'Fira Code', ui-monospace, monospace;
   font-size: 11px;
   font-weight: 600;
@@ -138,7 +138,7 @@ function onTab(e: KeyboardEvent) {
 .kw-chip:hover {
   background: rgba(20, 184, 166, 0.2);
   border-color: rgba(20, 184, 166, 0.4);
-  color: #99f6e4;
+  color: #99f6e4; /* teal hover */
 }
 .kw-chip:active {
   transform: translateY(1px);
@@ -149,7 +149,7 @@ function onTab(e: KeyboardEvent) {
   gap: 5px;
   margin-left: auto;
   font-size: 11px;
-  color: #6b7280;
+  color: var(--text-subtle);
   font-style: italic;
 }
 .sql-textarea {
@@ -159,9 +159,9 @@ function onTab(e: KeyboardEvent) {
   border-radius: 10px;
   resize: vertical;
   outline: none;
-  background: #0a0c12;
-  border: 1.5px solid rgba(20, 184, 166, 0.2);
-  color: #d1d5db;
+  background: #0a0c12; /* code editor: always dark */
+  border: 1.5px solid rgba(20, 184, 166, 0.2); /* teal intentional */
+  color: var(--text-secondary);
   font-family: 'SF Mono', 'Fira Code', ui-monospace, monospace;
   font-size: 13px;
   line-height: 1.65;
@@ -170,11 +170,11 @@ function onTab(e: KeyboardEvent) {
   tab-size: 2;
 }
 .sql-textarea:focus {
-  border-color: #14b8a6;
+  border-color: #14b8a6; /* teal: SQL focus */
   box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.12);
 }
 .sql-textarea::placeholder {
-  color: #3a4251;
+  color: var(--text-ghost);
   font-style: italic;
 }
 </style>

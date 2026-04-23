@@ -37,12 +37,9 @@
               <label class="field-label">Aufgaben-Typ</label>
               <select v-model="form.taskKind" class="field-select">
                 <option value="">Beliebig</option>
-                <option value="diagram">Diagramme</option>
-                <option value="calc">Berechnungen</option>
-                <option value="sql">SQL</option>
-                <option value="code">Pseudocode</option>
-                <option value="table">Tabellen</option>
-                <option value="text">Freitext</option>
+                <option v-for="k in kindOptions" :key="k.value" :value="k.value">
+                  {{ k.label }}
+                </option>
               </select>
             </div>
 
@@ -67,12 +64,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { IonPage } from '@ionic/vue';
 import { useRouter, useRoute } from 'vue-router';
 import { startPractice } from '../composables/useApi.js';
 import { useSpecialty } from '../composables/useSpecialty.js';
-import type { ExamPart } from '../types/index.js';
+import type { ExamPart, TaskKind } from '../types/index.js';
 
 const router = useRouter();
 const route = useRoute();
@@ -81,7 +78,7 @@ const { specialty } = useSpecialty();
 const form = ref({
   part: (route.query.part as ExamPart) || 'teil_1' as ExamPart,
   topic: (route.query.topic as string) || '',
-  taskKind: '',
+  taskKind: '' as TaskKind | '',
   count: 3,
 });
 
@@ -89,20 +86,56 @@ const topics = ref<string[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
 
-// Topic-Liste per Part aus dem bekannten Topicset
+// ─── Topic options per part ───────────────────────────────────────────────────
+
 const TOPICS_BY_PART: Record<ExamPart, string[]> = {
   teil_1: ['OOP', 'Entwurfsmuster', 'Datenbanken', 'UML', 'Projektmanagement', 'Datenschutz', 'IT-Sicherheit', 'Netzwerke'],
   teil_2: ['SQL', 'Algorithmen', 'Datenstrukturen', 'Pseudocode', 'Komplexität'],
   teil_3: ['Wirtschaft', 'Arbeitsrecht', 'Sozialkunde', 'Recht', 'Marketing'],
 };
 
-function loadTopics() {
+// ─── Task kind options per part ───────────────────────────────────────────────
+//
+// Only the kinds that are actually generated for a given part are shown.
+// Displaying e.g. "SQL" for Teil 1 would lead to "Kein Pool verfügbar" errors
+// since the generator never produces SQL tasks for the planning section.
+
+interface KindOption { value: TaskKind; label: string }
+
+const KINDS_BY_PART: Record<ExamPart, KindOption[]> = {
+  teil_1: [
+    { value: 'diagram', label: 'Diagramme (UML, ER, Mockup)' },
+    { value: 'calc',    label: 'Berechnungen (Kosten, Netzplan)' },
+    { value: 'table',   label: 'Tabellen' },
+    { value: 'text',    label: 'Freitext / Konzepte' },
+  ],
+  teil_2: [
+    { value: 'sql',     label: 'SQL-Abfragen' },
+    { value: 'code',    label: 'Pseudocode / Algorithmen' },
+    { value: 'diagram', label: 'Diagramme (UML, Ablaufdiagramm)' },
+    { value: 'calc',    label: 'Berechnungen (Komplexität, Speicher)' },
+    { value: 'text',    label: 'Freitext' },
+  ],
+  teil_3: [
+    { value: 'text',    label: 'Freitext / WiSo' },
+    { value: 'table',   label: 'Tabellen' },
+  ],
+};
+
+const kindOptions = computed<KindOption[]>(() => KINDS_BY_PART[form.value.part] ?? []);
+
+function resetPartDependentFields() {
   topics.value = TOPICS_BY_PART[form.value.part] ?? [];
   form.value.topic = '';
+  // Clear taskKind if it is no longer valid for the newly selected part.
+  const validKinds = kindOptions.value.map((k) => k.value) as string[];
+  if (form.value.taskKind && !validKinds.includes(form.value.taskKind)) {
+    form.value.taskKind = '';
+  }
 }
 
-watch(() => form.value.part, loadTopics);
-onMounted(loadTopics);
+watch(() => form.value.part, resetPartDependentFields);
+onMounted(resetPartDependentFields);
 
 async function startSession() {
   error.value = null;
@@ -125,28 +158,31 @@ async function startSession() {
 </script>
 
 <style scoped>
-.practice-page { min-height: 100vh; background: #0f1117; color: #e8eaf0; display: flex; flex-direction: column; }
-.practice-header { display: flex; align-items: center; gap: 16px; padding: 16px 24px; border-bottom: 1px solid rgba(255,255,255,0.07); }
-.back-btn { display: flex; align-items: center; gap: 6px; padding: 7px 14px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; cursor: pointer; font-size: 13px; color: #9ca3af; }
-.back-btn:hover { background: rgba(255,255,255,0.1); }
-.practice-title { font-size: 18px; font-weight: 700; margin: 0; }
+.practice-page { min-height: 100vh; background: var(--bg-base); color: var(--text-secondary); display: flex; flex-direction: column; }
+.practice-header { display: flex; align-items: center; gap: 16px; padding: 16px 24px; border-bottom: 1px solid var(--border-light); }
+.back-btn { display: flex; align-items: center; gap: 6px; padding: 7px 14px; background: var(--control-bg); border: 1px solid var(--control-border); border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; color: var(--text-muted); }
+.back-btn:hover { background: var(--control-bg-hover); }
+.practice-title { font-size: 18px; font-weight: 700; margin: 0; color: var(--text-primary); }
 .practice-main { padding: 40px 24px; display: flex; justify-content: center; }
-.setup-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 36px; max-width: 520px; width: 100%; }
+.setup-card { background: var(--control-bg); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: 36px; max-width: 520px; width: 100%; }
 .setup-icon { font-size: 40px; margin-bottom: 12px; }
-.setup-heading { font-size: 20px; font-weight: 800; margin: 0 0 8px; }
-.setup-desc { font-size: 14px; color: #6b7280; line-height: 1.6; margin: 0 0 28px; }
+.setup-heading { font-size: 20px; font-weight: 800; margin: 0 0 8px; color: var(--text-primary); }
+.setup-desc { font-size: 14px; color: var(--text-subtle); line-height: 1.6; margin: 0 0 28px; }
 .form-grid { display: flex; flex-direction: column; gap: 20px; margin-bottom: 28px; }
 .form-field { display: flex; flex-direction: column; gap: 6px; }
-.field-label { font-size: 13px; font-weight: 600; color: #9ca3af; }
-.field-label strong { color: #f3f4f6; }
-.field-select { padding: 9px 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #e8eaf0; font-size: 14px; cursor: pointer; }
-.field-select:focus { outline: none; border-color: rgba(129,140,248,0.5); }
-.field-range { width: 100%; accent-color: #818cf8; cursor: pointer; }
-.range-labels { display: flex; justify-content: space-between; font-size: 11px; color: #4b5563; margin-top: 2px; }
-.setup-error { padding: 10px 14px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; font-size: 13px; color: #fca5a5; margin-bottom: 16px; }
-.start-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 13px; background: linear-gradient(135deg, #4f46e5, #7c3aed); border: none; border-radius: 10px; font-size: 15px; font-weight: 700; color: #fff; cursor: pointer; transition: opacity 0.15s; }
+.field-label { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.field-label strong { color: var(--text-primary); }
+.field-select {
+  padding: 9px 12px; background: var(--bg-raised); border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm); color: var(--text-secondary); font-size: 14px; cursor: pointer;
+}
+.field-select:focus { outline: none; border-color: var(--brand); }
+.field-range { width: 100%; accent-color: var(--brand); cursor: pointer; }
+.range-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+.setup-error { padding: 10px 14px; background: var(--danger-bg); border: 1px solid var(--danger-border); border-radius: var(--radius-sm); font-size: 13px; color: var(--danger-text); margin-bottom: 16px; }
+.start-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 13px; background: var(--brand-gradient); border: none; border-radius: var(--radius-md); font-size: 15px; font-weight: 700; color: white; cursor: pointer; transition: opacity var(--transition); }
 .start-btn:hover:not(:disabled) { opacity: 0.9; }
 .start-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+.btn-spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 </style>

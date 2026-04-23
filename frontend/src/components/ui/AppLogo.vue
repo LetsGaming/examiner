@@ -35,11 +35,11 @@ defineProps<{ title: string }>();
 .logo-title {
   font-size: 16px;
   font-weight: 700;
-  color: #f0f1f8;
+  color: var(--text-primary);
 }
 .logo-sub {
   font-size: 11px;
-  color: #6b7280;
+  color: var(--text-subtle);
   margin-top: 1px;
 }
 </style>

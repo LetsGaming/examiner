@@ -48,11 +48,11 @@ onMounted(async () => {
 .page-loading {
   display: flex; flex-direction: column; align-items: center;
   justify-content: center; height: 100vh; gap: 16px;
-  background: #0f1117; color: #9ca3af;
+  background: var(--bg-base); color: var(--text-muted);
 }
 .loading-spinner {
   width: 36px; height: 36px; border-radius: 50%;
-  border: 3px solid rgba(255,255,255,.1); border-top-color: #4f46e5;
+  border: 3px solid var(--border); border-top-color: var(--brand);
   animation: spin .8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }

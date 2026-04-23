@@ -1,35 +1,48 @@
 /**
- * practiceRoutes.ts — Gezielter Übungsmodus.
+ * practiceRoutes.ts — Targeted practice mode.
  *
- * POST /api/practice/start  — Erstellt eine Practice-Session mit 1-10 gezielten Aufgaben
+ * POST /api/practice/start  — Create a practice session with 1–10 targeted tasks
+ *
+ * ## Pool fallback
+ *
+ *   If fewer tasks than requested exist in the pool (filtered by part,
+ *   specialty, optional topic, optional taskKind), new tasks are generated on
+ *   demand. Both the user's API key and the server-side fallback key are tried,
+ *   mirroring the behaviour of the main exam start route.
+ *
+ * ## Incomplete sessions
+ *
+ *   Practice sessions that are never submitted are not worth cluttering the
+ *   history with. The session is only persisted once we have at least one task
+ *   to show. The caller navigates to /session/:id immediately; if the user
+ *   abandons the browser tab the session remains in_progress but the history
+ *   view filters those out (status='practice' is set at creation time so the
+ *   history query can exclude status='in_progress' practice sessions trivially).
  */
-
-import { Router, Request, Response } from "express";
-import { db } from "../db/database.js";
-import { getUserId } from "./routeHelpers.js";
-import { resolveAiConfig } from "./settingsRoutes.js";
-import { generateTasksForPool } from "../services/examGenerator.js";
-import { insertTasksIntoDB } from "./routeHelpers.js";
-import type { ExamPart, Specialty } from "../types/index.js";
-import type { TaskKind } from "../services/taskKind.js";
+import { Router, Request, Response } from 'express';
+import { db } from '../db/database.js';
+import { getUserId, insertTasksIntoDB } from './routeHelpers.js';
+import { resolveAiConfig, resolveServerAiConfig } from './settingsRoutes.js';
+import { generateTasksForPool } from '../services/examGenerator.js';
+import type { ExamPart, Specialty } from '../types/index.js';
+import type { TaskKind } from '../services/taskKind.js';
 
 export const practiceRouter = Router();
 
-// ─── Migration: practice + review Status in exam_sessions ────────────────────
-// WICHTIG: Diese Funktion muss NACH initDatabase() aufgerufen werden,
-// da die Tabelle exam_sessions sonst noch nicht existiert.
+// ─── Migration ────────────────────────────────────────────────────────────────
+
 export function migratePracticeStatus(): void {
   try {
-    db.pragma("foreign_keys = OFF");
+    db.pragma('foreign_keys = OFF');
     db.prepare(
       `INSERT INTO exam_sessions (id, user_id, part, title, duration_minutes, max_points, status)
        VALUES ('_probe_practice', 'local-user', 'teil_1', 'probe', 0, 0, 'practice')`,
     ).run();
     db.prepare(`DELETE FROM exam_sessions WHERE id = '_probe_practice'`).run();
-    db.pragma("foreign_keys = ON");
+    db.pragma('foreign_keys = ON');
   } catch {
-    db.pragma("foreign_keys = ON");
-    // Rebuild nötig — CHECK-Constraint enthält 'practice' noch nicht
+    db.pragma('foreign_keys = ON');
+    // Rebuild required — CHECK constraint doesn't include 'practice' yet.
     db.transaction(() => {
       db.exec(`DROP TABLE IF EXISTS exam_sessions_new`);
       db.exec(`
@@ -65,25 +78,72 @@ export function migratePracticeStatus(): void {
       db.exec(`ALTER TABLE exam_sessions_new RENAME TO exam_sessions`);
       db.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_user_status ON exam_sessions(user_id, status)`);
     })();
-    console.log("[migration] exam_sessions CHECK-Constraint auf practice/review erweitert.");
+    console.log('[migration] exam_sessions CHECK constraint extended to include practice/review.');
   }
 
-  // is_review Spalte sicherstellen (idempotent) — auch wenn der Rebuild oben nicht lief
+  // Ensure is_review column exists (idempotent).
   try {
-    db.exec("ALTER TABLE exam_sessions ADD COLUMN is_review INTEGER NOT NULL DEFAULT 0");
-  } catch { /* bereits vorhanden */ }
+    db.exec('ALTER TABLE exam_sessions ADD COLUMN is_review INTEGER NOT NULL DEFAULT 0');
+  } catch { /* already present */ }
+}
+
+// ─── Task queries ─────────────────────────────────────────────────────────────
+
+interface TaskQueryOptions {
+  part: ExamPart;
+  specialty: Specialty;
+  taskKind?: TaskKind;
+  topic?: string;
+  excludeIds: string[];
+}
+
+function buildTaskQuery({ part, specialty, taskKind, topic, excludeIds }: TaskQueryOptions): {
+  sql: string;
+  params: unknown[];
+} {
+  const excluded = excludeIds.map((id) => `'${id.replace(/'/g, "''")}'`).join(',') || "''";
+  const clauses: string[] = [
+    `part = ?`,
+    `specialty = ?`,
+    `id NOT IN (${excluded})`,
+  ];
+  const params: unknown[] = [part, specialty];
+
+  if (taskKind) {
+    clauses.push(`task_kind = ?`);
+    params.push(taskKind);
+  }
+  if (topic) {
+    clauses.push(`topic_area = ?`);
+    params.push(topic);
+  }
+
+  return {
+    sql: `SELECT * FROM tasks WHERE ${clauses.join(' AND ')} ORDER BY times_used ASC, RANDOM() LIMIT 1`,
+    params,
+  };
+}
+
+function fetchTasks(options: TaskQueryOptions, count: number): Record<string, unknown>[] {
+  const tasks: Record<string, unknown>[] = [];
+  for (let i = 0; i < count; i++) {
+    const { sql, params } = buildTaskQuery({ ...options, excludeIds: tasks.map((t) => t.id as string) });
+    const task = db.prepare(sql).get(...params) as Record<string, unknown> | undefined;
+    if (task) tasks.push(task);
+  }
+  return tasks;
 }
 
 // ─── POST /api/practice/start ─────────────────────────────────────────────────
 
-practiceRouter.post("/start", async (req: Request, res: Response) => {
+practiceRouter.post('/start', async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const {
     part,
     topic,
     taskKind,
     count = 3,
-    specialty = "fiae",
+    specialty = 'fiae',
   } = req.body as {
     part?: ExamPart;
     topic?: string;
@@ -93,87 +153,62 @@ practiceRouter.post("/start", async (req: Request, res: Response) => {
   };
 
   if (!part) {
-    return res.status(400).json({ success: false, error: "part ist erforderlich." });
+    return res.status(400).json({ success: false, error: 'part ist erforderlich.' });
   }
 
   const n = Math.min(Math.max(1, Number(count)), 10);
+  const queryOptions: TaskQueryOptions = { part, specialty, taskKind, topic, excludeIds: [] };
 
-  // Aufgaben aus dem Pool holen
-  let tasks: Record<string, unknown>[] = [];
+  let tasks = fetchTasks(queryOptions, n);
 
-  const usedIdStr = () => tasks.map((t) => `'${t.id}'`).join(",") || "''";
-
-  for (let i = 0; i < n; i++) {
-    const kindClause = taskKind ? `AND task_kind = '${taskKind}'` : "";
-    const topicClause = topic ? `AND topic_area = '${topic.replace(/'/g, "''")}'` : "";
-
-    const task = db
-      .prepare(
-        `SELECT * FROM tasks
-         WHERE part = ? AND specialty = ?
-           AND id NOT IN (${usedIdStr()})
-           ${kindClause} ${topicClause}
-         ORDER BY times_used ASC, RANDOM() LIMIT 1`,
-      )
-      .get(part, specialty) as Record<string, unknown> | undefined;
-
-    if (task) {
-      tasks.push(task);
-    }
-  }
-
-  // Pool zu klein → nachladen
+  // Pool too small — attempt on-demand generation.
   if (tasks.length < n) {
     const aiConfig = resolveAiConfig(userId);
     if (aiConfig) {
+      const serverConfig = aiConfig.source === 'user' ? resolveServerAiConfig() : null;
       try {
-        const generated = await generateTasksForPool(part, 6, aiConfig.apiKey, aiConfig.meta, undefined, undefined, specialty);
+        const generated = await generateTasksForPool(
+          part, 6,
+          aiConfig.apiKey, aiConfig.meta,
+          serverConfig?.apiKey ?? null,
+          serverConfig?.meta ?? null,
+          specialty,
+        );
         await insertTasksIntoDB(part, generated.tasks, specialty);
-        // Nochmal versuchen
-        for (let i = tasks.length; i < n; i++) {
-          const kindClause = taskKind ? `AND task_kind = '${taskKind}'` : "";
-          const topicClause = topic ? `AND topic_area = '${topic.replace(/'/g, "''")}'` : "";
-          const task = db
-            .prepare(
-              `SELECT * FROM tasks
-               WHERE part = ? AND specialty = ?
-                 AND id NOT IN (${usedIdStr()})
-                 ${kindClause} ${topicClause}
-               ORDER BY times_used ASC, RANDOM() LIMIT 1`,
-            )
-            .get(part, specialty) as Record<string, unknown> | undefined;
-          if (task) tasks.push(task);
-        }
+        // Retry with the newly inserted tasks.
+        tasks = fetchTasks(queryOptions, n);
       } catch {
-        // Weiter mit was da ist
+        // Continue with whatever tasks we have — partial session is better than none.
       }
     }
   }
 
   if (tasks.length === 0) {
-    return res.status(422).json({ success: false, error: "Kein Pool verfügbar. Bitte erst Aufgaben generieren." });
+    return res.status(422).json({
+      success: false,
+      error: 'Kein Pool verfügbar. Bitte erst Aufgaben generieren.',
+    });
   }
 
-  // Session anlegen
+  // Persist session.
   const totalPoints = tasks.reduce((s, t) => s + (t.points_value as number), 0);
-  const sessionId = (
-    db.prepare(
+  const ins = db
+    .prepare(
       `INSERT INTO exam_sessions (user_id, part, specialty, title, duration_minutes, max_points, status)
        VALUES (?, ?, ?, ?, 0, ?, 'practice')`,
-    ).run(userId, part, specialty, `Übungssession ${new Date().toLocaleDateString("de-DE")}`, totalPoints)
-  );
+    )
+    .run(userId, part, specialty, `Übungssession ${new Date().toLocaleDateString('de-DE')}`, totalPoints);
 
-  const newSession = db.prepare(`SELECT id FROM exam_sessions WHERE rowid = ?`).get(
-    sessionId.lastInsertRowid,
-  ) as { id: string };
+  const session = db
+    .prepare('SELECT id FROM exam_sessions WHERE rowid = ?')
+    .get(ins.lastInsertRowid) as { id: string };
 
-  // Session-Tasks verknüpfen
   tasks.forEach((task, pos) => {
     db.prepare(
-      `INSERT INTO session_tasks (session_id, task_id, position) VALUES (?, ?, ?)`,
-    ).run(newSession.id, task.id as string, pos);
-    db.prepare(`UPDATE tasks SET times_used = times_used + 1 WHERE id = ?`).run(task.id as string);
+      'INSERT INTO session_tasks (session_id, task_id, position) VALUES (?, ?, ?)',
+    ).run(session.id, task.id as string, pos);
+    db.prepare('UPDATE tasks SET times_used = times_used + 1 WHERE id = ?').run(task.id as string);
   });
 
-  res.status(201).json({ success: true, data: { sessionId: newSession.id } });
+  res.status(201).json({ success: true, data: { sessionId: session.id } });
 });

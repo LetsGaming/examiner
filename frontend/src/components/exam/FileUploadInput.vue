@@ -61,24 +61,24 @@ function onDrop(e: DragEvent) {
 
 <style scoped>
 .upload-area { display: flex; flex-direction: column; gap: 10px; }
-.upload-hint { display: flex; align-items: center; gap: 7px; background: rgba(79,70,229,0.1); border-radius: 8px; padding: 9px 12px; font-size: 12px; color: #818cf8; }
+.upload-hint { display: flex; align-items: center; gap: 7px; background: var(--brand-bg); border-radius: var(--radius-sm); padding: 9px 12px; font-size: 12px; color: var(--brand-text); }
 .upload-zone {
-  border: 2px dashed rgba(255,255,255,0.12); border-radius: 12px; min-height: 160px;
+  border: 2px dashed var(--border); border-radius: var(--radius-md); min-height: 160px;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 8px; padding: 24px; text-align: center; transition: border-color 0.2s;
+  gap: 8px; padding: 24px; text-align: center; transition: border-color var(--transition);
 }
-.upload-zone:hover, .upload-zone.has-file { border-color: #4f46e5; }
-.upload-icon { color: #4b5563; }
-.upload-title { font-size: 14px; font-weight: 600; color: #d1d5db; }
-.upload-sub { font-size: 12px; color: #4b5563; }
+.upload-zone:hover, .upload-zone.has-file { border-color: var(--brand); }
+.upload-icon { color: var(--text-faint); }
+.upload-title { font-size: 14px; font-weight: 600; color: var(--text-secondary); }
+.upload-sub { font-size: 12px; color: var(--text-faint); }
 .upload-btn {
-  background: #4f46e5; color: white; border: none; border-radius: 8px; padding: 9px 18px;
-  font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 4px; transition: background 0.15s;
+  background: var(--brand); color: white; border: none; border-radius: var(--radius-sm); padding: 9px 18px;
+  font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 4px; transition: background var(--transition);
 }
-.upload-btn:hover { background: #4338ca; }
-.preview-img { max-width: 100%; max-height: 260px; border-radius: 8px; object-fit: contain; }
+.upload-btn:hover { background: var(--brand-dark); }
+.preview-img { max-width: 100%; max-height: 260px; border-radius: var(--radius-sm); object-fit: contain; }
 .replace-btn {
-  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 7px; padding: 6px 14px; font-size: 12px; color: #9ca3af; cursor: pointer; margin-top: 6px;
+  background: var(--control-bg); border: 1px solid var(--control-border);
+  border-radius: 7px; padding: 6px 14px; font-size: 12px; color: var(--text-muted); cursor: pointer; margin-top: 6px;
 }
 </style>

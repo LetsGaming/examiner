@@ -131,7 +131,7 @@
         @confirm="handleSubmit"
       >
         {{ answeredCount }} von {{ totalSubtasks }} Unteraufgaben beantwortet.<br />
-        <span v-if="flaggedSubtasks.size > 0" style="color:#fcd34d">
+        <span v-if="flaggedSubtasks.size > 0" style="color:var(--warning-text)">
           ⚑ {{ flaggedSubtasks.size }} Aufgabe(n) noch als „zur Durchsicht" markiert.<br />
         </span>
         Beantwortete Aufgaben werden von der KI bewertet.
@@ -366,66 +366,64 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.exam-page { height: 100dvh; display: flex; flex-direction: column; background: #0f1117; color: #e8eaf0; font-family: 'Inter', system-ui, sans-serif; overflow: hidden; }
-.progress-bar-wrap { height: 2px; background: rgba(255,255,255,0.06); flex-shrink: 0; }
-.progress-bar-fill { height: 100%; background: #4f46e5; transition: width 0.4s ease; }
+.exam-page { height: 100dvh; display: flex; flex-direction: column; background: var(--bg-base); color: var(--text-secondary); font-family: var(--font-sans); overflow: hidden; }
+.progress-bar-wrap { height: 2px; background: var(--border-light); flex-shrink: 0; }
+.progress-bar-fill { height: 100%; background: var(--brand); transition: width 0.4s ease; }
 .exam-body { flex: 1; display: flex; overflow: hidden; }
 .exam-main { flex: 1; overflow-y: auto; }
 .exam-main-inner { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; }
 .mobile-nav { display: none; align-items: center; gap: 10px; margin-bottom: 16px; }
 .mobile-nav-btn {
-  display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 7px 12px;
-  font-size: 12px; font-weight: 500; color: #9ca3af; cursor: pointer;
+  display: flex; align-items: center; gap: 6px; background: var(--control-bg);
+  border: 1px solid var(--control-border); border-radius: var(--radius-sm); padding: 7px 12px;
+  font-size: 12px; font-weight: 500; color: var(--text-muted); cursor: pointer;
 }
-.mobile-pos { font-size: 12px; color: #4b5563; }
+.mobile-pos { font-size: 12px; color: var(--text-faint); }
 .task-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .task-heading-left { display: flex; align-items: center; gap: 8px; }
-.th-num { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #4f46e5; }
-.th-sep { color: #374151; }
-.th-topic { font-size: 13px; font-weight: 600; color: #9ca3af; }
-.th-pts { font-size: 12px; color: #4b5563; }
+.th-num { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--brand); }
+.th-sep { color: var(--text-ghost); }
+.th-topic { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.th-pts { font-size: 12px; color: var(--text-faint); }
 .nav-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.nav-counter { font-size: 12px; color: #374151; }
-.nav-btn { display: inline-flex; align-items: center; gap: 6px; border-radius: 10px; padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1.5px solid transparent; transition: all 0.15s; }
+.nav-counter { font-size: 12px; color: var(--text-ghost); }
+.nav-btn { display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-md); padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1.5px solid transparent; transition: all var(--transition); }
 .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-.nav-back  { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); color: #9ca3af; }
-.nav-back:hover:not(:disabled) { background: rgba(255,255,255,0.1); color: #e8eaf0; }
-.nav-next   { background: #4f46e5; color: white; }
-.nav-next:hover { background: #4338ca; }
+.nav-back  { background: var(--control-bg); border-color: var(--control-border); color: var(--text-muted); }
+.nav-back:hover:not(:disabled) { background: var(--control-bg-hover); color: var(--text-primary); }
+.nav-next   { background: var(--brand); color: white; }
+.nav-next:hover { background: var(--brand-dark); }
 .nav-submit { background: #059669; color: white; }
-.nav-submit:hover:not(:disabled) { background: #047857; }
+.nav-submit:hover:not(:disabled) { background: #047857; } /* emerald-700: submit hover */
 .btn-spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: flex-end; justify-content: center; z-index: 200; padding: 20px; }
 @media (min-width: 600px) { .overlay { align-items: center; } }
-.overlay-panel { background: #1a1d2e; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; width: 100%; max-width: 520px; max-height: 80dvh; display: flex; flex-direction: column; overflow: hidden; }
-.overlay-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,0.08); font-size: 14px; font-weight: 700; color: #f0f1f8; flex-shrink: 0; }
-.overlay-header button { background: none; border: none; color: #6b7280; cursor: pointer; font-size: 18px; line-height: 1; }
-.overlay-header button:hover { color: #f0f1f8; }
+.overlay-panel { background: var(--bg-overlay); border: 1px solid var(--control-border); border-radius: var(--radius-lg); width: 100%; max-width: 520px; max-height: 80dvh; display: flex; flex-direction: column; overflow: hidden; }
+.overlay-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--border-light); font-size: 14px; font-weight: 700; color: var(--text-primary); flex-shrink: 0; }
+.overlay-header button { background: none; border: none; color: var(--text-subtle); cursor: pointer; font-size: 18px; line-height: 1; }
+.overlay-header button:hover { color: var(--text-primary); }
 .overlay-body { padding: 18px; overflow-y: auto; }
-.overlay-company { font-size: 14px; font-weight: 700; color: #818cf8; margin-bottom: 10px; }
-.overlay-text { font-size: 14px; line-height: 1.8; color: #d1d5db; }
-.confirm-dialog { background: #1a1d2e; border: 1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 24px; width: 100%; max-width: 400px; }
-.confirm-dialog h3 { font-size: 16px; font-weight: 700; color: #f0f1f8; margin-bottom: 10px; }
-.confirm-dialog p { font-size: 13px; line-height: 1.6; color: #9ca3af; margin-bottom: 20px; }
+.overlay-company { font-size: 14px; font-weight: 700; color: var(--brand-text); margin-bottom: 10px; }
+.overlay-text { font-size: 14px; line-height: 1.8; color: var(--text-secondary); }
+.confirm-dialog { background: var(--bg-overlay); border: 1px solid var(--control-border); border-radius: var(--radius-lg); padding: 24px; width: 100%; max-width: 400px; }
+.confirm-dialog h3 { font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 10px; }
+.confirm-dialog p { font-size: 13px; line-height: 1.6; color: var(--text-muted); margin-bottom: 20px; }
 .confirm-btns { display: flex; gap: 10px; }
-.confirm-ok { flex: 1; padding: 10px; border-radius: 9px; border: none; background: #4f46e5; color: white; font-size: 13px; font-weight: 600; cursor: pointer; }
-.confirm-ok:hover { background: #4338ca; }
+.confirm-ok { flex: 1; padding: 10px; border-radius: 9px; border: none; background: var(--brand); color: white; font-size: 13px; font-weight: 600; cursor: pointer; }
+.confirm-ok:hover { background: var(--brand-dark); }
 @media (max-width: 768px) { .mobile-nav { display: flex; } }
-/* ─── Feature 8: Flag button ─────────────────────────────────────────────── */
 .th-actions { display: flex; align-items: center; gap: 10px; }
-.flag-btn { display: flex; align-items: center; gap: 5px; padding: 5px 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 7px; cursor: pointer; font-size: 12px; color: #6b7280; transition: all 0.15s; }
-.flag-btn:hover { border-color: rgba(245,158,11,0.4); color: #f59e0b; }
-.flag-btn--active { background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.4); color: #fcd34d; }
+.flag-btn { display: flex; align-items: center; gap: 5px; padding: 5px 10px; background: var(--control-bg); border: 1px solid var(--control-border); border-radius: 7px; cursor: pointer; font-size: 12px; color: var(--text-subtle); transition: all var(--transition); }
+.flag-btn:hover { border-color: var(--warning-border); color: var(--warning); }
+.flag-btn--active { background: var(--warning-bg); border-color: var(--warning-border); color: var(--warning-text); }
 
-/* ─── Feature 12: Shortcut overlay ──────────────────────────────────────── */
 .shortcut-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200; display: flex; align-items: center; justify-content: center; }
-.shortcut-panel { background: #1a1d2e; border: 1px solid rgba(255,255,255,0.12); border-radius: 14px; padding: 24px; min-width: 300px; }
-.shortcut-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; font-weight: 700; font-size: 15px; }
-.shortcut-header button { background: none; border: none; color: #6b7280; cursor: pointer; font-size: 16px; }
+.shortcut-panel { background: var(--bg-overlay); border: 1px solid var(--control-border); border-radius: var(--radius-lg); padding: 24px; min-width: 300px; }
+.shortcut-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; font-weight: 700; font-size: 15px; color: var(--text-primary); }
+.shortcut-header button { background: none; border: none; color: var(--text-subtle); cursor: pointer; font-size: 16px; }
 .shortcut-table { width: 100%; border-collapse: collapse; }
-.shortcut-table tr td { padding: 6px 8px; font-size: 13px; color: #d1d5db; }
+.shortcut-table tr td { padding: 6px 8px; font-size: 13px; color: var(--text-secondary); }
 .shortcut-table tr td:first-child { width: 110px; }
-kbd { display: inline-block; padding: 2px 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 5px; font-family: monospace; font-size: 12px; color: #e8eaf0; }
+kbd { display: inline-block; padding: 2px 8px; background: var(--control-bg); border: 1px solid var(--control-border); border-radius: 5px; font-family: monospace; font-size: 12px; color: var(--text-primary); }
 </style>

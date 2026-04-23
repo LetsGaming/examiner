@@ -88,16 +88,16 @@ function onCellInput(ri: number, ci: number, value: string) {
 
 <style scoped>
 .table-editor-wrap { overflow-x: auto; }
-.table-empty { display: flex; align-items: center; gap: 8px; padding: 14px; font-size: 13px; color: #6b7280; background: rgba(255,255,255,0.03); border-radius: 10px; }
+.table-empty { display: flex; align-items: center; gap: 8px; padding: 14px; font-size: 13px; color: var(--text-subtle); background: var(--control-bg); border-radius: var(--radius-md); }
 .table-editor { display: flex; flex-direction: column; gap: 10px; }
-.answer-table { width: 100%; border-collapse: collapse; border-radius: 10px; overflow: hidden; border: 1.5px solid rgba(255,255,255,0.1); }
-.table-th { background: rgba(79,70,229,0.18); padding: 9px 12px; text-align: left; font-size: 12px; font-weight: 700; color: #a5b4fc; border-bottom: 1.5px solid rgba(255,255,255,0.1); white-space: nowrap; }
-.table-th:not(:last-child) { border-right: 1px solid rgba(255,255,255,0.08); }
-.table-row:nth-child(even) { background: rgba(255,255,255,0.02); }
-.table-td { padding: 6px; vertical-align: top; border-bottom: 1px solid rgba(255,255,255,0.06); }
-.table-td:not(:last-child) { border-right: 1px solid rgba(255,255,255,0.06); }
-.td-fixed { background: rgba(255,255,255,0.04); }
-.td-fixed-text { display: block; padding: 6px 8px; font-size: 13px; font-weight: 600; color: #9ca3af; }
+.answer-table { width: 100%; border-collapse: collapse; border-radius: var(--radius-md); overflow: hidden; border: 1.5px solid var(--control-border); }
+.table-th { background: var(--brand-bg); padding: 9px 12px; text-align: left; font-size: 12px; font-weight: 700; color: var(--brand-text); border-bottom: 1.5px solid var(--control-border); white-space: nowrap; }
+.table-th:not(:last-child) { border-right: 1px solid var(--border-light); }
+.table-row:nth-child(even) { background: var(--control-bg); }
+.table-td { padding: 6px; vertical-align: top; border-bottom: 1px solid var(--border-light); }
+.table-td:not(:last-child) { border-right: 1px solid var(--border-light); }
+.td-fixed { background: var(--control-bg-hover); }
+.td-fixed-text { display: block; padding: 6px 8px; font-size: 13px; font-weight: 600; color: var(--text-muted); }
 
 /* Beispielzeile — klar als solche gekennzeichnet */
 .example-row { background: rgba(34, 197, 94, 0.06); }
@@ -107,23 +107,23 @@ function onCellInput(ri: number, ci: number, value: string) {
 .example-badge {
   position: absolute; top: 4px; left: 6px;
   font-size: 9px; font-weight: 700; letter-spacing: 0.5px;
-  color: #22c55e; text-transform: uppercase;
+  color: var(--success); text-transform: uppercase;
   background: rgba(34, 197, 94, 0.12); padding: 2px 5px; border-radius: 3px;
 }
-.example-text { display: block; font-size: 13px; color: #cbd5e1; line-height: 1.5; font-style: italic; }
+.example-text { display: block; font-size: 13px; color: var(--text-muted); line-height: 1.5; font-style: italic; }
 
 .td-input {
   width: 100%; min-height: 52px; padding: 6px 8px;
-  background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.08);
-  border-radius: 6px; color: #e8eaf0; font-size: 13px; font-family: inherit; line-height: 1.5;
-  resize: vertical; transition: border-color 0.15s; outline: none;
+  background: var(--control-bg); border: 1.5px solid var(--border-light);
+  border-radius: 6px; color: var(--text-secondary); font-size: 13px; font-family: inherit; line-height: 1.5;
+  resize: vertical; transition: border-color var(--transition); outline: none;
 }
-.td-input:focus { border-color: #4f46e5; background: rgba(79,70,229,0.08); }
-.td-input::placeholder { color: #374151; }
+.td-input:focus { border-color: var(--brand); background: var(--brand-bg); }
+.td-input::placeholder { color: var(--text-ghost); }
 .add-row-btn {
-  display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.05);
-  border: 1px dashed rgba(255,255,255,0.15); border-radius: 8px; padding: 7px 14px;
-  font-size: 12px; color: #6b7280; cursor: pointer; transition: all 0.15s; align-self: flex-start;
+  display: inline-flex; align-items: center; gap: 6px; background: var(--control-bg);
+  border: 1px dashed var(--border-hover); border-radius: var(--radius-sm); padding: 7px 14px;
+  font-size: 12px; color: var(--text-subtle); cursor: pointer; transition: all var(--transition); align-self: flex-start;
 }
-.add-row-btn:hover { background: rgba(255,255,255,0.09); color: #9ca3af; border-color: rgba(255,255,255,0.25); }
+.add-row-btn:hover { background: var(--control-bg-hover); color: var(--text-muted); border-color: var(--border-hover); }
 </style>

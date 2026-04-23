@@ -15,6 +15,12 @@ import '@ionic/vue/css/flex-utils.css'
 import '@ionic/vue/css/display.css'
 import './theme/variables.css'
 
+// ─── Global styles & design tokens ───────────────────────────────────────────
+// Must be imported AFTER Ionic CSS so our tokens override Ionic's defaults.
+// This makes --bg-base, --text-primary etc. available in every component's
+// <style scoped> block without needing explicit @import statements.
+import './styles/global.css'
+
 const app = createApp(App)
 app.use(IonicVue)
 app.use(router)

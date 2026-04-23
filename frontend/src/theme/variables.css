@@ -1,58 +1,63 @@
+/**
+ * variables.css — Ionic CSS variable overrides.
+ *
+ * This file is loaded before global.css (see main.ts).
+ * It sets Ionic's own --ion-* variables to match our design tokens.
+ *
+ * The [data-theme="light"] overrides in tokens.css handle the toggle;
+ * Ionic reads --ion-background-color etc. from :root here.
+ */
+
 :root {
-  --ion-color-primary:         #2563eb;
-  --ion-color-primary-rgb:     37,99,235;
+  /* ── Ionic color palette → our brand ── */
+  --ion-color-primary:         #4f46e5;
+  --ion-color-primary-rgb:     79,70,229;
   --ion-color-primary-contrast:#ffffff;
-  --ion-color-primary-shade:   #1d4ed8;
-  --ion-color-primary-tint:    #eff6ff;
+  --ion-color-primary-shade:   #4338ca;
+  --ion-color-primary-tint:    rgba(79,70,229,0.15);
 
   --ion-color-secondary:       #7c3aed;
   --ion-color-secondary-rgb:   124,58,237;
   --ion-color-secondary-contrast:#ffffff;
   --ion-color-secondary-shade: #6d28d9;
-  --ion-color-secondary-tint:  #f5f3ff;
+  --ion-color-secondary-tint:  rgba(124,58,237,0.15);
 
-  --ion-color-tertiary:        #0891b2;
-  --ion-color-tertiary-rgb:    8,145,178;
-  --ion-color-tertiary-contrast:#ffffff;
-  --ion-color-tertiary-shade:  #0e7490;
-  --ion-color-tertiary-tint:   #ecfeff;
-
-  --ion-color-success:         #16a34a;
-  --ion-color-success-rgb:     22,163,74;
+  --ion-color-success:         #22c55e;
+  --ion-color-success-rgb:     34,197,94;
   --ion-color-success-contrast:#ffffff;
-  --ion-color-success-shade:   #15803d;
-  --ion-color-success-tint:    #f0fdf4;
+  --ion-color-success-shade:   #16a34a;
+  --ion-color-success-tint:    rgba(34,197,94,0.15);
 
-  --ion-color-warning:         #d97706;
-  --ion-color-warning-rgb:     217,119,6;
+  --ion-color-warning:         #f59e0b;
+  --ion-color-warning-rgb:     245,158,11;
   --ion-color-warning-contrast:#ffffff;
-  --ion-color-warning-shade:   #b45309;
-  --ion-color-warning-tint:    #fffbeb;
+  --ion-color-warning-shade:   #d97706;
+  --ion-color-warning-tint:    rgba(245,158,11,0.15);
 
-  --ion-color-danger:          #dc2626;
-  --ion-color-danger-rgb:      220,38,38;
+  --ion-color-danger:          #ef4444;
+  --ion-color-danger-rgb:      239,68,68;
   --ion-color-danger-contrast: #ffffff;
-  --ion-color-danger-shade:    #b91c1c;
-  --ion-color-danger-tint:     #fee2e2;
+  --ion-color-danger-shade:    #dc2626;
+  --ion-color-danger-tint:     rgba(239,68,68,0.15);
 
-  --ion-color-dark:            #1f2937;
-  --ion-color-medium:          #6b7280;
-  --ion-color-light:           #f3f4f6;
-  --ion-color-light-shade:     #e5e7eb;
+  /* ── Ionic app background / text → our dark theme defaults ── */
+  --ion-background-color:      #0f1117;
+  --ion-background-color-rgb:  15,17,23;
+  --ion-text-color:            #e8eaf0;
+  --ion-text-color-rgb:        232,234,240;
 
-  --ion-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --ion-background-color: #ffffff;
-  --ion-text-color: #1f2937;
+  --ion-item-background:       transparent;
+  --ion-toolbar-background:    transparent;
+  --ion-tab-bar-background:    #131620;
+
+  --ion-font-family: 'Inter', system-ui, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ion-background-color: #0f172a;
-    --ion-background-color-rgb: 15,23,42;
-    --ion-text-color: #e2e8f0;
-    --ion-color-light: #1e293b;
-    --ion-color-light-shade: #334155;
-    --ion-color-medium: #94a3b8;
-    --ion-color-dark: #f1f5f9;
-  }
+/* ── Light mode: also update Ionic vars ── */
+[data-theme="light"] {
+  --ion-background-color:     #f5f5f7;
+  --ion-background-color-rgb: 245,245,247;
+  --ion-text-color:           #1f2937;
+  --ion-text-color-rgb:       31,41,55;
+  --ion-tab-bar-background:   #ffffff;
 }

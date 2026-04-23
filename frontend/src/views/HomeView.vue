@@ -13,6 +13,9 @@
           <div v-if="user" class="user-badge">
             <span class="user-avatar">{{ user.displayName.charAt(0).toUpperCase() }}</span>
             <span class="user-name">{{ user.displayName }}</span>
+            <button class="icon-btn" @click="router.push('/account')" title="Account-Einstellungen">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+            </button>
             <button class="icon-btn" @click="logout" title="Abmelden">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>

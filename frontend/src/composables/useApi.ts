@@ -324,3 +324,105 @@ export async function fetchUserSetting(key: string): Promise<string | null> {
 export async function saveUserSetting(key: string, value: string): Promise<void> {
   await api.put(`/settings/user/${key}`, { value });
 }
+
+// ─── Admin API ────────────────────────────────────────────────────────────────
+
+export async function adminFetchStats(): Promise<import('../types/index.js').AdminPoolStats> {
+  const { data } =
+    await api.get<ApiResponse<import('../types/index.js').AdminPoolStats>>('/admin/pool-stats');
+  if (!data.success || !data.data) throw new Error(data.error ?? 'Fehler');
+  return data.data;
+}
+
+export async function adminFetchHealth(): Promise<import('../types/index.js').AdminHealth> {
+  const { data } =
+    await api.get<ApiResponse<import('../types/index.js').AdminHealth>>('/admin/pool-health');
+  if (!data.success || !data.data) throw new Error(data.error ?? 'Fehler');
+  return data.data;
+}
+
+export async function adminFetchPool(
+  part: string,
+  specialty: string,
+  params?: { search?: string; kind?: string; sort?: string },
+): Promise<import('../types/index.js').AdminPoolTask[]> {
+  const q = new URLSearchParams();
+  if (params?.search) q.set('search', params.search);
+  if (params?.kind) q.set('kind', params.kind);
+  if (params?.sort) q.set('sort', params.sort);
+  const { data } = await api.get<ApiResponse<import('../types/index.js').AdminPoolTask[]>>(
+    `/admin/pool/${part}/${specialty}?${q.toString()}`,
+  );
+  if (!data.success || !data.data) throw new Error(data.error ?? 'Fehler');
+  return data.data;
+}
+
+export async function adminFetchTask(
+  id: string,
+): Promise<import('../types/index.js').AdminTaskDetail> {
+  const { data } = await api.get<ApiResponse<import('../types/index.js').AdminTaskDetail>>(
+    `/admin/tasks/${id}`,
+  );
+  if (!data.success || !data.data) throw new Error(data.error ?? 'Fehler');
+  return data.data;
+}
+
+export async function adminPatchTask(
+  id: string,
+  body: { topic_area?: string; difficulty?: string; admin_note?: string },
+): Promise<void> {
+  await api.patch(`/admin/tasks/${id}`, body);
+}
+
+export async function adminPatchSubtask(
+  taskId: string,
+  subId: string,
+  body: { question_text?: string; expected_answer?: unknown; points?: number },
+): Promise<void> {
+  await api.patch(`/admin/tasks/${taskId}/subtasks/${subId}`, body);
+}
+
+export async function adminDeleteTask(id: string, force = false): Promise<void> {
+  await api.delete(`/admin/tasks/${id}${force ? '?force=1' : ''}`);
+}
+
+export async function adminGenerate(body: {
+  part: string;
+  specialty: string;
+  count: number;
+  topic?: string;
+}): Promise<import('../types/index.js').AdminGenerateResult> {
+  const { data } = await api.post<ApiResponse<import('../types/index.js').AdminGenerateResult>>(
+    '/admin/generate',
+    body,
+  );
+  if (!data.success || !data.data) throw new Error(data.error ?? 'Fehler');
+  return data.data;
+}
+
+export async function adminFetchUsers(): Promise<import('../types/index.js').AdminUser[]> {
+  const { data } =
+    await api.get<ApiResponse<import('../types/index.js').AdminUser[]>>('/admin/users');
+  if (!data.success || !data.data) throw new Error(data.error ?? 'Fehler');
+  return data.data;
+}
+
+export async function adminToggleAdmin(userId: string, isAdmin: boolean): Promise<void> {
+  await api.patch(`/admin/users/${userId}/admin`, { is_admin: isAdmin });
+}
+
+export async function adminCreateBackup(): Promise<{ path: string }> {
+  const { data } = await api.post<ApiResponse<{ path: string }>>('/admin/backup');
+  if (!data.success || !data.data) throw new Error(data.error ?? 'Fehler');
+  return data.data;
+}
+
+export async function adminFetchBackups(): Promise<unknown[]> {
+  const { data } = await api.get<ApiResponse<unknown[]>>('/admin/backup');
+  if (!data.success || !data.data) throw new Error(data.error ?? 'Fehler');
+  return data.data;
+}
+
+export async function adminReclassify(): Promise<void> {
+  await api.post('/admin/reclassify');
+}

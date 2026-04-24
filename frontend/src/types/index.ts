@@ -30,12 +30,12 @@ export type IhkGrade =
 // ─── Display constants ────────────────────────────────────────────────────────
 
 export const IHK_GRADE_LABELS: Record<IhkGrade, string> = {
-  sehr_gut:     'Sehr gut (1)',
-  gut:          'Gut (2)',
+  sehr_gut: 'Sehr gut (1)',
+  gut: 'Gut (2)',
   befriedigend: 'Befriedigend (3)',
-  ausreichend:  'Ausreichend (4)',
-  mangelhaft:   'Mangelhaft (5)',
-  ungenuegend:  'Ungenügend (6)',
+  ausreichend: 'Ausreichend (4)',
+  mangelhaft: 'Mangelhaft (5)',
+  ungenuegend: 'Ungenügend (6)',
 };
 
 export const PART_LABELS: Record<ExamPart, string> = {
@@ -51,25 +51,25 @@ export const PART_LABELS_FISI: Record<ExamPart, string> = {
 };
 
 export const TASK_TYPE_LABELS: Record<TaskType, string> = {
-  freitext:       'Freitext',
-  pseudocode:     'Pseudocode',
-  sql:            'SQL',
-  mc:             'Multiple Choice',
-  mc_multi:       'Multiple Choice (Mehrfach)',
-  plantuml:       'PlantUML',
+  freitext: 'Freitext',
+  pseudocode: 'Pseudocode',
+  sql: 'SQL',
+  mc: 'Multiple Choice',
+  mc_multi: 'Multiple Choice (Mehrfach)',
+  plantuml: 'PlantUML',
   diagram_upload: 'Diagramm-Upload',
-  table:          'Tabelle',
+  table: 'Tabelle',
 };
 
 export const TASK_TYPE_SHORT: Record<TaskType, string> = {
-  freitext:       'Text',
-  pseudocode:     'Code',
-  sql:            'SQL',
-  mc:             'MC',
-  mc_multi:       'MC+',
-  plantuml:       'UML',
+  freitext: 'Text',
+  pseudocode: 'Code',
+  sql: 'SQL',
+  mc: 'MC',
+  mc_multi: 'MC+',
+  plantuml: 'UML',
   diagram_upload: 'Upload',
-  table:          'Tabelle',
+  table: 'Tabelle',
 };
 
 // ─── Domain interfaces ────────────────────────────────────────────────────────
@@ -276,4 +276,78 @@ export interface ExpectedAnswer {
 
 export interface SubTaskWithAnswer extends SubTask {
   expectedAnswer?: ExpectedAnswer;
+}
+
+// ─── Admin types ──────────────────────────────────────────────────────────────
+
+export interface AdminPoolTask {
+  id: string;
+  topic_area: string;
+  task_kind: string;
+  points_value: number;
+  difficulty: string;
+  times_used: number;
+  created_at: string;
+  source: string;
+  admin_note: string | null;
+  subtask_count: number;
+}
+
+export interface AdminSubtask {
+  id: string;
+  label: string;
+  task_type: TaskType;
+  question_text: string;
+  expected_answer: Record<string, unknown> | string;
+  points: number;
+  diagram_type?: string;
+  expected_elements?: string[];
+  mc_options?: McOption[];
+  table_config?: TableConfig | null;
+  position: number;
+}
+
+export interface AdminTaskDetail extends AdminPoolTask {
+  part: ExamPart;
+  specialty: string;
+  subtasks: AdminSubtask[];
+  usageHistory: { title: string; started_at: string; status: string; ihk_grade: string | null }[];
+}
+
+export interface AdminPoolStats {
+  parts: {
+    part: ExamPart;
+    total: number;
+    kindDistribution: { task_kind: string; n: number }[];
+    difficultyDistribution: { difficulty: string; n: number }[];
+    mostUsedTasks: AdminPoolTask[];
+    neverUsedCount: number;
+    newestTasks: AdminPoolTask[];
+  }[];
+  totals: { tasks: number; sessions: number; users: number };
+}
+
+export interface AdminHealthIssue {
+  severity: 'error' | 'warning' | 'info';
+  message: string;
+  detail?: unknown;
+}
+
+export interface AdminHealth {
+  score: number;
+  issues: AdminHealthIssue[];
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  is_admin: number;
+  created_at: string;
+  session_count: number;
+}
+
+export interface AdminGenerateResult {
+  generated: number;
+  failed: number;
+  taskIds?: string[];
 }

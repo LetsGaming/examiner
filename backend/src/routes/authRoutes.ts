@@ -75,9 +75,9 @@ authRouter.post('/login', async (req: Request, res: Response) => {
   }
 
   const user = db
-    .prepare('SELECT id, email, display_name, password_hash FROM users WHERE email = ?')
+    .prepare('SELECT id, email, display_name, password_hash, is_admin FROM users WHERE email = ?')
     .get(email.toLowerCase()) as
-    | { id: string; email: string; display_name: string; password_hash: string }
+    | { id: string; email: string; display_name: string; password_hash: string; is_admin: boolean }
     | undefined;
 
   // Constant-time comparison — always run bcrypt even if user not found
@@ -94,7 +94,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     success: true,
     data: {
       token,
-      user: { id: user.id, email: user.email, displayName: user.display_name },
+      user: { id: user.id, email: user.email, displayName: user.display_name, isAdmin: user.is_admin },
     },
   });
 });
@@ -103,14 +103,14 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
 authRouter.get('/me', authMiddleware, (req: Request, res: Response) => {
   const userId = (req as import('../middleware/auth.js').AuthRequest).userId;
-  const user = db.prepare('SELECT id, email, display_name FROM users WHERE id = ?').get(userId) as
-    | { id: string; email: string; display_name: string }
+  const user = db.prepare('SELECT id, email, display_name, is_admin FROM users WHERE id = ?').get(userId) as
+    | { id: string; email: string; display_name: string; is_admin: boolean }
     | undefined;
 
   if (!user) return res.status(404).json({ success: false, error: 'Benutzer nicht gefunden.' });
   res.json({
     success: true,
-    data: { id: user.id, email: user.email, displayName: user.display_name },
+    data: { id: user.id, email: user.email, displayName: user.display_name, isAdmin: user.is_admin },
   });
 });
 

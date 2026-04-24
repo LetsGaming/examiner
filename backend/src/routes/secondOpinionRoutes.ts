@@ -81,7 +81,7 @@ secondOpinionRouter.post(
                 s.task_type,
                 COALESCE(sso.question_text, s.question_text)   AS question_text,
                 COALESCE(sso.expected_answer, s.expected_answer) AS expected_answer,
-                s.points, s.diagram_type, s.expected_elements,
+                s.points, s.diagram_type, s.expected_elements, s.mc_options,
                 t.topic_area, t.part AS exam_part,
                 es.scenario_description
          FROM answers a
@@ -139,6 +139,19 @@ secondOpinionRouter.post(
           taskType === 'mc' || taskType === 'mc_multi'
             ? ((answer.selected_mc_option as string) ?? '')
             : ((answer.text_value as string) ?? '');
+
+        let mcOptionIds: string[] | undefined;
+        if (taskType === 'mc' || taskType === 'mc_multi') {
+          try {
+            const opts = JSON.parse((answer.mc_options as string) ?? '[]') as { id: string }[];
+            if (Array.isArray(opts) && opts.length > 0) {
+              mcOptionIds = opts.map((o) => o.id);
+            }
+          } catch {
+            mcOptionIds = undefined;
+          }
+        }
+
         evaluation = await assessFreitext(
           {
             taskType,
@@ -149,6 +162,7 @@ secondOpinionRouter.post(
             maxPoints: answer.points as number,
             topicArea: answer.topic_area as string,
             scenarioContext: (answer.scenario_description as string) ?? '',
+            mcOptionIds,
           },
           apiKey,
           meta,

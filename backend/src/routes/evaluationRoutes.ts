@@ -280,12 +280,17 @@ evaluationRouter.post(
             : (answer.text_value ?? '');
 
         let mcOptionIds: string[] | undefined;
-        if (taskType === 'mc_multi') {
+        if (taskType === 'mc' || taskType === 'mc_multi') {
           try {
             const opts = JSON.parse(answer.mc_options ?? '[]') as { id: string }[];
-            mcOptionIds = opts.map((o) => o.id);
+            if (Array.isArray(opts) && opts.length > 0) {
+              mcOptionIds = opts.map((o) => o.id);
+            }
           } catch {
-            mcOptionIds = ['A', 'B', 'C', 'D'];
+            // mc_options nicht parsebar → Grader fällt auf Default A–D zurück.
+            // Für WiSo (5 Optionen) ist das falsch; der Parse sollte dort nie
+            // fehlschlagen, weil der Generator mc_options immer korrekt schreibt.
+            mcOptionIds = undefined;
           }
         }
 

@@ -89,6 +89,6 @@ const session = useSessionResults();
 onMounted(() => session.load(sessionId));
 </script>
 
-<style scoped>
+<style>
 @import './results/results.css';
 </style>

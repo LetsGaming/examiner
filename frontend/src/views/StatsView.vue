@@ -118,6 +118,6 @@ const today = new Date().toISOString().split('T')[0];
 onMounted(() => stats.load());
 </script>
 
-<style scoped>
+<style>
 @import './stats/stats.css';
 </style>

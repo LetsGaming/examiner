@@ -261,6 +261,6 @@ function openModalForCurrentPart(): void {
 onMounted(() => dashboard.load());
 </script>
 
-<style scoped>
+<style>
 @import './admin/admin.css';
 </style>

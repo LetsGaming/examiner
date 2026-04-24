@@ -157,6 +157,6 @@ onMounted(async () => {
 });
 </script>
 
-<style scoped>
+<style>
 @import './home/home.css';
 </style>

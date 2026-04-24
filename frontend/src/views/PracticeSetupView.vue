@@ -146,6 +146,6 @@ const practice = usePracticeSetup({
 onMounted(practice.loadTopics);
 </script>
 
-<style scoped>
+<style>
 @import './practice/practice.css';
 </style>

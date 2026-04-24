@@ -5,14 +5,14 @@
   display: flex;
   flex-direction: column;
 }
-.practice-header {
+.practice-page .practice-header {
   display: flex;
   align-items: center;
   gap: 16px;
   padding: 16px 24px;
   border-bottom: 1px solid var(--border-light);
 }
-.back-btn {
+.practice-page .back-btn {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -24,21 +24,21 @@
   font-size: 13px;
   color: var(--text-muted);
 }
-.back-btn:hover {
+.practice-page .back-btn:hover {
   background: var(--control-bg-hover);
 }
-.practice-title {
+.practice-page .practice-title {
   font-size: 18px;
   font-weight: 700;
   margin: 0;
   color: var(--text-primary);
 }
-.practice-main {
+.practice-page .practice-main {
   padding: 40px 24px;
   display: flex;
   justify-content: center;
 }
-.setup-card {
+.practice-page .setup-card {
   background: var(--control-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
@@ -46,42 +46,42 @@
   max-width: 520px;
   width: 100%;
 }
-.setup-icon {
+.practice-page .setup-icon {
   font-size: 40px;
   margin-bottom: 12px;
 }
-.setup-heading {
+.practice-page .setup-heading {
   font-size: 20px;
   font-weight: 800;
   margin: 0 0 8px;
   color: var(--text-primary);
 }
-.setup-desc {
+.practice-page .setup-desc {
   font-size: 14px;
   color: var(--text-subtle);
   line-height: 1.6;
   margin: 0 0 28px;
 }
-.form-grid {
+.practice-page .form-grid {
   display: flex;
   flex-direction: column;
   gap: 20px;
   margin-bottom: 28px;
 }
-.form-field {
+.practice-page .form-field {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-.field-label {
+.practice-page .field-label {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-muted);
 }
-.field-label strong {
+.practice-page .field-label strong {
   color: var(--text-primary);
 }
-.field-select {
+.practice-page .field-select {
   padding: 9px 12px;
   background: var(--bg-raised);
   border: 1px solid var(--control-border);
@@ -90,23 +90,23 @@
   font-size: 14px;
   cursor: pointer;
 }
-.field-select:focus {
+.practice-page .field-select:focus {
   outline: none;
   border-color: var(--brand);
 }
-.field-range {
+.practice-page .field-range {
   width: 100%;
   accent-color: var(--brand);
   cursor: pointer;
 }
-.range-labels {
+.practice-page .range-labels {
   display: flex;
   justify-content: space-between;
   font-size: 11px;
   color: var(--text-faint);
   margin-top: 2px;
 }
-.kind-badge {
+.practice-page .kind-badge {
   padding: 9px 12px;
   background: var(--brand-bg);
   border: 1px solid var(--brand-border);
@@ -115,14 +115,14 @@
   font-size: 14px;
   font-weight: 600;
 }
-.kind-badge--any {
+.practice-page .kind-badge--any {
   background: var(--control-bg);
   border-color: var(--border);
   color: var(--text-subtle);
   font-weight: 400;
   font-style: italic;
 }
-.setup-error {
+.practice-page .setup-error {
   padding: 10px 14px;
   background: var(--danger-bg);
   border: 1px solid var(--danger-border);
@@ -131,7 +131,7 @@
   color: var(--danger-text);
   margin-bottom: 16px;
 }
-.start-btn {
+.practice-page .start-btn {
   width: 100%;
   display: flex;
   align-items: center;
@@ -147,14 +147,14 @@
   cursor: pointer;
   transition: opacity var(--transition);
 }
-.start-btn:hover:not(:disabled) {
+.practice-page .start-btn:hover:not(:disabled) {
   opacity: 0.9;
 }
-.start-btn:disabled {
+.practice-page .start-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
-.btn-spinner {
+.practice-page .btn-spinner {
   width: 16px;
   height: 16px;
   border: 2px solid rgba(255, 255, 255, 0.3);

@@ -7,6 +7,8 @@
  * Autor: { name: "LetsGamingDE", id: 272402865874534400n }
  */
 
+import { ACID_PROPERTIES } from '../../domain/taxonomy.js';
+import { diagramHint, sqlHint } from '../../domain/gradingTemplates.js';
 import type { TaskRecipe } from '../types.js';
 
 export const RECIPES_TEIL2: TaskRecipe[] = [
@@ -151,8 +153,7 @@ export const RECIPES_TEIL2: TaskRecipe[] = [
           'Im questionText sind die Anforderungen an eine neue Tabelle beschrieben. Schreiben Sie das vollständige CREATE TABLE-Statement mit Primärschlüssel, Fremdschlüssel und passenden Datentypen.',
         points: [13, 17],
         operator: 'entwerfen',
-        gradingHint:
-          'Tabellenname+Spaltennamen 20% / Datentypen korrekt 20% / PK-Constraint 20% / FK-Constraint mit REFERENCES 25% / NOT NULL/DEFAULT wo sinnvoll 15%.',
+        gradingHint: sqlHint('ddl'),
       },
       {
         taskType: 'table',
@@ -236,7 +237,7 @@ export const RECIPES_TEIL2: TaskRecipe[] = [
       {
         taskType: 'pseudocode',
         prompt:
-          'Implementieren Sie die im questionText beschriebene Funktion als Pseudocode. Verwenden Sie den vorgegebenen Funktionskopf, die Klassenattribute mit get-Methoden und IHK-typische Pseudocode-Konstrukte (solange/ende solange, für/ende für, wenn/sonst/ende wenn, return).',
+          'Implementieren Sie die im questionText beschriebene Funktion als Pseudocode. Verwenden Sie den vorgegebenen Funktionskopf und greifen Sie auf Klassenattribute über die get-Methoden zu.',
         points: [12, 16],
         operator: 'entwerfen',
         gradingHint:
@@ -388,10 +389,10 @@ export const RECIPES_TEIL2: TaskRecipe[] = [
         tableColumns: ['Eigenschaft', 'Bedeutung', 'Beispiel'],
         tableRowCount: 4,
         fixedFirstColumn: true,
-        fixedFirstColumnValues: ['Atomicity', 'Consistency', 'Isolation', 'Durability'],
+        fixedFirstColumnValues: [...ACID_PROPERTIES],
         tableKind: 'fixed',
         tableDescription:
-          'ACID-Tabelle: erste Spalte fix (Atomicity/Consistency/Isolation/Durability), Spalten 2 und 3 werden vom Prüfling ausgefüllt.',
+          `ACID-Tabelle: erste Spalte fix (${ACID_PROPERTIES.join('/')}), Spalten 2 und 3 werden vom Prüfling ausgefüllt.`,
         gradingHint:
           'Je Eigenschaft Bedeutung 1P, Beispiel 1P. Sinngemäße Erläuterungen akzeptieren.',
       },
@@ -471,8 +472,7 @@ export const RECIPES_TEIL2: TaskRecipe[] = [
         points: [13, 19],
         operator: 'entwerfen',
         diagramType: 'uml_sequence',
-        gradingHint:
-          'Je Lifeline 1P, je Nachricht mit korrektem Namen 1P, Rückgaben 2P, opt/alt-Block korrekt 2P, loop-Block korrekt 2P, korrekte Reihenfolge 3P.',
+        gradingHint: diagramHint('sequence'),
       },
       {
         taskType: 'freitext',

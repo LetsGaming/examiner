@@ -8,6 +8,12 @@
  * Autor: { name: "LetsGamingDE", id: 272402865874534400n }
  */
 
+import {
+  diagramHint,
+  enumerationHint,
+  prosConsHint,
+  tableRowHint,
+} from '../../domain/gradingTemplates.js';
 import type { TaskRecipe } from '../types.js';
 
 export const RECIPES_TEIL1: TaskRecipe[] = [
@@ -30,15 +36,14 @@ export const RECIPES_TEIL1: TaskRecipe[] = [
           'Nennen Sie 3 konkrete Beispiele oder Ausprägungen und beschreiben Sie diese jeweils kurz (1–2 Sätze).',
         points: [9, 12],
         operator: 'beschreiben',
-        gradingHint:
-          'Je korrektem Beispiel mit Kurzbeschreibung 1/3 der Punkte. Sinngemäße Bezüge reichen.',
+        gradingHint: enumerationHint(3, 'Je Beispiel mit Kurzbeschreibung.'),
       },
       {
         taskType: 'freitext',
         prompt: 'Nennen Sie einen Vor- und einen Nachteil des beschriebenen Vorgehens.',
         points: [4, 6],
         operator: 'nennen',
-        gradingHint: 'Je Vor- oder Nachteil die Hälfte der Punkte. Stichworte reichen.',
+        gradingHint: prosConsHint(),
       },
     ],
   },
@@ -60,8 +65,7 @@ export const RECIPES_TEIL1: TaskRecipe[] = [
         tableKind: 'guided',
         tableDescription:
           'Stakeholder-Tabelle: je Zeile 1 konkreter Stakeholder (Rolle oder Person) mit 1 Erwartung und 1 Befürchtung. Alle Einträge beziehen sich auf das konkrete Projekt bei {{UNTERNEHMEN}}.',
-        gradingHint:
-          'Je Zeile bis zu 4 Punkte: 1P Stakeholder, 2P Erwartung, 2P Befürchtung. Alternative Stakeholder mit plausibler Begründung auch korrekt.',
+        gradingHint: tableRowHint(3, 4, ['Stakeholder', 'Erwartung', 'Befürchtung'], '1P Stakeholder, 2P Erwartung, 2P Befürchtung.'),
       },
       {
         taskType: 'freitext',
@@ -227,8 +231,7 @@ export const RECIPES_TEIL1: TaskRecipe[] = [
         points: [13, 17],
         operator: 'entwerfen',
         diagramType: 'uml_activity',
-        gradingHint:
-          'Je Aktivität 1P (max. Gesamtzahl), je Entscheidung/Verzweigung mit Bedingung 2P, Synchronisierungsbalken 2P, Start+Ende vorhanden 2P, Swimlanes korrekt zugeordnet 2P. Alternative Darstellungen akzeptieren.',
+        gradingHint: diagramHint('activity', 'Je Aktivität 1P (max. Gesamtzahl); Swimlanes korrekt zugeordnet.'),
       },
       {
         taskType: 'table',
@@ -262,8 +265,7 @@ export const RECIPES_TEIL1: TaskRecipe[] = [
         points: [14, 18],
         operator: 'entwerfen',
         diagramType: 'er',
-        gradingHint:
-          'Je Entitätstyp 1P, je Primärschlüssel 0,5P, je Attribut 0,5P (max. 3P Attribute), je Beziehung mit korrekter Kardinalität 2P, Beziehungsattribute an m:n 1P je Attribut.',
+        gradingHint: diagramHint('er'),
       },
       {
         taskType: 'freitext',
@@ -360,7 +362,7 @@ export const RECIPES_TEIL1: TaskRecipe[] = [
           'Beschreiben Sie 3 weitere Inhalte, die in einem Testkonzept enthalten sein sollten.',
         points: [4, 6],
         operator: 'beschreiben',
-        gradingHint: 'Je Inhalt (Testumfang, Testdaten, Rollen, Zeitplan, ...) 1/3 der Punkte.',
+        gradingHint: enumerationHint(3, 'Z.B. Testumfang, Testdaten, Rollen, Zeitplan.'),
       },
     ],
   },
@@ -404,8 +406,7 @@ export const RECIPES_TEIL1: TaskRecipe[] = [
           'Nennen Sie je einen Vor- und einen Nachteil einer zentralen Rechteverwaltung (Identity Provider / SSO).',
         points: [4, 6],
         operator: 'nennen',
-        gradingHint:
-          'Je Vor-/Nachteil halbe Punkte. Bsp. Vorteil: zentrale Übersicht. Nachteil: Single Point of Failure.',
+        gradingHint: prosConsHint('Bsp. Vorteil: zentrale Übersicht. Nachteil: Single Point of Failure.'),
       },
     ],
   },

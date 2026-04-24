@@ -52,13 +52,16 @@ export function buildSubtaskInstructions(
 
 // ─── System-Prompt ───────────────────────────────────────────────────────────
 
-const OPERATOR_CHEATSHEET =
-  'Operatoren: nennen=Stichworte | beschreiben=2–3 Sätze | erläutern=Begründung 3–5 Sätze | berechnen=Rechenweg+Einheit | entwerfen/erstellen/skizzieren=konkrete Umsetzung | vergleichen=Kriterien-Gegenüberstellung | identifizieren=Fehler benennen';
-
 /**
  * Baut das System-Prompt für den Generator-LLM. Enthält nur die Regeln, die für
  * die im Rezept enthaltenen Typen relevant sind — spart Token bei reinen
  * Freitext-Aufgaben (MD-belegte Regeln aus §5.1, §5.2, §5.3, §6.2).
+ *
+ * Operator-Dimensionen stehen NICHT im System-Prompt — sie hängen je Subtask
+ * als "[Operator: X]"-Label mit drin (siehe buildSubtaskInstruction), was in
+ * der LLM-Praxis genügt und MD §6.2 korrekt abbildet. Der Grader injiziert
+ * separat OPERATOR_GUIDANCE für die Bewertung; ein zusätzlicher Cheatsheet
+ * hier wäre Token-Duplikation.
  */
 export function buildSystemPrompt(specialty: Specialty, recipe: TaskRecipe): string {
   const specialtyLabel = SPECIALTY_LABELS[specialty];
@@ -75,7 +78,6 @@ export function buildSystemPrompt(specialty: Specialty, recipe: TaskRecipe): str
 ${contextBlock}
 ${typeSection}
 ${mcBlock}
-${OPERATOR_CHEATSHEET}
 
 Antworte AUSSCHLIESSLICH mit einem validen JSON-Objekt.`;
 }

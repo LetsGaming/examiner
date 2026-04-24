@@ -14,7 +14,7 @@
  */
 
 import type { AiEvaluation } from '../../types/index.js';
-import { deriveIhkGrade, stripPlaceholders } from '../../domain/taxonomy.js';
+import { deriveIhkGrade, MC_OPTION_IDS_TEIL12, stripPlaceholders } from '../../domain/taxonomy.js';
 import type { ScoredEvaluation } from './evaluationShape.js';
 
 // ─── Normalisierung je nach Option-Format ────────────────────────────────────
@@ -41,7 +41,7 @@ export interface GradeMcSingleParams {
 }
 
 export function gradeMcAnswer(params: GradeMcSingleParams): ScoredEvaluation {
-  const allowedIds = params.mcOptionIds ?? ['A', 'B', 'C', 'D'];
+  const allowedIds = params.mcOptionIds ?? [...MC_OPTION_IDS_TEIL12];
   const numericMode = isNumericIdSet(allowedIds);
   const validSet = new Set(allowedIds.map((id) => normalizeId(id, numericMode)));
 

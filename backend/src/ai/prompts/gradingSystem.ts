@@ -13,13 +13,16 @@
 
 import type { ExamPart } from '../../types/index.js';
 import { gradeSchemaPromptBlock, PART_DESCRIPTIONS } from '../../domain/taxonomy.js';
+import { ZPA_CORRECTION_DISCLAIMER } from '../../domain/gradingTemplates.js';
 
 const GRADING_RULES = `BEWERTUNGSREGELN (verbindlich — Prüfungsausschuss-Niveau, fair aber nicht zu nachsichtig):
+IHK-GRUNDHALTUNG (wortgleich aus ZPA-Lösungsbögen, MD §6.1): ${ZPA_CORRECTION_DISCLAIMER}
+
 1. FAIRE GRUNDHALTUNG: Im Zweifel für den Prüfling — wenn eine Antwort plausibel und sinngemäß richtig ist, wird sie als richtig gewertet, auch wenn sie vom Erwartungshorizont abweicht.
 2. PROPORTIONALE TEILPUNKTE: Punkte werden proportional zum Anteil korrekter Kernaussagen vergeben. Wenn z.B. 3 Aspekte gefordert sind und 2 davon korrekt genannt wurden, gibt es ⅔ der Punkte. Kein pauschaler Mindestwert — aber auch kein Alles-oder-Nichts.
 3. SINNGEMÄSSE KORREKTHEIT: Abweichende Formulierungen mit korrektem Inhalt sind gleichwertig zur Musterlösung und bekommen volle Punkte. Alltagssprache mit korrektem Inhalt wird nicht abgewertet.
 4. FACHBEGRIFFE: Richtig verwendete Fachbegriffe sind Pluspunkt, falsch verwendete Fachbegriffe (z.B. "Primärschlüssel" gemeint, aber "Fremdschlüssel" geschrieben) sind Punktabzug.
-5. VOLLSTÄNDIGKEIT ZÄHLT: Wenn eine Aufgabe "3 Beispiele" fordert und nur 2 genannt werden, werden die fehlenden Punkte nicht großzügig verschenkt. Das ist die Grenze zwischen fair und zu locker.
+5. VOLLSTÄNDIGKEIT ZÄHLT: Wenn eine Aufgabe "3 Beispiele" fordert und nur 2 genannt werden, werden die fehlenden Punkte nicht großzügig verschenkt.
 6. KEIN MINDEST-FLOOR: Eine Antwort mit einem richtigen und einem falschen Aspekt bekommt nicht pauschal 60%, sondern die Hälfte. Eine leere oder fachfremde Antwort bekommt 0 Punkte.
 7. PSEUDOCODE: Logik und algorithmische Korrektheit zählen, nicht syntaktische Sprachen-Konformität.
 8. Rechtschreibung und Formulierung werden NICHT bewertet — nur der fachliche Inhalt zählt.

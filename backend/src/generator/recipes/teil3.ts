@@ -18,6 +18,7 @@
  * Autor: { name: "LetsGamingDE", id: 272402865874534400n }
  */
 
+import { svBeitragssaetzePromptBlock } from '../../domain/taxonomy.js';
 import type { TaskRecipe } from '../types.js';
 
 export const RECIPES_TEIL3: TaskRecipe[] = [
@@ -139,7 +140,9 @@ Typische Berechnungen:
   • Überstundenzuschlag
   • Ausbildungsvergütung nach Lehrjahr
 Verpflichtend: echte Zahlenwerte (kein "X Euro"), Rechenweg in expectedAnswer angeben.
-KEIN Freitext-Begründungsanteil.`,
+KEIN Freitext-Begründungsanteil.
+
+${svBeitragssaetzePromptBlock()}`,
         points: 6,
         operator: 'berechnen',
         gradingHint:

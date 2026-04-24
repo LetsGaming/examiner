@@ -35,6 +35,10 @@ export interface Scenario {
   name: string;
   branche: string;
   produkt: string;
+  /** Mitarbeiterzahl als String. MD §5.3 belegt konkrete Zahlen (z.B. "45"),
+   *  aber kein Formatierungsmuster. Konvention: keine Tausendertrennzeichen
+   *  für 3-stellige Zahlen (z.B. "280" statt "280."); bei 4-stelligen Zahlen
+   *  kann die KI-Generierung "1.200" oder "1200" liefern — beides wird akzeptiert. */
   mitarbeiter: string;
   description: string;
 }

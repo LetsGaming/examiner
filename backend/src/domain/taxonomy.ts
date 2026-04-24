@@ -146,11 +146,65 @@ export const DIAGRAM_TYPE_LABELS: Record<
   er: 'Entity-Relationship-Diagramm',
 };
 
+// ─── ACID-Eigenschaften ──────────────────────────────────────────────────────
+// MD §5.2 W23/24 Aufg.3 belegt die englischen Bezeichner explizit als
+// Aufgaben-Kanon ("ACID: Atomicity, Consistency, Isolation, Durability je 2 Pkt.").
+// Zentralisiert, damit Rezepte die Werte importieren statt sie zu duplizieren.
+
+export const ACID_PROPERTIES = ['Atomicity', 'Consistency', 'Isolation', 'Durability'] as const;
+
+// ─── Sozialversicherungs-Beitragssätze (Stand 2026) ──────────────────────────
+// Quelle: Deutsche Rentenversicherung, Techniker Krankenkasse, AOK (Jan 2026).
+// MD §5.3 verwendet in Lohn-/SV-Beispielen konkrete Zahlen (244,80 EUR etc.),
+// belegt aber keine Beitragssätze selbst. Diese Konstanten werden vom WiSo-
+// SV-Berechnungs-Rezept (teil3.ts t3_calc_mc5) an den Generator übergeben,
+// damit die erzeugten Aufgaben und Musterlösungen aktuelle Zahlen nutzen
+// statt LLM-Halluzinationen aus dem Trainings-Wissen.
+//
+// WICHTIG: Bei Jahreswechsel prüfen! Die Sätze ändern sich im 1–2-Jahres-Rhythmus.
+
+export interface SVBeitragssatz {
+  /** Gesamtbeitragssatz in Prozent. */
+  gesamt: number;
+  /** Arbeitnehmer-Anteil in Prozent. */
+  arbeitnehmer: number;
+}
+
+export const SV_BEITRAGSSAETZE_2026 = {
+  stand: '2026',
+  krankenversicherung: { gesamt: 14.6, arbeitnehmer: 7.3 },
+  /** Durchschnittlicher Zusatzbeitrag KV — kassen-individuell. */
+  krankenversicherungZusatzbeitrag: { gesamt: 2.9, arbeitnehmer: 1.45 },
+  rentenversicherung: { gesamt: 18.6, arbeitnehmer: 9.3 },
+  arbeitslosenversicherung: { gesamt: 2.6, arbeitnehmer: 1.3 },
+  /** Pflegeversicherung (Standard; Sachsen abweichend, Kinderlosen-Zuschlag +0,6%). */
+  pflegeversicherung: { gesamt: 3.6, arbeitnehmer: 1.8 },
+  /** Beitragsbemessungsgrenze KV/PV (monatlich, in Euro). */
+  bemessungsgrenzeKvPv: 5812.5,
+  /** Beitragsbemessungsgrenze RV/AV (monatlich, in Euro). */
+  bemessungsgrenzeRvAv: 8450,
+} as const satisfies {
+  stand: string;
+  [key: string]: SVBeitragssatz | string | number;
+};
+
+/** Kurzformatierter Hinweisblock für LLM-Prompts. */
+export function svBeitragssaetzePromptBlock(): string {
+  const s = SV_BEITRAGSSAETZE_2026;
+  return `SV-BEITRAGSSÄTZE (Stand ${s.stand}, verpflichtend für Aufgaben und Musterlösungen):
+- Krankenversicherung: ${s.krankenversicherung.gesamt}% (AN ${s.krankenversicherung.arbeitnehmer}%), Zusatzbeitrag Ø ${s.krankenversicherungZusatzbeitrag.gesamt}% (AN ${s.krankenversicherungZusatzbeitrag.arbeitnehmer}%)
+- Rentenversicherung: ${s.rentenversicherung.gesamt}% (AN ${s.rentenversicherung.arbeitnehmer}%)
+- Arbeitslosenversicherung: ${s.arbeitslosenversicherung.gesamt}% (AN ${s.arbeitslosenversicherung.arbeitnehmer}%)
+- Pflegeversicherung: ${s.pflegeversicherung.gesamt}% (AN ${s.pflegeversicherung.arbeitnehmer}%), Sachsen abweichend, Kinderlosenzuschlag +0,6% auf AN-Anteil
+- Bemessungsgrenze KV/PV: ${s.bemessungsgrenzeKvPv} EUR/Monat, RV/AV: ${s.bemessungsgrenzeRvAv} EUR/Monat`;
+}
+
 // ─── MC-Option-Formate ───────────────────────────────────────────────────────
 // MD §5.3: WiSo verwendet 5 Optionen mit Ziffern 1–5 (NICHT A–D).
-// Teil 1/2 verwendet 4 Optionen A–D (implizit aus §5.1/5.2 — dort gibt es
-// allerdings kaum echte MC-Aufgaben, die 4er-Buchstabenform kommt aus der
-// Code-Historie und ist als Konvention etabliert).
+// Teil 1/2 verwendet 4 Optionen A–D.
+// ACHTUNG: Die 4er-Buchstabenform für Teil 1/2 ist NICHT MD-belegt. MD §5.1/§5.2
+// enthält praktisch keine echten MC-Aufgaben im Teil 1/2 — die Konvention stammt
+// aus der Code-Historie / Frontend-Erwartung. Bei Änderung Frontend prüfen.
 
 export const MC_OPTION_IDS_TEIL12 = ['A', 'B', 'C', 'D'] as const;
 export const MC_OPTION_IDS_WISO = ['1', '2', '3', '4', '5'] as const;

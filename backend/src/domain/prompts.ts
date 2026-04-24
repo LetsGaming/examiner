@@ -48,8 +48,14 @@ export function taskTypeFlags(
 export const TYPE_RULE_SQL =
   'SQL: questionText MUSS vollständige Tabellen + mind. 5 Beispieldatenzeilen enthalten (Format: "Spalte1 | Spalte2 | ...\\nWert1 | Wert2"). Bei GROUP BY/Subquery: Ergebnisbeispiel zeigen. DML-Varianten erlaubt: INSERT, GRANT/REVOKE, UPDATE+ALTER. solutionSql: exakte Musterlösung mit echten Tabellen-/Spaltennamen. keyElements: Pflichtbausteine.';
 
+// MD §6.3 "Pseudocode-Zuweisung: Doppelpunkt-Gleich (:=)". MD §5.2-Beispiele
+// nutzen IHK-Schlüsselwörter (solange/ende solange, für/ende für, wenn/sonst/ende wenn, return).
+// Klassen PascalCase, Methoden camelCase.
+// Asymmetrie beachten: Generator produziert STRIKT in IHK-Syntax; der Freitext-Grader
+// akzeptiert syntaktische Varianten (gradingSystem.ts Regel 7). Prüflings-Antwort in
+// Python/while-Schleifen ist ok, solange die Logik passt.
 export const TYPE_RULE_PSEUDOCODE =
-  'PSEUDOCODE: questionText MUSS enthalten: (1) Klassen mit Attributen + get-Methoden im Format "Klasse\\n- attr : Typ\\n+ getAttr(): Typ", (2) konkreten Funktionskopf "name(param: Typ, ...): Rückgabe", (3) optional Beispiel-Array 2–3 Objekte, (4) Hinweise zu besonderen Operationen. keyPoints: vollständige Pseudocode-Musterlösung.';
+  'PSEUDOCODE: questionText MUSS enthalten: (1) Klassen mit Attributen + get-Methoden im Format "Klasse\\n- attr : Typ\\n+ getAttr(): Typ", (2) konkreten Funktionskopf "name(param: Typ, ...): Rückgabe", (3) optional Beispiel-Array 2–3 Objekte, (4) Hinweise zu besonderen Operationen. keyPoints: vollständige Pseudocode-Musterlösung. IHK-SYNTAX (verbindlich): Zuweisung mit ":=" (nicht "="), Schlüsselwörter solange/ende solange, für/ende für, wenn/sonst/ende wenn, return. Klassen PascalCase, Methoden camelCase.';
 
 export const TYPE_RULE_SEQUENCE =
   'SEQUENZDIAGRAMM: questionText MUSS enthalten: (1) 3–4 Klassen mit Methodensignaturen, (2) schrittweise Vorgangsbeschreibung als Bullets mit Verzweigungen ("— Wenn X leer → Y"). expectedElements: Lebenslinien + Nachrichten + opt/loop-Blöcke.';

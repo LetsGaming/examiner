@@ -104,67 +104,15 @@
                 </svg>
               </div>
               <div v-if="openSubs.has(i)" class="subtask-body">
-                <div class="field-group">
-                  <label class="field-label">PUNKTE</label>
-                  <input
-                    :value="subEdits[i]?.points ?? sub.points"
-                    @input="
-                      $emit(
-                        'setSubEdit',
-                        i,
-                        'points',
-                        Number(($event.target as HTMLInputElement).value),
-                      )
-                    "
-                    class="field-input"
-                    type="number"
-                    min="1"
-                    max="50"
-                    style="width: 80px"
-                  />
-                </div>
-                <div class="field-group">
-                  <label class="field-label">FRAGETEXT</label>
-                  <textarea
-                    :value="subEdits[i]?.question_text ?? sub.question_text"
-                    @input="
-                      $emit(
-                        'setSubEdit',
-                        i,
-                        'question_text',
-                        ($event.target as HTMLTextAreaElement).value,
-                      )
-                    "
-                    class="field-textarea"
-                  />
-                </div>
-                <div class="field-group">
-                  <label class="field-label">ERWARTETE ANTWORT (JSON)</label>
-                  <textarea
-                    :value="
-                      subEdits[i]?.expected_answer_raw ??
-                      JSON.stringify(sub.expected_answer, null, 2)
-                    "
-                    @input="
-                      $emit(
-                        'setSubEdit',
-                        i,
-                        'expected_answer_raw',
-                        ($event.target as HTMLTextAreaElement).value,
-                      )
-                    "
-                    class="field-textarea field-textarea--code"
-                  />
-                </div>
-                <button
-                  class="btn-ghost btn-sm"
-                  :disabled="subSaving.has(i)"
-                  @click="$emit('saveSubtask', i, sub.id)"
-                >
-                  <span v-if="subSaving.has(i)" class="btn-spinner" />
-                  <template v-else>Subtask speichern</template>
-                </button>
-                <span v-if="subSaveSuccess.has(i)" class="save-ok">✓</span>
+                <SubtaskEditor
+                  :subtask="sub"
+                  :edits="subEdits[i] ?? {}"
+                  :part="task.part"
+                  :saving="subSaving.has(i)"
+                  :save-success="subSaveSuccess.has(i)"
+                  @set-edit="(field, value) => $emit('setSubEdit', i, field, value)"
+                  @save="$emit('saveSubtask', i, sub.id)"
+                />
               </div>
             </div>
           </div>
@@ -204,6 +152,7 @@
 import type { AdminTaskDetail } from '../../../types/index.js';
 import { fmtDate } from '../utils.js';
 import type { SubtaskEdit } from '../composables/useTaskDetail.js';
+import SubtaskEditor from '../editors/SubtaskEditor.vue';
 
 defineProps<{
   open: boolean;

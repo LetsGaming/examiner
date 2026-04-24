@@ -12,7 +12,13 @@
  */
 
 import { reactive, ref } from 'vue';
-import type { AdminTaskDetail } from '../../../types/index.js';
+import type {
+  AdminTaskDetail,
+  DiagramType,
+  McOption,
+  TableConfig,
+  TaskType,
+} from '../../../types/index.js';
 import {
   adminDeleteTask,
   adminFetchTask,
@@ -21,9 +27,20 @@ import {
 } from '../../../composables/api/index.js';
 
 export interface SubtaskEdit {
+  // Basis-Felder
   question_text?: string;
-  expected_answer_raw?: string;
   points?: number;
+  /** Raw-JSON-Fallback für Expert-User (Advanced-Modus im Editor). */
+  expected_answer_raw?: string;
+  /** Bereits geparste expected_answer aus einem Typ-spezifischen Editor. */
+  expected_answer?: unknown;
+
+  // Typ-spezifisch
+  task_type?: TaskType;
+  mc_options?: McOption[] | null;
+  diagram_type?: DiagramType | null;
+  expected_elements?: string[] | null;
+  table_config?: TableConfig | null;
 }
 
 export interface UseTaskDetailCallbacks {
@@ -130,21 +147,32 @@ export function useTaskDetail(callbacks: UseTaskDetailCallbacks = {}) {
     const edits = subEdits[i] ?? {};
     subSaving.value = new Set([...subSaving.value, i]);
     try {
-      // expected_answer kommt als JSON-String aus dem Textarea. Bei Parse-
-      // Fehler fallen wir auf den Raw-String zurück — das Backend validiert
-      // das Shape sowieso nochmal.
+      // expected_answer-Auflösung mit Prioritäten:
+      //   1. expected_answer (bereits geparst aus Typ-spezifischem Editor)
+      //   2. expected_answer_raw (Raw-JSON aus Advanced-Modus) → versuchen zu
+      //      parsen, bei Fehler Raw-String durchreichen.
       let ea: unknown = undefined;
-      if (edits.expected_answer_raw !== undefined) {
+      if (edits.expected_answer !== undefined) {
+        ea = edits.expected_answer;
+      } else if (edits.expected_answer_raw !== undefined) {
         try {
           ea = JSON.parse(edits.expected_answer_raw);
         } catch {
           ea = edits.expected_answer_raw;
         }
       }
+
+      // Nur tatsächlich gesetzte Felder durchreichen, damit `undefined` nicht
+      // als "Feld löschen" interpretiert wird.
       await adminPatchSubtask(task.value.id, subId, {
         question_text: edits.question_text,
         expected_answer: ea,
         points: edits.points,
+        task_type: edits.task_type,
+        mc_options: edits.mc_options,
+        diagram_type: edits.diagram_type,
+        expected_elements: edits.expected_elements,
+        table_config: edits.table_config,
       });
       const ok = new Set(subSaveSuccess.value);
       ok.add(i);

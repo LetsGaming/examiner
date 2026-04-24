@@ -120,43 +120,43 @@
           @run-reclassify="maintenance.runReclassify"
         />
       </main>
+
+      <!-- ─── Task-Detail Drawer ─── -->
+      <TaskDetailDrawer
+        :open="taskDetail.open.value"
+        :loading="taskDetail.loading.value"
+        :task="taskDetail.task.value"
+        :edit-meta="taskDetail.editMeta"
+        :saving="taskDetail.saving.value"
+        :save-success="taskDetail.saveSuccess.value"
+        :save-error="taskDetail.saveError.value"
+        :sub-edits="taskDetail.subEdits"
+        :open-subs="taskDetail.openSubs.value"
+        :sub-saving="taskDetail.subSaving.value"
+        :sub-save-success="taskDetail.subSaveSuccess.value"
+        @close="taskDetail.closeDetail"
+        @save-meta="taskDetail.saveTaskMeta"
+        @confirm-delete="taskDetail.confirmDelete"
+        @toggle-sub="taskDetail.toggleSub"
+        @set-sub-edit="taskDetail.setSubEdit"
+        @save-subtask="taskDetail.saveSubtask"
+      />
+
+      <!-- ─── Generate Modal ─── -->
+      <GenerateModal
+        :open="generate.modalOpen.value"
+        :part="generate.modalPart.value"
+        :count="generate.modalCount.value"
+        :topic="generate.modalTopic.value"
+        :running="generate.running.value"
+        :result="generate.result.value"
+        :error="generate.error.value"
+        @close="generate.closeModal"
+        @run="generate.runModalGenerate"
+        @update:count="generate.modalCount.value = $event"
+        @update:topic="generate.modalTopic.value = $event"
+      />
     </div>
-
-    <!-- ─── Task-Detail Drawer ─── -->
-    <TaskDetailDrawer
-      :open="taskDetail.open.value"
-      :loading="taskDetail.loading.value"
-      :task="taskDetail.task.value"
-      :edit-meta="taskDetail.editMeta"
-      :saving="taskDetail.saving.value"
-      :save-success="taskDetail.saveSuccess.value"
-      :save-error="taskDetail.saveError.value"
-      :sub-edits="taskDetail.subEdits"
-      :open-subs="taskDetail.openSubs.value"
-      :sub-saving="taskDetail.subSaving.value"
-      :sub-save-success="taskDetail.subSaveSuccess.value"
-      @close="taskDetail.closeDetail"
-      @save-meta="taskDetail.saveTaskMeta"
-      @confirm-delete="taskDetail.confirmDelete"
-      @toggle-sub="taskDetail.toggleSub"
-      @set-sub-edit="taskDetail.setSubEdit"
-      @save-subtask="taskDetail.saveSubtask"
-    />
-
-    <!-- ─── Generate Modal ─── -->
-    <GenerateModal
-      :open="generate.modalOpen.value"
-      :part="generate.modalPart.value"
-      :count="generate.modalCount.value"
-      :topic="generate.modalTopic.value"
-      :running="generate.running.value"
-      :result="generate.result.value"
-      :error="generate.error.value"
-      @close="generate.closeModal"
-      @run="generate.runModalGenerate"
-      @update:count="generate.modalCount.value = $event"
-      @update:topic="generate.modalTopic.value = $event"
-    />
 
     <!-- ─── Confirm-Dialog ─── -->
     <ConfirmDialog

@@ -240,7 +240,16 @@ adminRouter.patch('/tasks/:id', (req: Request, res: Response) => {
 
 adminRouter.patch('/tasks/:id/subtasks/:subId', (req: Request, res: Response) => {
   const { id, subId } = req.params;
-  const { question_text, expected_answer, points } = req.body as Record<string, unknown>;
+  const {
+    question_text,
+    expected_answer,
+    points,
+    task_type,
+    mc_options,
+    diagram_type,
+    expected_elements,
+    table_config,
+  } = req.body as Record<string, unknown>;
 
   if (!db.prepare(`SELECT id FROM subtasks WHERE id = ? AND task_id = ?`).get(subId, id))
     return res.status(404).json({ success: false, error: 'Subtask nicht gefunden.' });
@@ -248,11 +257,14 @@ adminRouter.patch('/tasks/:id/subtasks/:subId', (req: Request, res: Response) =>
   const updates: string[] = [];
   const params: unknown[] = [];
 
+  // ── Text / Basis-Felder ───────────────────────────────────────────────────
   if (question_text !== undefined) {
     updates.push('question_text = ?');
     params.push(String(question_text).trim());
   }
   if (expected_answer !== undefined) {
+    // Frontend darf sowohl ein Objekt als auch einen JSON-String schicken;
+    // in der DB liegt immer ein String.
     const s =
       typeof expected_answer === 'string' ? expected_answer : JSON.stringify(expected_answer);
     updates.push('expected_answer = ?');
@@ -264,6 +276,69 @@ adminRouter.patch('/tasks/:id/subtasks/:subId', (req: Request, res: Response) =>
       return res.status(400).json({ success: false, error: 'Punkte: 1–50' });
     updates.push('points = ?');
     params.push(p);
+  }
+
+  // ── Typ-Wechsel ───────────────────────────────────────────────────────────
+  // Wir validieren gegen die gleiche Liste wie in types/index.ts (MD §5.1).
+  // Wenn der Typ wechselt, müssen abhängige Felder (mc_options, diagram_type,
+  // table_config) konsistent sein — das erzwingen wir nicht hier, das Frontend
+  // muss die Felder im gleichen PATCH mitschicken.
+  if (task_type !== undefined) {
+    const validTypes = [
+      'freitext',
+      'pseudocode',
+      'sql',
+      'mc',
+      'mc_multi',
+      'plantuml',
+      'diagram_upload',
+      'table',
+    ];
+    if (!validTypes.includes(String(task_type))) {
+      return res.status(400).json({ success: false, error: `Ungültiger task_type: ${task_type}` });
+    }
+    updates.push('task_type = ?');
+    params.push(String(task_type));
+  }
+
+  // ── MC-Options (nur relevant bei task_type='mc'/'mc_multi') ───────────────
+  if (mc_options !== undefined) {
+    // null oder [] löscht die Optionen, ansonsten muss es ein Array von
+    // { id, text, correct? } sein.
+    if (mc_options !== null && !Array.isArray(mc_options)) {
+      return res.status(400).json({ success: false, error: 'mc_options muss Array sein.' });
+    }
+    updates.push('mc_options = ?');
+    params.push(JSON.stringify(mc_options ?? []));
+  }
+
+  // ── Diagramm-Typ ──────────────────────────────────────────────────────────
+  if (diagram_type !== undefined) {
+    if (diagram_type !== null && typeof diagram_type !== 'string') {
+      return res.status(400).json({ success: false, error: 'diagram_type muss String sein.' });
+    }
+    updates.push('diagram_type = ?');
+    params.push(diagram_type);
+  }
+
+  // ── Erwartete Elemente (Diagramm) ─────────────────────────────────────────
+  if (expected_elements !== undefined) {
+    if (expected_elements !== null && !Array.isArray(expected_elements)) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'expected_elements muss Array sein.' });
+    }
+    updates.push('expected_elements = ?');
+    params.push(JSON.stringify(expected_elements ?? []));
+  }
+
+  // ── Tabellen-Config (nur relevant bei task_type='table') ──────────────────
+  if (table_config !== undefined) {
+    if (table_config !== null && typeof table_config !== 'object') {
+      return res.status(400).json({ success: false, error: 'table_config muss Objekt sein.' });
+    }
+    updates.push('table_config = ?');
+    params.push(table_config === null ? null : JSON.stringify(table_config));
   }
 
   if (updates.length === 0) return res.status(400).json({ success: false, error: 'Keine Felder.' });

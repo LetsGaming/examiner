@@ -77,6 +77,9 @@ export const TASK_TYPE_SHORT: Record<TaskType, string> = {
 export interface McOption {
   id: string;
   text: string;
+  /** Bei Single-MC: genau eine Option hat `correct: true`.
+   *  Bei Multi-MC: mehrere Optionen können correct sein. MD §5.3: WiSo = exakt 2 von 5. */
+  correct?: boolean;
 }
 
 export interface TableConfig {

@@ -21,6 +21,10 @@ import type {
   AdminTaskDetail,
   AdminUser,
   ApiResponse,
+  DiagramType,
+  McOption,
+  TableConfig,
+  TaskType,
 } from '../../types/index.js';
 import { api } from './client.js';
 import { unwrap } from './httpHelpers.js';
@@ -84,6 +88,11 @@ export interface AdminSubtaskPatch {
   question_text?: string;
   expected_answer?: unknown;
   points?: number;
+  task_type?: TaskType;
+  mc_options?: McOption[] | null;
+  diagram_type?: DiagramType | null;
+  expected_elements?: string[] | null;
+  table_config?: TableConfig | null;
 }
 
 export async function adminPatchSubtask(

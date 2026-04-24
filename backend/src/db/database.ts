@@ -129,9 +129,10 @@ export function initDatabase(): void {
 
     -- Szenario-spezifische Aufgabentexte je Session (Platzhalter ersetzt)
     CREATE TABLE IF NOT EXISTS session_subtask_overrides (
-      session_id    TEXT NOT NULL,
-      subtask_id    TEXT NOT NULL,
-      question_text TEXT NOT NULL,
+      session_id       TEXT NOT NULL,
+      subtask_id       TEXT NOT NULL,
+      question_text    TEXT NOT NULL,
+      expected_answer  TEXT,
       PRIMARY KEY (session_id, subtask_id)
     );
 
@@ -237,6 +238,15 @@ export function initDatabase(): void {
   try {
     db.exec("ALTER TABLE tasks ADD COLUMN task_kind TEXT NOT NULL DEFAULT 'text'");
     db.exec('CREATE INDEX IF NOT EXISTS idx_tasks_kind ON tasks(part, specialty, task_kind)');
+  } catch {
+    /* bereits vorhanden — ignorieren */
+  }
+
+  // ─── Migration: expected_answer Spalte in session_subtask_overrides ────────
+  // Ermöglicht, dass Szenario-Platzhalter auch in expected_answer beim
+  // Session-Start per Code ersetzt werden — statt zur Evaluation-Zeit.
+  try {
+    db.exec('ALTER TABLE session_subtask_overrides ADD COLUMN expected_answer TEXT');
   } catch {
     /* bereits vorhanden — ignorieren */
   }

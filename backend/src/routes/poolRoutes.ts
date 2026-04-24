@@ -77,22 +77,6 @@ function countPool(part: string, specialty: Specialty): number {
   ).cnt;
 }
 
-/** Apply scenario placeholders to a subtask's expected_answer JSON blob. */
-function resolveExpectedAnswer(raw: string, scenario: Scenario): string | undefined {
-  try {
-    const parsed = JSON.parse(raw || '{}') as Record<string, unknown>;
-    const replaced = JSON.parse(applyScenario(JSON.stringify(parsed), scenario)) as Record<
-      string,
-      unknown
-    >;
-    return JSON.stringify(replaced) !== JSON.stringify(parsed)
-      ? JSON.stringify(replaced)
-      : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 // ─── GET /api/exams/pool-status ───────────────────────────────────────────────
 
 poolRouter.get('/pool-status', (req: Request, res: Response) => {
@@ -313,16 +297,23 @@ poolRouter.post('/start', async (req: Request, res: Response) => {
 
         for (const st of subtasks) {
           const resolvedQuestion = applyScenario(st.question_text, scenario);
-          if (resolvedQuestion !== st.question_text) {
+          const resolvedAnswer = applyScenario(st.expected_answer, scenario);
+
+          const questionChanged = resolvedQuestion !== st.question_text;
+          const answerChanged = resolvedAnswer !== st.expected_answer;
+
+          if (questionChanged || answerChanged) {
             db.prepare(
               `INSERT OR REPLACE INTO session_subtask_overrides
-                 (session_id, subtask_id, question_text)
-               VALUES (?, ?, ?)`,
-            ).run(sessionId, st.id, resolvedQuestion);
+                 (session_id, subtask_id, question_text, expected_answer)
+               VALUES (?, ?, ?, ?)`,
+            ).run(
+              sessionId,
+              st.id,
+              questionChanged ? resolvedQuestion : st.question_text,
+              answerChanged ? resolvedAnswer : null,
+            );
           }
-          // expected_answer overrides resolved at evaluation time via
-          // aiService.stripPlaceholders — no separate column needed here.
-          resolveExpectedAnswer(st.expected_answer, scenario);
         }
       }
     })();

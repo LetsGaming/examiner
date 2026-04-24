@@ -1264,111 +1264,160 @@ const RECIPES_TEIL2: TaskRecipe[] = [
 ];
 
 // ─── TEIL 3 REZEPTE (WiSo) ───────────────────────────────────────────────────
-// WiSo besteht aus vielen kleineren Aufgaben, meist MC + kurzer Freitext.
+//
+// Erkenntnisse aus OCR-Analyse echter WiSo-Prüfungen (S22, W23/24):
+//
+// AUFGABENFORMATE:
+//  • Single-Choice mit 5 Optionen (Ziffern 1–5) — KEINE 4-Option-MC wie in T1/T2
+//    "Tragen Sie die Ziffer vor der zutreffenden Aussage in das Kästchen ein."
+//  • Multi-Choice mit 5 Optionen, IMMER genau 2 korrekt
+//    "Tragen Sie die Ziffern vor den zwei zutreffenden Aussagen in die Kästchen ein."
+//  • Kurzrechnung: Lohn, SV-Beiträge, Urlaubsgeld, Urlaubstage, Abzüge
+//    Antwort: Rechenweg + Zahl + Einheit. Keine Freitextbegründung.
+//  • Lückentext: Begriffe eintragen (z.B. "Azubis dürfen max. ___ h/Woche arbeiten")
+//  • Nennen/Ergänzen: 2–3 Stichworte, NIEMALS "Begründen Sie" oder "Erläutern Sie"
+//
+// THEMEN (nach Häufigkeit in echten Prüfungen):
+//  Ausbildungsvertrag, BBiG, Probezeit, Jugendarbeitsschutz, Kündigung (KSchG),
+//  Sozialversicherung (5 Zweige + Beitragssätze), Tarifvertrag, Betriebsrat,
+//  Berufsschulpflicht, Arbeitszeit (ArbZG/JarbSchG), Urlaub (BUrlG),
+//  Gesellschaftsformen (GmbH/AG/GbR/OHG), Wirtschaftlichkeit (Kosten-Nutzen),
+//  Verbraucherschutz, Kaufvertrag, Datenschutz (DSGVO), Umweltschutz
+//
+// NIEMALS in WiSo:
+//  "Begründen Sie Ihre Auswahl", "Erläutern Sie Ihren Ansatz",
+//  "Warum haben Sie X gewählt?", offene Vergleichsaufgaben, UML, SQL, Pseudocode
 
 const RECIPES_TEIL3: TaskRecipe[] = [
+  // Muster 1: Single-Choice (5 Optionen) + Single-Choice (5 Optionen)
+  // Häufigstes Format in echten WiSo-Prüfungen — ca. 40% aller Aufgaben
   {
-    id: 't3_mc_freitext',
+    id: 't3_mc5_mc5',
+    weight: 35,
+    subtasks: [
+      {
+        taskType: 'mc',
+        prompt: `Erstelle eine IHK-WiSo-Single-Choice-Aufgabe mit GENAU 5 Optionen (Ziffern 1–5, nicht A–D).
+Aufgabentext: Konkrete Situation aus dem Ausbildungs-/Arbeitsrecht oder Wirtschaftslehre.
+Formulierung: "Welche der folgenden Aussagen ist zutreffend?" oder "Welcher der folgenden Sachverhalte trifft zu?"
+Korrekte Antwort: genau EINE der 5 Optionen. Variiere die Position (nicht immer Option 1).
+Alle 5 Optionen plausibel formuliert, Distraktoren fachlich korrekt klingend aber falsch.
+Themen: BBiG, Ausbildungsvertrag, Probezeit, Kündigung, Sozialversicherung, Tarifvertrag, Betriebsrat, Gesellschaftsformen.
+Die Antwort-IDs in mcOptions müssen "1","2","3","4","5" sein (keine A–D).`,
+        points: 4,
+        operator: 'identifizieren',
+        gradingHint:
+          'Binär: richtig = volle Punkte, falsch = 0. Keine Teilpunkte bei Single-Choice.',
+      },
+      {
+        taskType: 'mc',
+        prompt: `Erstelle eine zweite IHK-WiSo-Single-Choice-Aufgabe mit GENAU 5 Optionen (Ziffern 1–5).
+Anderes Thema als die erste Aufgabe dieser Prüfung.
+Themen: Urlaub (BUrlG), Arbeitszeit (ArbZG/JarbSchG), Kaufvertrag, Verbraucherschutz, Datenschutz (DSGVO), GmbH/AG-Unterschiede, Wirtschaftlichkeitsrechnung.
+Korrekte Antwort: genau EINE. Variiere Position.
+Die Antwort-IDs in mcOptions müssen "1","2","3","4","5" sein.`,
+        points: 4,
+        operator: 'identifizieren',
+        gradingHint: 'Binär.',
+      },
+    ],
+  },
+
+  // Muster 2: Multi-Choice (5 Opt., genau 2 korrekt) + Short-Calc oder Lückentext
+  // Zweithäufigstes Format — ca. 30% aller Aufgaben
+  {
+    id: 't3_mc5multi_calc',
     weight: 30,
     subtasks: [
       {
-        taskType: 'mc',
-        prompt:
-          'Formuliere eine IHK-typische Wissensfrage als Single-Choice (genau 4 Optionen A–D, nur EINE korrekt).',
-        points: 4,
-        operator: 'identifizieren',
-        gradingHint:
-          'Binäre Bewertung: richtig = volle Punkte, falsch = 0. Teilpunkte gibt es bei MC nicht.',
-      },
-      {
-        taskType: 'freitext',
-        prompt: 'Berechnen oder erläutern Sie den beschriebenen Sachverhalt kurz.',
-        points: 6,
-        operator: 'erlaeutern',
-        gradingHint:
-          'Fachlich korrekte Antwort = volle Punkte. Bei Berechnung Rechenweg nicht zwingend.',
-      },
-    ],
-  },
-  {
-    id: 't3_mcmulti_freitext',
-    weight: 20,
-    subtasks: [
-      {
         taskType: 'mc_multi',
-        prompt:
-          'Formuliere eine IHK-typische Mehrfachauswahlfrage (4 Optionen A–D, 2 oder 3 korrekt).',
+        prompt: `Erstelle eine IHK-WiSo-Mehrfachauswahl-Aufgabe mit GENAU 5 Optionen (Ziffern 1–5).
+Aufgabentext: Konkrete Situation (z.B. Auszug aus einem Gesetz oder Vertrag).
+Formulierung: "Welche zwei der folgenden Aussagen sind zutreffend?" — IMMER genau 2 korrekt (nie 3, nie 1).
+Distraktoren: 3 falsche Aussagen, die plausibel klingen.
+Themen: BBiG §§, JArbSchG, Sozialversicherungsrecht, Tarifvertragsgesetz, Betriebsverfassungsgesetz, KSchG.
+Die Antwort-IDs in mcOptions müssen "1","2","3","4","5" sein. correctOptions: genau 2 Ziffern-Strings.`,
         points: 5,
         operator: 'identifizieren',
+        cascade: true,
         gradingHint:
-          'Je korrekt markierter Option Teilpunkte, je falsch markierter Abzug (nie negativ).',
+          'Je korrekt markierter Option 50%, je falsch markierter Abzug (min. 0 Punkte gesamt).',
       },
       {
         taskType: 'freitext',
-        prompt: 'Erläutern Sie Ihre Auswahl kurz (2–3 Sätze).',
+        prompt: `Erstelle eine kurze WiSo-Berechnungsaufgabe ODER eine Ergänzungsaufgabe (Lückentext / "Nennen Sie").
+NIEMALS "Begründen Sie" oder "Erläutern Sie Ihre Auswahl" — das kommt in WiSo-Prüfungen nicht vor.
+Erlaubte Formate:
+  a) Rechenaufgabe: Bruttolohn → Nettolohn, SV-Beiträge berechnen, Urlaubstage/-geld, Abzüge.
+     Konkrete Zahlen vorgeben. Antwort: Rechenweg + Ergebnis mit €-Zeichen.
+  b) "Nennen Sie X Merkmale/Pflichten/Rechte von Y" (2–3 Stichworte genügen).
+  c) Lückentext: 2–3 Begriffe aus dem Ausbildungs-/Arbeitsrecht eintragen.
+Thema muss zum restlichen Aufgabenkontext passen.`,
         points: 5,
-        operator: 'erlaeutern',
-        gradingHint: 'Sinngemäße Begründung = volle Punkte.',
+        operator: 'nennen',
+        gradingHint:
+          'Bei Rechnung: Rechenweg 50%, Ergebnis mit Einheit 50%. Bei "Nennen": je Stichpunkt 1/2 oder 1/3 der Punkte. Keine Abzüge für fehlende Begründung.',
       },
     ],
   },
+
+  // Muster 3: Single-Choice (5) + Multi-Choice (5, genau 2 korrekt)
   {
-    id: 't3_freitext_mc',
+    id: 't3_mc5_mc5multi',
     weight: 20,
     subtasks: [
       {
-        taskType: 'freitext',
-        prompt: 'Nennen Sie 2–3 Aspekte oder Unterschiede und erläutern Sie kurz.',
-        points: 6,
-        operator: 'nennen',
-        gradingHint: 'Je Aspekt mit kurzer Erläuterung 1/3 oder 1/2 der Punkte.',
-      },
-      {
         taskType: 'mc',
-        prompt:
-          'Formuliere eine thematisch passende Single-Choice-Frage (4 Optionen A–D, 1 korrekt).',
-        points: 4,
-        operator: 'identifizieren',
-        gradingHint: 'Binär: richtig = volle Punkte.',
-      },
-    ],
-  },
-  {
-    id: 't3_mc_mcmulti',
-    weight: 15,
-    subtasks: [
-      {
-        taskType: 'mc',
-        prompt:
-          'Formuliere eine IHK-typische Wissensfrage als Single-Choice (4 Optionen A–D, 1 korrekt).',
+        prompt: `IHK-WiSo-Single-Choice mit GENAU 5 Optionen (Ziffern 1–5, nicht A–D).
+Themen: Ausbildungsrecht (BBiG), Sozialversicherung (5 Zweige + Beitragssätze), Tarifvertrag, Gesellschaftsformen.
+Korrekte Antwort: genau 1. Variiere Position (nicht immer Ziffer 1).
+IDs in mcOptions: "1","2","3","4","5".`,
         points: 4,
         operator: 'identifizieren',
         gradingHint: 'Binär.',
       },
       {
         taskType: 'mc_multi',
-        prompt: 'Formuliere eine IHK-typische Mehrfachauswahlfrage (4 Optionen A–D, 2-3 korrekt).',
+        prompt: `IHK-WiSo-Mehrfachauswahl mit GENAU 5 Optionen (Ziffern 1–5).
+IMMER genau 2 korrekt (Formulierung: "zwei zutreffende Aussagen").
+Thema muss sich von der ersten Unteraufgabe dieser Prüfung unterscheiden.
+Themen: Arbeitszeit/Pausen (ArbZG), Urlaub (BUrlG), Berufsschule/Lernmittelfreiheit, Kaufvertragsrecht, DSGVO.
+IDs in mcOptions: "1","2","3","4","5". correctOptions: genau 2 Ziffern-Strings.`,
         points: 6,
         operator: 'identifizieren',
-        gradingHint: 'Je Option mit richtiger Auswahl Teilpunkte.',
+        gradingHint: 'Je korrekt markierter Option 50%, Abzug für falsch markierte (min. 0).',
       },
     ],
   },
+
+  // Muster 4: Reine Berechnungsaufgabe (Lohn/SV) + Single-Choice
+  // Kommt in ca. jeder zweiten WiSo-Prüfung vor
   {
-    id: 't3_mcmulti_mc',
+    id: 't3_calc_mc5',
     weight: 15,
     subtasks: [
       {
-        taskType: 'mc_multi',
-        prompt: 'Formuliere eine IHK-typische Mehrfachauswahlfrage (4 Optionen A–D, 2-3 korrekt).',
+        taskType: 'freitext',
+        prompt: `Erstelle eine WiSo-Lohn- oder SV-Berechnungsaufgabe wie in echten IHK-Prüfungen.
+Konkrete Ausgangswerte vorgeben (Bruttogehalt, SV-Beitragssätze, Steuern etc.).
+Typische Berechnungen:
+  • Arbeitnehmer-Anteil zur Sozialversicherung (KV + PV + RV + AV + UV-Anteil)
+  • Nettogehalt aus Brutto, Steuern und SV-Abzügen
+  • Urlaubsentgelt: (Jahresgehalt / Arbeitstage) × Urlaubstage
+  • Überstundenzuschlag
+  • Ausbildungsvergütung nach Lehrjahr
+Verpflichtend: echte Zahlenwerte (kein "X Euro"), Rechenweg in expectedAnswer angeben.
+KEIN Freitext-Begründungsanteil.`,
         points: 6,
-        operator: 'identifizieren',
-        gradingHint: 'Je Option mit richtiger Auswahl Teilpunkte.',
+        operator: 'berechnen',
+        gradingHint:
+          'Rechenweg vollständig 50%, Zwischenergebnisse korrekt 25%, Endergebnis mit Einheit 25%. Folgefehler nur einmal abziehen.',
       },
       {
         taskType: 'mc',
-        prompt:
-          'Formuliere eine IHK-typische Wissensfrage als Single-Choice (4 Optionen A–D, 1 korrekt).',
+        prompt: `IHK-WiSo-Single-Choice mit GENAU 5 Optionen (Ziffern 1–5).
+Thema ergänzt die Berechnungsaufgabe (z.B. nach SV-Berechnung: Frage zu Versicherungspflicht / Beitragsverteilung).
+Korrekte Antwort: genau 1. IDs: "1","2","3","4","5".`,
         points: 4,
         operator: 'identifizieren',
         gradingHint: 'Binär.',
@@ -1574,8 +1623,20 @@ function buildSystemPrompt(specialtyLabel: string, recipe: TaskRecipe): string {
   );
   const hasEr = recipe.subtasks.some((s) => s.taskType === 'plantuml' && s.diagramType === 'er');
 
-  // Nur die für dieses Rezept relevanten Typ-Regeln — spart Token bei einfachen Aufgaben
+  const isLikelyWiso = recipe.id?.startsWith('t3_') ?? false;
+  const isWiso = isLikelyWiso;
+
   const typeRules: string[] = [];
+
+  if (isLikelyWiso)
+    typeRules.push(
+      `WISO-MODUS (Teil 3 — Wirtschafts- und Sozialkunde):
+MC Single-Choice: GENAU 5 Optionen mit IDs "1"–"5" (NICHT A–D). Formulierung: "Welche Aussage ist zutreffend?"
+MC Multi-Choice: GENAU 5 Optionen, IDs "1"–"5", IMMER genau 2 korrekt. Formulierung: "Welche ZWEI Aussagen sind zutreffend?" correctOptions = 2 Strings.
+Freitext: NUR Berechnungen (Lohn/SV/Urlaub — konkrete Zahlen + Rechenweg) ODER "Nennen Sie X" (Stichworte, keine Sätze).
+NIEMALS: "Begründen Sie Ihre Auswahl", "Erläutern Sie Ihren Ansatz", offene Vergleiche, UML, SQL.
+Themen: BBiG, KSchG, JArbSchG, ArbZG, BUrlG, Sozialversicherung, Tarifvertrag, Gesellschaftsformen (GmbH/AG/GbR).`,
+    );
 
   if (hasSql)
     typeRules.push(
@@ -1604,22 +1665,32 @@ function buildSystemPrompt(specialtyLabel: string, recipe: TaskRecipe): string {
 
   const typeSection = typeRules.length > 0 ? `\n${typeRules.join('\n\n')}\n` : '';
 
-  return `IHK ${specialtyLabel} AP2 Prüfungsersteller. Antworte NUR mit JSON (kein Markdown).
-
-AUFGABENTEXT-STRUKTUR (Pflicht):
+  const contextBlock = isWiso
+    ? `AUFGABENKONTEXT: Ausbildungsbetrieb oder Unternehmen aus dem Bereich Fachinformatik/IT.
+Verwende "Sachs-IT GmbH" oder ähnliche realistische Namen als Unternehmensrahmen (KEINE Platzhalter in WiSo).
+Aufgaben beziehen sich auf konkrete Mitarbeiter, Azubis oder Verträge in diesem Unternehmen.`
+    : `AUFGABENTEXT-STRUKTUR (Pflicht):
 1. Situativer Einstieg: "{{UNTERNEHMEN}} möchte X entwickeln. Sie arbeiten in diesem Projekt mit."
 2. Kontextmaterial (Klassen, Tabellen, Bullets, Code) — je nach Aufgabentyp
 3. Arbeitsauftrag mit IHK-Operator, z.B. "Nennen Sie...", "Erläutern Sie...", "Erstellen Sie..."
 Nie abstrakt "Erkläre allgemein X" — immer projektbezogen auf {{UNTERNEHMEN}}/{{PRODUKT}}.
 
-PLATZHALTER: {{UNTERNEHMEN}} {{BRANCHE}} {{PRODUKT}} {{MITARBEITER}} nur im questionText.
-In expectedAnswer/explanation/solutionSql: keine Platzhalter — szenario-neutrale Musterlösung.
-${typeSection}
-MC: 4 Optionen A–D, correctOption variiert (nicht immer A), explanation 1–2 Sätze.
+PLATZHALTER: {{UNTERNEHMEN}} {{BRANCHE}} {{PRODUKT}} {{MITARBEITER}} nur im questionText setzen.
+WICHTIG: Platzhalter NIEMALS selbst ersetzen — sie werden nach der Generierung per Code durch das echte Szenario ersetzt.
+In expectedAnswer/explanation/solutionSql: keine Platzhalter — szenario-neutrale Musterlösung.`;
+
+  const mcBlock = isWiso
+    ? '' // WiSo-MC-Regeln stehen im typeSection
+    : `MC: 4 Optionen A–D, correctOption variiert (nicht immer A), explanation 1–2 Sätze.
 MC-Multi: correctOptions=[2–3 Buchstaben], nie 0 oder 4 korrekte.
 Tabellen: columns themenspezifisch, exampleRow vollständig, keyPoints 2–4 Stichpunkte.
-Plantuml/ER: expectedElements mind. 4 konkrete Elemente mit Namen.
+Plantuml/ER: expectedElements mind. 4 konkrete Elemente mit Namen.`;
 
+  return `IHK ${specialtyLabel} AP2 Prüfungsersteller. Antworte NUR mit JSON (kein Markdown).
+
+${contextBlock}
+${typeSection}
+${mcBlock}
 Operatoren: nennen=Stichworte | beschreiben=2–3 Sätze | erläutern=Begründung 3–5 Sätze | berechnen=Rechenweg+Einheit | entwerfen/erstellen/skizzieren=konkrete Umsetzung | vergleichen=Kriterien-Gegenüberstellung | identifizieren=Fehler benennen
 
 Antworte AUSSCHLIESSLICH mit einem validen JSON-Objekt.`;

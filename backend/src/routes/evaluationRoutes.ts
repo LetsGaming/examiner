@@ -14,11 +14,11 @@
  *
  * ## Placeholder policy
  *
- *   questionText is resolved at session start via session_subtask_overrides.
- *   expectedAnswer may still contain {{PLACEHOLDER}} tokens if the AI generated
- *   them before scenario assignment. These are replaced here using the session's
- *   scenario values; any remaining unresolved tokens are stripped before the
- *   LLM sees them.
+ *   Szenario-Platzhalter ({{UNTERNEHMEN}} etc.) werden beim Session-Start
+ *   per Code in session_subtask_overrides geschrieben (question_text UND
+ *   expected_answer). getLoadAnswerStmt() liest immer den Override-Wert,
+ *   falls vorhanden. stripPlaceholders() in aiService.ts bleibt als
+ *   Sicherheitsnetz für ältere Pool-Aufgaben ohne Override.
  */
 import path from 'path';
 import fs from 'fs';
@@ -145,7 +145,7 @@ function getLoadAnswerStmt(): Statement {
       SELECT a.*,
              st.task_type,
              COALESCE(sso.question_text, st.question_text) AS question_text,
-             st.expected_answer,
+             COALESCE(sso.expected_answer, st.expected_answer) AS expected_answer,
              st.points AS max_points,
              st.diagram_type,
              st.expected_elements,
@@ -199,7 +199,19 @@ evaluationRouter.post(
     try {
       const answer = getLoadAnswerStmt().get(answerId, sessionId) as AnswerRow | undefined;
       if (!answer) {
-        return res.status(404).json({ success: false, error: 'Antwort nicht gefunden.' });
+        // Unterscheide: Session existiert aber Antwort fehlt vs. Session gehört nicht diesem User
+        const sessionExists = db
+          .prepare(`SELECT id FROM exam_sessions WHERE id = ? AND user_id = ?`)
+          .get(sessionId, userId);
+        if (!sessionExists) {
+          return res.status(404).json({ success: false, error: 'Session nicht gefunden.' });
+        }
+        return res
+          .status(404)
+          .json({
+            success: false,
+            error: 'Antwort noch nicht gespeichert. Bitte erst Antwort absenden.',
+          });
       }
 
       // aiConfig is guaranteed non-null here — the guard above returns early if null.

@@ -64,6 +64,10 @@
                     : 'Markieren'
                 }}
               </button>
+              <TaskReportButton
+                v-if="reportContext"
+                :context="reportContext"
+              />
               <span class="th-pts">{{ nav.currentTask.value.maxPoints }} Punkte</span>
             </div>
           </div>
@@ -159,6 +163,8 @@
 
       <ShortcutsOverlay v-model="shortcutOverlay" />
     </Teleport>
+
+    <TaskReportModal />
   </div>
 </template>
 
@@ -197,6 +203,8 @@ import BelegsatzPanel from '../BelegsatzPanel.vue';
 import ScenarioOverlay from './ScenarioOverlay.vue';
 import ShortcutsOverlay from './ShortcutsOverlay.vue';
 import SubmitErrorDialog from './SubmitErrorDialog.vue';
+import TaskReportButton from './TaskReportButton.vue';
+import TaskReportModal from './TaskReportModal.vue';
 import type { Task, ExamPart } from '../../types/index.js';
 
 const props = defineProps<{
@@ -267,6 +275,21 @@ const submit = useExamSubmit({
   stopTimer,
   onSubmitted: (result) => emit('submitted', result),
   onCancel: () => router.push('/'),
+});
+
+// ── Report-Context für aktuelle Aufgabe ─────────────────────────────────────
+const reportContext = computed(() => {
+  const task = nav.currentTask.value;
+  const subtask = nav.currentSubtask.value;
+  if (!task) return null;
+  return {
+    taskId: task.id,
+    subtaskId: subtask?.id,
+    subtaskLabel: subtask?.label,
+    topicArea: task.topicArea ?? '(unbekannt)',
+    examPart: props.examPart,
+    sessionId: props.sessionId,
+  };
 });
 
 // ── Shortcuts ───────────────────────────────────────────────────────────────

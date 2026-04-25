@@ -91,7 +91,7 @@ export function useAuth() {
     router.push('/login');
   }
 
-  const isAdmin = computed(() => user.value?.isAdmin === true);
+  const isAdmin = computed(() => user.value?.isAdmin ?? false);
 
   return { token, user, logout, isLoggedIn, isAdmin, refreshUser };
 }

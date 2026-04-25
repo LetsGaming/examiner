@@ -12,6 +12,7 @@
 
 import { ref } from 'vue';
 import { fetchSession } from '../../../composables/api/index.js';
+import type { ExamPart } from '../../../types/index.js';
 
 export interface SubtaskEvaluation {
   awardedPoints: number;
@@ -43,11 +44,15 @@ export interface TaskResult {
 export function useSessionResults() {
   const taskResults = ref<TaskResult[]>([]);
   const loading = ref(true);
+  const examPart = ref<ExamPart | null>(null);
+  const sessionId = ref<string | null>(null);
 
-  async function load(sessionId: string): Promise<void> {
+  async function load(id: string): Promise<void> {
     loading.value = true;
+    sessionId.value = id;
     try {
-      const session = await fetchSession(sessionId);
+      const session = await fetchSession(id);
+      examPart.value = session.examTemplate?.part ?? null;
       if (!session.examTemplate) {
         taskResults.value = [];
         return;
@@ -82,7 +87,7 @@ export function useSessionResults() {
     }
   }
 
-  return { taskResults, loading, load };
+  return { taskResults, loading, examPart, sessionId, load };
 }
 
 export type UseSessionResults = ReturnType<typeof useSessionResults>;

@@ -47,6 +47,12 @@
               <span class="subtask-label-badge">{{ activeSubtask.label }}</span>
               <span class="subtask-pts">{{ activeSubtask.points }}P</span>
               <span class="subtask-type">{{ TASK_TYPE_LABELS[activeSubtask.taskType as TaskType] }}</span>
+              <TaskReportButton
+                v-if="reportContext"
+                class="subtask-report"
+                :context="reportContext"
+                compact
+              />
             </div>
 
             <!-- Question -->
@@ -96,6 +102,7 @@
         </main>
       </div>
     </div>
+    <TaskReportModal />
   </ion-page>
 </template>
 
@@ -106,6 +113,8 @@ import { useRouter, useRoute } from 'vue-router';
 import { fetchSessionDetail } from '../composables/useApi.js';
 import EvaluationPanel from '../components/EvaluationPanel.vue';
 import ReadonlyAnswer from '../components/ReadonlyAnswer.vue';
+import TaskReportButton from '../components/exam/TaskReportButton.vue';
+import TaskReportModal from '../components/exam/TaskReportModal.vue';
 import type { ExamSession, SubTask, Answer, IhkGrade, TaskType } from '../types/index.js';
 
 const router = useRouter();
@@ -145,6 +154,27 @@ const allSubtasks = computed<SubTask[]>(() => {
 });
 
 const activeSubtask = computed(() => allSubtasks.value.find((s) => s.id === activeSubtaskId.value));
+
+const activeTask = computed(() => {
+  return session.value?.examTemplate?.tasks.find((t) =>
+    t.subtasks.some((s) => s.id === activeSubtaskId.value),
+  );
+});
+
+const reportContext = computed(() => {
+  const t = activeTask.value;
+  const s = activeSubtask.value;
+  const part = session.value?.examTemplate?.part;
+  if (!t || !part) return null;
+  return {
+    taskId: t.id,
+    subtaskId: s?.id,
+    subtaskLabel: s?.label,
+    topicArea: t.topicArea ?? '(unbekannt)',
+    examPart: part,
+    sessionId: session.value?.id,
+  };
+});
 
 const activeAnswer = computed<Answer | undefined>(() =>
   session.value?.answers.find((a) => a.subtaskId === activeSubtaskId.value)
@@ -208,6 +238,7 @@ function formatDate(iso: string): string {
 .subtask-label-badge { font-size: 13px; font-weight: 700; color: var(--text-secondary); background: var(--control-bg); padding: 3px 12px; border-radius: 20px; }
 .subtask-pts { font-size: 13px; color: var(--text-subtle); }
 .subtask-type { font-size: 12px; color: var(--text-faint); background: var(--control-bg); padding: 2px 8px; border-radius: 4px; }
+.subtask-report { margin-left: auto; }
 
 .block-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-subtle); margin-bottom: 8px; }
 .question-block, .answer-block { background: var(--control-bg); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 16px; }

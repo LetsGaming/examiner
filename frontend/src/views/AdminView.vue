@@ -188,7 +188,7 @@
  */
 
 import { computed, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { IonPage } from '@ionic/vue';
 import type { ExamPart } from '../types/index.js';
 import { useAuth } from '../composables/useAuth.js';
@@ -214,6 +214,7 @@ import GenerateModal from './admin/components/GenerateModal.vue';
 
 // ── Auth + Routing ──────────────────────────────────────────────────────────
 const router = useRouter();
+const route = useRoute();
 const { user } = useAuth();
 const currentUserId = computed(() => user.value?.id ?? '');
 
@@ -258,7 +259,39 @@ function openModalForCurrentPart(): void {
   generate.openModal(currentPart.value);
 }
 
-onMounted(() => dashboard.load());
+/**
+ * Deep-Link-Handler — ermöglicht das direkte Öffnen einer Aufgabe aus dem
+ * User-Report-Workflow (siehe useTaskReport).
+ *
+ * Erwartete Query-Parameter:
+ *   - `tab`     : optional, z.B. "pool-teil_1" — bestimmt welcher Pool-Tab aktiviert wird
+ *   - `taskId`  : Pflicht, Aufgaben-ID, die im Detail-Drawer geöffnet werden soll
+ *   - `subtaskId`: optional, derzeit nur als Querverweis im Report — der Drawer
+ *                  öffnet immer auf Task-Ebene, weil Subtasks dort eingebettet sind
+ *
+ * Ohne `taskId` läuft der normale Mount-Pfad (Dashboard laden).
+ */
+async function handleDeepLink(): Promise<void> {
+  const taskId = route.query.taskId;
+  const requestedTab = route.query.tab;
+  if (typeof taskId !== 'string' || !taskId) {
+    dashboard.load();
+    return;
+  }
+  // Tab aktivieren — entweder den explizit angefragten Pool-Tab oder einen
+  // sinnvollen Default. Wir gehen NICHT auf "dashboard", weil der Drawer von
+  // jedem Tab aus geöffnet werden kann, aber der Pool-Tab den User direkt zur
+  // Liste seiner Aufgabe bringt, falls er den Drawer schließt.
+  if (typeof requestedTab === 'string' && requestedTab.startsWith('pool-')) {
+    navigate(requestedTab);
+  } else {
+    navigate('dashboard');
+  }
+  // Drawer asynchron öffnen — das löst auch die Detail-Fetch im Composable aus.
+  await taskDetail.openDetail(taskId);
+}
+
+onMounted(() => handleDeepLink());
 </script>
 
 <style>

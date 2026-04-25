@@ -39,6 +39,8 @@
             :key="task.id"
             :task="task"
             :index="ti"
+            :exam-part="session.examPart.value"
+            :session-id="session.sessionId.value"
           />
         </section>
 
@@ -49,6 +51,8 @@
         </button>
       </main>
     </div>
+
+    <TaskReportModal />
   </ion-page>
 </template>
 

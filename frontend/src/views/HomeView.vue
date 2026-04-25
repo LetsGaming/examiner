@@ -4,7 +4,7 @@
       <HomeHeader
         :specialty="specialty"
         :user="user"
-        :is-admin="isAdmin"
+        :is-admin="Boolean(user?.isAdmin) ?? false"
         :theme="theme"
         :review-count="reviewCount"
         :key-badge-label="keyBadgeLabel"
@@ -103,7 +103,7 @@ import ExamPartCard from './home/components/ExamPartCard.vue';
 import { PARTS, labelForPart } from './home/config.js';
 
 const router = useRouter();
-const { user, logout, isAdmin } = useAuth();
+const { user, logout } = useAuth();
 const { specialty } = useSpecialty();
 const aiSettings = useAiSettings();
 const pool = usePool();

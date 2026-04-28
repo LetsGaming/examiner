@@ -35,10 +35,23 @@
           <!-- Mobile nav toggle -->
           <div class="mobile-nav">
             <button class="mobile-nav-btn" @click="nav.navOpen.value = true">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+              >
+                <line x1="4" y1="6" x2="20" y2="6" />
+                <line x1="4" y1="12" x2="20" y2="12" />
+                <line x1="4" y1="18" x2="20" y2="18" />
+              </svg>
               Aufgaben
             </button>
-            <span class="mobile-pos">{{ nav.flatIndex.value + 1 }} / {{ flatSubtasks.length }}</span>
+            <span class="mobile-pos"
+              >{{ nav.flatIndex.value + 1 }} / {{ flatSubtasks.length }}</span
+            >
           </div>
 
           <!-- Task heading -->
@@ -52,22 +65,33 @@
               <button
                 class="flag-btn"
                 :class="{
-                  'flag-btn--active': flagging.isFlagged(nav.activeTask.value, nav.activeSubtask.value),
+                  'flag-btn--active': flagging.isFlagged(
+                    nav.activeTask.value,
+                    nav.activeSubtask.value,
+                  ),
                 }"
                 @click="flagging.toggle"
                 title="Zur Durchsicht markieren (Ctrl+M)"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                >
+                  <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                  <line x1="4" y1="22" x2="4" y2="15" />
+                </svg>
                 {{
                   flagging.isFlagged(nav.activeTask.value, nav.activeSubtask.value)
                     ? 'Markiert'
                     : 'Markieren'
                 }}
               </button>
-              <TaskReportButton
-                v-if="reportContext"
-                :context="reportContext"
-              />
+              <TaskReportButton v-if="reportContext" :context="reportContext" />
               <span class="th-pts">{{ nav.currentTask.value.maxPoints }} Punkte</span>
             </div>
           </div>
@@ -89,13 +113,33 @@
           <!-- Navigation row -->
           <div class="nav-row">
             <button class="nav-btn nav-back" @click="nav.prev" :disabled="nav.isFirst.value">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+              >
+                <path d="m15 18-6-6 6-6" />
+              </svg>
               Zurück
             </button>
-            <span class="nav-counter">{{ nav.flatIndex.value + 1 }} / {{ flatSubtasks.length }}</span>
+            <span class="nav-counter"
+              >{{ nav.flatIndex.value + 1 }} / {{ flatSubtasks.length }}</span
+            >
             <button v-if="!nav.isLast.value" class="nav-btn nav-next" @click="nav.next">
               Weiter
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+              >
+                <path d="m9 18 6-6-6-6" />
+              </svg>
             </button>
             <button
               v-else
@@ -112,7 +156,9 @@
                 fill="none"
                 stroke="currentColor"
                 stroke-width="2.5"
-              ><path d="M20 6 9 17l-5-5"/></svg>
+              >
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
               {{ submit.isSubmitting.value ? 'Wird bewertet…' : 'Abgeben' }}
             </button>
           </div>
@@ -143,7 +189,7 @@
         @confirm="submit.submit"
       >
         {{ answeredCount }} von {{ totalSubtasks }} Unteraufgaben beantwortet.<br />
-        <span v-if="flagging.flagged.value.size > 0" style="color:var(--warning-text)">
+        <span v-if="flagging.flagged.value.size > 0" style="color: var(--warning-text)">
           ⚑ {{ flagging.flagged.value.size }} Aufgabe(n) noch als „zur Durchsicht" markiert.<br />
         </span>
         Beantwortete Aufgaben werden von der KI bewertet.
@@ -214,6 +260,12 @@ const props = defineProps<{
   scenarioName?: string;
   scenarioDescription?: string;
   examTitle?: string;
+  /**
+   * Übungs-Session. Skippt das Backend-Submit (Endpoint akzeptiert nur
+   * `status='in_progress'`) und aggregiert das Ergebnis lokal aus den
+   * Evaluation-Responses. Default: false.
+   */
+  isPractice?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -262,9 +314,8 @@ const table = useTableAnswer({
   debouncedSave,
 });
 
-const { formattedTime, timerClass, startTimer, stopTimer } = useExamTimer(
-  props.examPart,
-  () => submit.submit(),
+const { formattedTime, timerClass, startTimer, stopTimer } = useExamTimer(props.examPart, () =>
+  submit.submit(),
 );
 
 const submit = useExamSubmit({
@@ -275,6 +326,9 @@ const submit = useExamSubmit({
   stopTimer,
   onSubmitted: (result) => emit('submitted', result),
   onCancel: () => router.push('/'),
+  isPractice: props.isPractice ?? false,
+  // Summe aller Subtask-Punkte — entspricht im Backend `session.max_points`.
+  maxPoints: props.tasks.reduce((s, t) => s + t.maxPoints, 0),
 });
 
 // ── Report-Context für aktuelle Aufgabe ─────────────────────────────────────
@@ -353,40 +407,184 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.exam-page { height: 100dvh; display: flex; flex-direction: column; background: var(--bg-base); color: var(--text-secondary); font-family: var(--font-sans); overflow: hidden; }
-.progress-bar-wrap { height: 2px; background: var(--border-light); flex-shrink: 0; }
-.progress-bar-fill { height: 100%; background: var(--brand); transition: width 0.4s ease; }
-.exam-body { flex: 1; display: flex; overflow: hidden; }
-.exam-main { flex: 1; overflow-y: auto; }
-.exam-main-inner { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; }
-.mobile-nav { display: none; align-items: center; gap: 10px; margin-bottom: 16px; }
-.mobile-nav-btn {
-  display: flex; align-items: center; gap: 6px; background: var(--control-bg);
-  border: 1px solid var(--control-border); border-radius: var(--radius-sm); padding: 7px 12px;
-  font-size: 12px; font-weight: 500; color: var(--text-muted); cursor: pointer;
+.exam-page {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-base);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  overflow: hidden;
 }
-.mobile-pos { font-size: 12px; color: var(--text-faint); }
-.task-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.task-heading-left { display: flex; align-items: center; gap: 8px; }
-.th-num { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--brand); }
-.th-sep { color: var(--text-ghost); }
-.th-topic { font-size: 13px; font-weight: 600; color: var(--text-muted); }
-.th-pts { font-size: 12px; color: var(--text-faint); }
-.nav-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.nav-counter { font-size: 12px; color: var(--text-ghost); }
-.nav-btn { display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-md); padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1.5px solid transparent; transition: all var(--transition); }
-.nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-.nav-back { background: var(--control-bg); border-color: var(--control-border); color: var(--text-muted); }
-.nav-back:hover:not(:disabled) { background: var(--control-bg-hover); color: var(--text-primary); }
-.nav-next { background: var(--brand); color: white; }
-.nav-next:hover { background: var(--brand-dark); }
-.nav-submit { background: #059669; color: white; }
-.nav-submit:hover:not(:disabled) { background: #047857; }
-.btn-spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; animation: spin 0.7s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.th-actions { display: flex; align-items: center; gap: 10px; }
-.flag-btn { display: flex; align-items: center; gap: 5px; padding: 5px 10px; background: var(--control-bg); border: 1px solid var(--control-border); border-radius: 7px; cursor: pointer; font-size: 12px; color: var(--text-subtle); transition: all var(--transition); }
-.flag-btn:hover { border-color: var(--warning-border); color: var(--warning); }
-.flag-btn--active { background: var(--warning-bg); border-color: var(--warning-border); color: var(--warning-text); }
-@media (max-width: 768px) { .mobile-nav { display: flex; } }
+.progress-bar-wrap {
+  height: 2px;
+  background: var(--border-light);
+  flex-shrink: 0;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: var(--brand);
+  transition: width 0.4s ease;
+}
+.exam-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+.exam-main {
+  flex: 1;
+  overflow-y: auto;
+}
+.exam-main-inner {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 20px 16px 48px;
+}
+.mobile-nav {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.mobile-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm);
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.mobile-pos {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.task-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.task-heading-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.th-num {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--brand);
+}
+.th-sep {
+  color: var(--text-ghost);
+}
+.th-topic {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.th-pts {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.nav-counter {
+  font-size: 12px;
+  color: var(--text-ghost);
+}
+.nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--radius-md);
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  transition: all var(--transition);
+}
+.nav-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.nav-back {
+  background: var(--control-bg);
+  border-color: var(--control-border);
+  color: var(--text-muted);
+}
+.nav-back:hover:not(:disabled) {
+  background: var(--control-bg-hover);
+  color: var(--text-primary);
+}
+.nav-next {
+  background: var(--brand);
+  color: white;
+}
+.nav-next:hover {
+  background: var(--brand-dark);
+}
+.nav-submit {
+  background: #059669;
+  color: white;
+}
+.nav-submit:hover:not(:disabled) {
+  background: #047857;
+}
+.btn-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.th-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.flag-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-subtle);
+  transition: all var(--transition);
+}
+.flag-btn:hover {
+  border-color: var(--warning-border);
+  color: var(--warning);
+}
+.flag-btn--active {
+  background: var(--warning-bg);
+  border-color: var(--warning-border);
+  color: var(--warning-text);
+}
+@media (max-width: 768px) {
+  .mobile-nav {
+    display: flex;
+  }
+}
 </style>

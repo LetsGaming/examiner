@@ -13,6 +13,7 @@
       :scenario-name="session.examTemplate.scenarioName"
       :scenario-description="session.examTemplate.scenarioDescription"
       :exam-title="session.examTemplate.title"
+      :is-practice="session.status === 'practice'"
       @submitted="onSubmitted"
     />
   </ion-page>
@@ -26,13 +27,22 @@ import ExamView from '../components/exam/ExamView.vue';
 import { fetchSession } from '../composables/useApi.js';
 import type { ExamSession } from '../types/index.js';
 
-const route   = useRoute();
-const router  = useRouter();
+const route = useRoute();
+const router = useRouter();
 const session = ref<ExamSession | null>(null);
 const loading = ref(true);
 
-async function onSubmitted(result: { totalScore: number; maxPoints: number; percentageScore: number; ihkGrade: string }) {
-  router.push({ name: 'Results', params: { sessionId: route.params.sessionId }, query: { ...result } });
+async function onSubmitted(result: {
+  totalScore: number;
+  maxPoints: number;
+  percentageScore: number;
+  ihkGrade: string;
+}) {
+  router.push({
+    name: 'Results',
+    params: { sessionId: route.params.sessionId },
+    query: { ...result },
+  });
 }
 
 onMounted(async () => {
@@ -46,14 +56,26 @@ onMounted(async () => {
 
 <style scoped>
 .page-loading {
-  display: flex; flex-direction: column; align-items: center;
-  justify-content: center; height: 100vh; gap: 16px;
-  background: var(--bg-base); color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  gap: 16px;
+  background: var(--bg-base);
+  color: var(--text-muted);
 }
 .loading-spinner {
-  width: 36px; height: 36px; border-radius: 50%;
-  border: 3px solid var(--border); border-top-color: var(--brand);
-  animation: spin .8s linear infinite;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 3px solid var(--border);
+  border-top-color: var(--brand);
+  animation: spin 0.8s linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 </style>
